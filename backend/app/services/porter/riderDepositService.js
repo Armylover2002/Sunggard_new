@@ -140,25 +140,44 @@ export async function openRiderDepositPayment({ riderId, correlationId = null })
   }).sort({ createdAt: -1 });
 
   if (open?.gatewayOrderId && open.amount === amountPaise) {
-    return {
-      payment: open,
-      checkout: {
-        orderId: open.gatewayOrderId,
-        keyId: process.env.RAZORPAY_KEY_ID,
-        amount: open.amount,
-        currency: open.currency,
-      },
-      amount: quote.depositableAmount,
-      items: quote.items,
-      reused: true,
-    };
+    /**
+     * A reused order that Razorpay itself no longer recognises (expired, or
+     * created against a key that has since changed) fails checkout every
+     * time with no way for the rider to recover — nothing else ever bumps
+     * the amount to force a fresh order. Confirming it's still live before
+     * handing it back turns that dead end into a retry.
+     */
+    try {
+      await provider.getPaymentStatus({
+        gatewayOrderId: open.gatewayOrderId,
+        merchantOrderId: open.merchantReference,
+      });
+      return {
+        payment: open,
+        checkout: {
+          orderId: open.gatewayOrderId,
+          keyId: process.env.RAZORPAY_KEY_ID,
+          amount: open.amount,
+          currency: open.currency,
+        },
+        amount: quote.depositableAmount,
+        items: quote.items,
+        reused: true,
+      };
+    } catch (error) {
+      logger.warn("porter_rider_deposit_stale_order", {
+        paymentId: String(open._id),
+        gatewayOrderId: open.gatewayOrderId,
+        reason: error?.message || "unknown",
+      });
+    }
   }
 
   if (open) {
     applyPorterStatus(open, {
       nextStatus: PORTER_PAYMENT_STATUS.CANCELLED,
       source: PORTER_PAYMENT_SOURCE.SYSTEM,
-      reason: "Superseded — the rider's held balance changed",
+      reason: "Superseded — the rider's held balance changed, or the prior order was no longer usable",
     });
     await open.save();
   }
