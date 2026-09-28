@@ -28,7 +28,7 @@ const Splash = () => {
         </div>
         <h1 className="text-4xl font-bold tracking-tight mb-2">{appName}</h1>
         <p className="text-lg font-medium opacity-90">
-          Quick Commerce Delivery
+          Parcel Delivery
         </p>
       </div>
 

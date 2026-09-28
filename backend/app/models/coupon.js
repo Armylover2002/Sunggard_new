@@ -32,11 +32,11 @@ const couponSchema = new mongoose.Schema(
         },
         // Which booking surfaces this coupon can be applied on. "order" is the
         // e-commerce product checkout (the original/only surface before Porter
-        // coupons existed); "porter_local" covers CityParcel bookings (and any
-        // Parcel booked with parcelType "local"); "porter_outstation" covers
-        // Parcel bookings with parcelType "outstation". A coupon can target more
-        // than one at once (e.g. both porter scopes for a single "local or
-        // outstation, same dates" campaign).
+        // coupons existed); "porter_local" covers Parcel bookings with
+        // parcelType "local"; "porter_outstation" covers Parcel bookings with
+        // parcelType "outstation". A coupon can target more than one at once
+        // (e.g. both porter scopes for a single "local or outstation, same
+        // dates" campaign).
         appliesTo: {
             type: [String],
             enum: ["order", "porter_local", "porter_outstation"],

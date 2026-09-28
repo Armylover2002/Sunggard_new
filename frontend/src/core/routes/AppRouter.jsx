@@ -7,8 +7,6 @@ import RootErrorBoundary from '../../shared/components/RootErrorBoundary';
 import { setActiveRole, ROLES } from '../auth/activeRoleStore';
 
 // Providers for Customer Module
-import { WishlistProvider } from '../../modules/customer/context/WishlistContext';
-import { CartProvider } from '../../modules/customer/context/CartContext';
 import { CartAnimationProvider } from '../../modules/customer/context/CartAnimationContext';
 import { ProductDetailProvider } from '../../modules/customer/context/ProductDetailContext';
 import { LocationProvider } from '../../modules/customer/context/LocationContext';
@@ -26,20 +24,6 @@ import DeliveryApplicationPending from '../../modules/delivery/pages/Application
 // import CarWashPartnerDashboard from '../../modules/delivery/pages/CarWashPartnerDashboard';
 import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
 
-// QUICK COMMERCE DISABLED
-// const Home = lazy(() => import('../../modules/customer/pages/Home'));
-// const CategoriesPage = lazy(() => import('../../modules/customer/pages/CategoriesPage'));
-// const CategoryProductsPage = lazy(() => import('../../modules/customer/pages/CategoryProductsPage'));
-// const WishlistPage = lazy(() => import('../../modules/customer/pages/WishlistPage'));
-// const OffersPage = lazy(() => import('../../modules/customer/pages/OffersPage'));
-// const ShopByStorePage = lazy(() => import('../../modules/customer/pages/ShopByStorePage'));
-// const OrdersPage = lazy(() => import('../../modules/customer/pages/OrdersPage'));
-// const OrderTransactionsPage = lazy(() => import('../../modules/customer/pages/OrderTransactionsPage'));
-// const OrderDetailPage = lazy(() => import('../../modules/customer/pages/OrderDetailPage'));
-// const ProductDetailPage = lazy(() => import('../../modules/customer/pages/ProductDetailPage'));
-// const CheckoutPage = lazy(() => import('../../modules/customer/pages/CheckoutPage'));
-// const SearchPage = lazy(() => import('../../modules/customer/pages/SearchPage'));
-
 const ProfilePage = lazy(() => import('../../modules/customer/pages/ProfilePage'));
 const AddressesPage = lazy(() => import('../../modules/customer/pages/AddressesPage'));
 const SettingsPage = lazy(() => import('../../modules/customer/pages/SettingsPage'));
@@ -52,9 +36,6 @@ const EditProfilePage = lazy(() => import('../../modules/customer/pages/EditProf
 const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/PaymentStatusPage'));
 const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'));
 const ParcelHome = lazy(() => import('../../modules/customer/pages/ParcelHome'));
-// LOCAL CITY PARCEL DISABLED — re-enable by uncommenting these two imports + routes below
-// const CityParcelBooking = lazy(() => import('../../modules/customer/pages/CityParcelBooking'));
-// const CityParcelTracking = lazy(() => import('../../modules/customer/pages/CityParcelTracking'));
 const WaybillHistory = lazy(() => import('../../modules/customer/pages/WaybillHistory'));
 const ParcelDeliveryPage = lazy(() => import('../../modules/customer/pages/ParcelDeliveryPage'));
 const ParcelSearchTrackingPage = lazy(() => import('../../modules/customer/pages/ParcelSearchTrackingPage'));
@@ -78,20 +59,16 @@ const CustomerLayoutWrapper = () => {
 
     return (
         <LocationProvider>
-            <WishlistProvider>
-                <CartProvider>
-                    <CartAnimationProvider>
-                        <ProductDetailProvider>
-                            <ScrollToTop />
-                            <CustomerLayout>
-                                <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
-                                    <Outlet />
-                                </Suspense>
-                            </CustomerLayout>
-                        </ProductDetailProvider>
-                    </CartAnimationProvider>
-                </CartProvider>
-            </WishlistProvider>
+            <CartAnimationProvider>
+                <ProductDetailProvider>
+                    <ScrollToTop />
+                    <CustomerLayout>
+                        <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
+                            <Outlet />
+                        </Suspense>
+                    </CustomerLayout>
+                </ProductDetailProvider>
+            </CartAnimationProvider>
         </LocationProvider>
     );
 };
@@ -192,18 +169,6 @@ const AppRouter = () => {
                     element: <CustomerLayoutWrapper />,
                     children: [
                         { index: true, element: <ProtectedRoute><ParcelHome /></ProtectedRoute> },
-                        // QUICK COMMERCE DISABLED
-                        // { path: 'categories', element: <CategoriesPage /> },
-                        // { path: 'category/:categoryName', element: <CategoryProductsPage /> },
-                        // { path: 'product/:id', element: <ProductDetailPage /> },
-                        // { path: 'offers', element: <OffersPage /> },
-                        // { path: 'shop-by-store', element: <ShopByStorePage /> },
-                        // { path: 'wishlist', element: <ProtectedRoute><WishlistPage /></ProtectedRoute> },
-                        // { path: 'orders', element: <ProtectedRoute><OrdersPage /></ProtectedRoute> },
-                        // { path: 'orders/:orderId', element: <ProtectedRoute><OrderDetailPage /></ProtectedRoute> },
-                        // { path: 'transactions', element: <ProtectedRoute><OrderTransactionsPage /></ProtectedRoute> },
-                        // { path: 'checkout', element: <ProtectedRoute><CheckoutPage /></ProtectedRoute> },
-                        // { path: 'search', element: <SearchPage /> },
 
                         { path: 'terms', element: <TermsPage /> },
                         { path: 'privacy', element: <PrivacyPage /> },
@@ -219,9 +184,6 @@ const AppRouter = () => {
                         { path: 'wallet', element: <ProtectedRoute><WalletPage /></ProtectedRoute> },
                         { path: 'parcel', element: <ProtectedRoute><ParcelHome /></ProtectedRoute> },
                         { path: 'parcel/outstation', element: <ProtectedRoute><ParcelDeliveryPage /></ProtectedRoute> },
-                        // LOCAL CITY PARCEL DISABLED — re-enable with the imports above
-                        // { path: 'parcel/local', element: <ProtectedRoute><CityParcelBooking /></ProtectedRoute> },
-                        // { path: 'parcel/local/track/:cityParcelId', element: <ProtectedRoute><CityParcelTracking /></ProtectedRoute> },
                         { path: 'parcel/search/:id', element: <ProtectedRoute><ParcelSearchTrackingPage /></ProtectedRoute> },
                         { path: 'parcel/outstation/:parcelId', element: <ProtectedRoute><ParcelDetail /></ProtectedRoute> },
                         // CAR WASH DISABLED — customer booking / tracking

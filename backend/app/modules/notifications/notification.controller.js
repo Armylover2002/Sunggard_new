@@ -350,17 +350,18 @@ export const testPushNotification = async (req, res) => {
       return handleResponse(res, 401, "Unauthorized");
     }
 
-    const orderId = `TEST-${Date.now()}`;
-    const result = await notify(NOTIFICATION_EVENTS.ORDER_PLACED, {
-      orderId,
+    const parcelId = `TEST-${Date.now()}`;
+    const result = await notify(NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE, {
+      parcelId,
       userId,
       customerId: userId,
       role,
+      body: "Test push notification",
       data: { source: "manual_test" },
     });
 
     return handleResponse(res, 200, "Test push notification triggered", {
-      orderId,
+      orderId: parcelId,
       notificationId: result?.notificationIds?.[0] || null,
       enqueued: Number(result?.enqueued || 0),
       duplicates: Number(result?.duplicates || 0),
@@ -387,8 +388,8 @@ export const getTestPushNotificationStatus = async (req, res) => {
     const notification = await Notification.findOne({
       $or: [{ userId }, { recipient: userId }],
       role,
-      type: NOTIFICATION_EVENTS.ORDER_PLACED,
-      "data.orderId": orderId,
+      type: NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
+      "data.parcelId": orderId,
       "data.source": "manual_test",
     })
       .sort({ createdAt: -1, _id: -1 })

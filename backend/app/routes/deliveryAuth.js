@@ -22,8 +22,6 @@ import {
 import {
   getDeliveryStats,
   getDeliveryEarnings,
-  getDeliveryCodCashSummary,
-  submitDeliveryCodCashToAdmin,
   getMyDeliveryOrders,
   requestWithdrawal,
   updateDeliveryLocation,
@@ -55,8 +53,6 @@ router.get("/profile", verifyToken, getDeliveryProfile);
 router.put("/profile", verifyToken, requireActiveDelivery, updateDeliveryProfile);
 router.get("/stats", verifyToken, requireActiveDelivery, getDeliveryStats);
 router.get("/earnings", verifyToken, requireActiveDelivery, getDeliveryEarnings);
-router.get("/cod/summary", verifyToken, allowRoles("delivery"), requireActiveDelivery, getDeliveryCodCashSummary);
-router.post("/cod/pay", verifyToken, allowRoles("delivery"), requireActiveDelivery, submitDeliveryCodCashToAdmin);
 router.get("/wallet/summary", verifyToken, allowRoles("delivery"), requireActiveDelivery, getRiderWalletSummaryController);
 router.get(
   "/order-history",
@@ -79,7 +75,7 @@ router.put(
 
 /**
  * Porter COD cash the rider is physically holding, and handing it back.
- * Distinct from /cod/* above, which settles quick-commerce order cash.
+ * Distinct from /cod/* above, which settles parcel COD cash.
  */
 router.get("/cash/summary", verifyToken, allowRoles("delivery"), requireActiveDelivery, riderGetCashSummary);
 router.post("/cash/deposit", verifyToken, allowRoles("delivery"), requireActiveDelivery, riderCreateCashDeposit);
@@ -142,7 +138,7 @@ router.get(
 );
 
 /**
- * Doorstep switch from cash to online. `kind` is parcel | city_parcel.
+ * Doorstep switch from cash to online. `kind` is parcel.
  * POST mints (or returns) the QR; GET asks Razorpay whether it was paid and,
  * the first time it has been, converts the booking to an online payment.
  */

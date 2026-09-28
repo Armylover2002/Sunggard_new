@@ -9,7 +9,6 @@ import {
   HiOutlineEnvelope,
   HiOutlinePhone,
   HiOutlineCalendarDays,
-  HiOutlineArrowTrendingUp,
   HiOutlineMapPin,
   HiOutlineXMark,
   HiOutlineEye,
@@ -32,11 +31,6 @@ const SORT_OPTIONS = [
   { value: "products_desc", label: "Most products" },
 ];
 
-const currency = (value) =>
-  `Rs. ${Number(value || 0).toLocaleString("en-IN", {
-    maximumFractionDigits: 0,
-  })}`;
-
 const safeNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -51,12 +45,7 @@ const statClass = {
 
 const emptyStats = {
   totalActiveSellers: 0,
-  totalOrders: 0,
-  totalRevenue: 0,
   newThisMonth: 0,
-  highVolume: 0,
-  averageRevenuePerSeller: 0,
-  averageOrdersPerSeller: 0,
 };
 
 const normalizeSeller = (seller) => {
@@ -64,13 +53,6 @@ const normalizeSeller = (seller) => {
 
   return {
     ...seller,
-    totalOrders: safeNumber(seller.totalOrders),
-    deliveredOrders: safeNumber(seller.deliveredOrders),
-    pendingOrders: safeNumber(seller.pendingOrders),
-    totalRevenue: safeNumber(seller.totalRevenue),
-    productCount: safeNumber(seller.productCount),
-    avgOrderValue: safeNumber(seller.avgOrderValue),
-    fulfillmentRate: safeNumber(seller.fulfillmentRate),
     serviceRadius: safeNumber(seller.serviceRadius) || 5,
     joinedDate: joinedAt
       ? new Date(joinedAt).toLocaleDateString("en-GB", {
@@ -79,13 +61,6 @@ const normalizeSeller = (seller) => {
           year: "numeric",
         })
       : "N/A",
-    lastOrderLabel: seller.lastOrderAt
-      ? new Date(seller.lastOrderAt).toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
-      : "No orders yet",
     location: seller.location || "Location not set",
     avatar:
       seller.avatar ||
@@ -192,28 +167,21 @@ const ActiveSellers = () => {
         note: "Verified and live",
       },
       {
-        label: "Gross Revenue",
-        value: currency(stats.totalRevenue),
-        icon: HiOutlineArrowTrendingUp,
-        color: "emerald",
-        note: "Delivered order value",
-      },
-      {
-        label: "Total Orders",
-        value: stats.totalOrders.toLocaleString("en-IN"),
-        icon: HiOutlineDocumentText,
-        color: "amber",
-        note: "Lifetime order volume",
-      },
-      {
         label: "New This Month",
         value: stats.newThisMonth.toLocaleString("en-IN"),
         icon: HiOutlineCalendarDays,
         color: "rose",
         note: "Recently approved",
       },
+      {
+        label: "Categories Live",
+        value: categories.length.toLocaleString("en-IN"),
+        icon: HiOutlineDocumentText,
+        color: "amber",
+        note: "Store categories in use",
+      },
     ],
-    [stats],
+    [stats, categories],
   );
 
   return (
@@ -256,7 +224,7 @@ const ActiveSellers = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {summaryCards.map((card) => (
           <Card key={card.label} className="border-none shadow-sm ring-1 ring-slate-100 p-5">
             <div className="flex items-start justify-between gap-4">
@@ -336,7 +304,7 @@ const ActiveSellers = () => {
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
                 <th className="ds-table-header-cell px-6">Store Entity</th>
-                <th className="ds-table-header-cell px-6">Performance</th>
+                <th className="ds-table-header-cell px-6">Contact</th>
                 <th className="ds-table-header-cell px-6">Business Intel</th>
                 <th className="ds-table-header-cell px-6">Status</th>
                 <th className="ds-table-header-cell px-6 text-right">Actions</th>
@@ -405,40 +373,25 @@ const ActiveSellers = () => {
 
                     <td className="px-6 py-4.5">
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-slate-900 dark:text-white font-mono">
-                            {(seller.totalOrders || 0).toLocaleString("en-IN")} Orders
-                          </span>
-                          <span className="text-sm font-bold text-orange-600 font-mono">
-                            {currency(seller.totalRevenue)}
+                        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-xs font-medium">
+                          <HiOutlineEnvelope className="h-4 w-4 text-slate-400" />
+                          <span className="truncate max-w-[220px]">
+                            {seller.email || "N/A"}
                           </span>
                         </div>
-                        <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary rounded-full"
-                            style={{
-                              width: `${Math.min(100, seller.fulfillmentRate || 0)}%`,
-                            }}
-                          />
+                        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-xs font-medium">
+                          <HiOutlinePhone className="h-4 w-4 text-slate-400" />
+                          <span>{seller.phone || "N/A"}</span>
                         </div>
-                        <p className="text-xs text-slate-400 font-medium">
-                          {(seller.fulfillmentRate || 0)}% fulfillment
-                        </p>
                       </div>
                     </td>
 
                     <td className="px-6 py-4.5">
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-xs font-medium">
-                          <HiOutlineDocumentText className="h-4 w-4 text-slate-400" />
-                          <span>
-                            {(seller.productCount || 0).toLocaleString("en-IN")} products
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 text-xs font-medium">
                           <HiOutlineMapPin className="h-4 w-4 text-slate-400" />
                           <span className="truncate max-w-[260px]">
-                            {seller.location || "Location not set"}
+                            {seller.location || "Location not set"} · {seller.serviceRadius} km radius
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-slate-400 text-xs">
@@ -458,8 +411,8 @@ const ActiveSellers = () => {
                         >
                           Active
                         </Badge>
-                        <span className="text-xs text-slate-400 font-normal">
-                          Last order: {seller.lastOrderLabel || "No orders yet"}
+                        <span className="text-xs text-slate-400 font-normal capitalize">
+                          {seller.verificationStatus || "verified"}
                         </span>
                       </div>
                     </td>
@@ -627,27 +580,16 @@ const ActiveSellers = () => {
                 <div className="lg:col-span-8 p-5 bg-white">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                     {[
+                      { label: "Category", value: selectedSeller.category || "General" },
                       {
-                        label: "Orders",
-                        value: (selectedSeller.totalOrders || 0).toLocaleString("en-IN"),
-                      },
-                      { label: "Revenue", value: currency(selectedSeller.totalRevenue) },
-                      {
-                        label: "Products",
-                        value: (selectedSeller.productCount || 0).toLocaleString("en-IN"),
+                        label: "Verification",
+                        value: selectedSeller.verificationStatus || "verified",
                       },
                       {
-                        label: "Delivered",
-                        value: (selectedSeller.deliveredOrders || 0).toLocaleString("en-IN"),
+                        label: "Service Radius",
+                        value: `${selectedSeller.serviceRadius || 5} km`,
                       },
-                      {
-                        label: "Pending",
-                        value: (selectedSeller.pendingOrders || 0).toLocaleString("en-IN"),
-                      },
-                      {
-                        label: "Fulfillment",
-                        value: `${selectedSeller.fulfillmentRate || 0}%`,
-                      },
+                      { label: "Joined", value: selectedSeller.joinedDate || "N/A" },
                     ].map((item) => (
                       <div
                         key={item.label}
@@ -661,21 +603,13 @@ const ActiveSellers = () => {
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div className="p-4 rounded-2xl bg-brand-50 border border-brand-100">
                       <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest mb-1">
-                        Performance
+                        Store Location
                       </p>
                       <p className="text-sm font-semibold text-slate-700 leading-relaxed">
-                        {(selectedSeller.fulfillmentRate || 0)}% of the orders for this seller have been completed successfully.
-                      </p>
-                    </div>
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-                        Average order value
-                      </p>
-                      <p className="text-sm font-semibold text-slate-700 leading-relaxed">
-                        {currency(selectedSeller.avgOrderValue)}
+                        {selectedSeller.location || "Location not set"}
                       </p>
                     </div>
                   </div>

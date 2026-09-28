@@ -1,12 +1,11 @@
 /**
- * Field rules shared by the two porter booking forms.
+ * Field rules shared by the porter booking form.
  *
- * Both forms used to gate on `value.trim()` alone, which accepted "12345" as
+ * The form used to gate on `value.trim()` alone, which accepted "12345" as
  * a name, "abc" as a phone number and "1" as a pincode. The customer only
  * found out at the door, when a rider could not call them. These mirror the
- * server-side rules (backend/app/validation/cityParcelValidation.js and the
- * createParcel controller) so the client rejects the same input the server
- * would, with a message that names the field.
+ * server-side rules (the createParcel controller) so the client rejects the
+ * same input the server would, with a message that names the field.
  */
 
 /** Indian mobile: 10 digits starting 6-9, optional +91 / 0 prefix. */

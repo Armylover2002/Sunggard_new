@@ -17,8 +17,6 @@ export const adminDeliveryApi = {
         axiosInstance.delete(`/admin/delivery-partners/reject/${id}`),
     setDeliveryPartnerActive: (id, isActive) =>
         axiosInstance.patch(`/admin/delivery-partners/${id}/active`, { isActive }),
-    getActiveFleet: (params) =>
-        axiosInstance.get('/admin/active-fleet', { params }),
     /**
      * Live rider lat/lng + resolved zone, from our own DB. Safe to poll on a
      * timer — this never touches the Google Maps billing surface, only the

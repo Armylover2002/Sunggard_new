@@ -613,9 +613,9 @@ const PARCEL_PAYMENT_METHODS = ["UPI", "CARD", "WALLET", "COD"];
 
 /**
  * How long an unpaid UPI parcel stays eligible to be resumed rather than
- * duplicated. Mirrors CITY_PARCEL_RESUMABLE_BOOKING_WINDOW_MS — a customer
- * who dismisses the Razorpay sheet and taps Pay again within this window gets
- * the SAME parcel row re-priced and a fresh gateway order opened on it.
+ * duplicated — a customer who dismisses the Razorpay sheet and taps Pay
+ * again within this window gets the SAME parcel row re-priced and a fresh
+ * gateway order opened on it.
  */
 const PARCEL_RESUMABLE_BOOKING_WINDOW_MS = () =>
   parseInt(process.env.PARCEL_RESUMABLE_BOOKING_WINDOW_MS || "3600000", 10);

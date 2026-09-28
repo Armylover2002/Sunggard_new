@@ -84,11 +84,7 @@ const parcelConfigSchema = new mongoose.Schema(
       type: [packageCategorySchema],
       default: () => DEFAULT_PACKAGE_CATEGORIES.map((c) => ({ ...c })),
     },
-    /**
-     * GST on the outstation fare. Deliberately independent of the local rate
-     * card in models/cityParcelConfig.js — the two products are commonly
-     * brought under tax at different times, and at different rates.
-     */
+    /** GST on the outstation fare. */
     gst: { type: gstConfigSchema, default: () => ({}) },
   },
   {

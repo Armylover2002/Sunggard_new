@@ -140,7 +140,7 @@ const userSchema = new mongoose.Schema(
                         },
                         /** PAYMENT | REFUND | COD | WALLET_CREDIT | WALLET_DEBIT */
                         kind: { type: String, default: "PAYMENT" },
-                        /** city_parcel | parcel | order */
+                        /** parcel | order */
                         source: { type: String, default: "" },
                         /** Waybill / order id the customer would recognise. */
                         reference: { type: String, default: "" },

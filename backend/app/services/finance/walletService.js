@@ -1,13 +1,8 @@
 import Wallet from "../../models/wallet.js";
-import Payout from "../../models/payout.js";
-import Order from "../../models/order.js";
 import User from "../../models/customer.js";
 import {
   LEDGER_DIRECTION,
-  ORDER_PAYMENT_STATUS,
   OWNER_TYPE,
-  PAYOUT_STATUS,
-  PAYOUT_TYPE,
   WALLET_STATUS,
 } from "../../constants/finance.js";
 import { addMoney, clampMoney, roundCurrency } from "../../utils/money.js";
@@ -81,8 +76,8 @@ async function maybeSyncUserWalletBalance({
 /**
  * Phase 2 P2-1: helper that creates a paired LedgerEntry for a wallet
  * movement. Callers can opt-in by passing `ledgerType`. When `ledgerType`
- * is omitted the helper is a no-op so legacy callers (e.g. orderFinanceService
- * which writes its own ledger row right after the wallet save) keep working.
+ * is omitted the helper is a no-op so legacy callers (e.g. porter services
+ * that write their own ledger row right after the wallet save) keep working.
  *
  * Every field after `ledgerType` is optional and only forwarded if present.
  */
@@ -466,137 +461,6 @@ export async function updateCashInHand({
     after: afterRounded,
     delta,
     ledgerEntry,
-  };
-}
-
-export async function getAdminFinanceSummary() {
-  const adminWallet = await getOrCreateWallet(OWNER_TYPE.ADMIN, null);
-
-  const [
-    onlineCollection,
-    codReconciled,
-    adminEarning,
-    pendingPayouts,
-    systemFloatCOD,
-    platformGross,
-  ] =
-    await Promise.all([
-      Order.aggregate([
-        {
-          $match: {
-            paymentMode: "ONLINE",
-            paymentStatus: ORDER_PAYMENT_STATUS.PAID,
-          },
-        },
-        { $group: { _id: null, amount: { $sum: "$paymentBreakdown.grandTotal" } } },
-      ]),
-      Order.aggregate([
-        { $match: { paymentMode: "COD" } },
-        { $group: { _id: null, amount: { $sum: "$paymentBreakdown.codRemittedAmount" } } },
-      ]),
-      Order.aggregate([
-        // Requirement: Total Admin Earning should not include COD orders.
-        { $match: { status: "delivered", paymentMode: "ONLINE" } },
-        { $group: { _id: null, amount: { $sum: "$paymentBreakdown.platformTotalEarning" } } },
-      ]),
-      Payout.aggregate([
-        { $match: { status: { $in: [PAYOUT_STATUS.PENDING, PAYOUT_STATUS.PROCESSING] } } },
-        { $group: { _id: "$payoutType", amount: { $sum: "$amount" } } },
-      ]),
-      // System Float (COD) should reflect "cash owed to the system" for COD orders, even before delivery.
-      // - After cash is marked collected, we use the persisted `codPendingAmount` (net of remittances).
-      // - Before collection, we estimate float from the order snapshot as: grandTotal - riderPayoutTotal.
-      // This matches the admin UI expectation: show exposure as soon as a COD order is placed,
-      // and reduce to 0 once the rider remits full amount.
-      Order.aggregate([
-        {
-          $match: {
-            paymentMode: "COD",
-            status: { $ne: "cancelled" },
-            orderStatus: { $ne: "cancelled" },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            amount: {
-              $sum: {
-                $let: {
-                  vars: {
-                    collected: {
-                      $ifNull: ["$financeFlags.codMarkedCollected", false],
-                    },
-                    pending: {
-                      $ifNull: ["$paymentBreakdown.codPendingAmount", 0],
-                    },
-                    gross: { $ifNull: ["$paymentBreakdown.grandTotal", 0] },
-                    rider: { $ifNull: ["$paymentBreakdown.riderPayoutTotal", 0] },
-                  },
-                  in: {
-                    $cond: [
-                      "$$collected",
-                      "$$pending",
-                      {
-                        $max: [{ $subtract: ["$$gross", "$$rider"] }, 0],
-                      },
-                    ],
-                  },
-                },
-              },
-            },
-          },
-        },
-      ]),
-      // Total Platform Earning card (UI label: "Total money collected") should reflect total checkout
-      // value placed by customers across COD + ONLINE orders (regardless of remittance/capture).
-      // This updates immediately on order placement.
-      Order.aggregate([
-        {
-          $match: {
-            status: { $ne: "cancelled" },
-            orderStatus: { $ne: "cancelled" },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            amount: {
-              $sum: {
-                $ifNull: ["$paymentBreakdown.grandTotal", "$pricing.total"],
-              },
-            },
-          },
-        },
-      ]),
-    ]);
-
-  const sellerPendingPayouts =
-    pendingPayouts.find((row) => row._id === PAYOUT_TYPE.SELLER)?.amount || 0;
-  const riderPendingPayouts =
-    pendingPayouts.find((row) => row._id === PAYOUT_TYPE.DELIVERY_PARTNER)?.amount || 0;
-
-  const totalPlatformEarning = roundCurrency(platformGross[0]?.amount || 0);
-  // "Available Balance" in the admin wallet UI is treated as a business-level net balance:
-  // total checkout value placed by customers minus pending payout liabilities.
-  // This makes the number update immediately on order placement (COD + ONLINE) and
-  // automatically decreases as seller/rider payout requests are queued.
-  const availableBalanceVirtual = roundCurrency(
-    Math.max(
-      totalPlatformEarning - roundCurrency(sellerPendingPayouts) - roundCurrency(riderPendingPayouts),
-      0,
-    ),
-  );
-
-  return {
-    totalPlatformEarning,
-    totalAdminEarning: roundCurrency(adminEarning[0]?.amount || 0),
-    availableBalance: availableBalanceVirtual,
-    walletAvailableBalance: roundCurrency(adminWallet.availableBalance || 0),
-    systemFloatCOD: roundCurrency(systemFloatCOD[0]?.amount || 0),
-    sellerPendingPayouts: roundCurrency(sellerPendingPayouts),
-    deliveryPendingPayouts: roundCurrency(riderPendingPayouts),
-    reconciledOnlineInflows: roundCurrency(onlineCollection[0]?.amount || 0),
-    reconciledCODInflows: roundCurrency(codReconciled[0]?.amount || 0),
   };
 }
 

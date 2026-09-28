@@ -10,11 +10,9 @@
  * hands. The same gap let a status move backwards, which wrote a timeline
  * that told a story the parcel had not lived.
  *
- * This is the ordered version of that check. It mirrors
- * services/cityParcelStateMachine.js in shape and vocabulary, but the two
- * are deliberately separate: this flow ends when the parcel reaches a
- * courier hub, so it has no receiver handover, no failed attempt and no
- * return leg to express.
+ * This is the ordered version of that check. This flow ends when the parcel
+ * reaches a courier hub, so it has no receiver handover, no failed attempt
+ * and no return leg to express.
  */
 
 /** from -> the statuses reachable from it */

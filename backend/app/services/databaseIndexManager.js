@@ -39,29 +39,6 @@ import * as logger from "./logger.js";
  *     `createAllIndexes` try/catch silently swallowed.
  */
 const INDEX_DEFINITIONS = {
-  products: [
-    { keys: { status: 1, categoryId: 1, createdAt: -1 }, options: { name: "idx_status_category_created", background: true } },
-    { keys: { status: 1, sellerId: 1, createdAt: -1 }, options: { name: "idx_status_seller_created", background: true } },
-  ],
-
-  orders: [
-    { keys: { customer: 1, createdAt: -1, status: 1 }, options: { name: "idx_customer_created_status", background: true } },
-    { keys: { seller: 1, status: 1, createdAt: -1 }, options: { name: "idx_seller_status_created", background: true } },
-    { keys: { seller: 1, workflowStatus: 1, createdAt: -1 }, options: { name: "idx_seller_workflow_created", background: true } },
-
-    // P6.1 — backs OrderReturnService + admin/seller returns list page.
-    // Filter shape: { seller: <id>, returnStatus: { $ne: "none" }, returnRequestedAt: { $gte, $lte } }
-    { keys: { seller: 1, returnStatus: 1, returnRequestedAt: -1 }, options: { name: "idx_seller_returnStatus_requestedAt", background: true } },
-
-    // P6.1 — backs fetchAvailableOrdersForDelivery return-pickup branch.
-    // Filter shape: { returnStatus: { $in }, returnDeliveryBoy: <id>, skippedBy: { $nin } }
-    { keys: { returnStatus: 1, returnDeliveryBoy: 1, createdAt: -1 }, options: { name: "idx_returnStatus_deliveryBoy_created", background: true, sparse: true } },
-
-    // P6.1 — backs delivery-partner COD cash summary.
-    // Filter shape: { deliveryBoy: <id>, paymentMode: "COD", status: { $ne: "cancelled" } }
-    { keys: { deliveryBoy: 1, paymentMode: 1, createdAt: -1 }, options: { name: "idx_deliveryBoy_paymentMode_created", background: true } },
-  ],
-
   transactions: [
     // P3-2 fix: the `type:"Withdrawal"` history filter (used by
     // walletAdminService.getSellerWithdrawalsData and the seller wallet
@@ -97,15 +74,6 @@ const INDEX_DEFINITIONS = {
     { keys: { isOnline: 1, isVerified: 1, isActive: 1 }, options: { name: "idx_online_verified_active", background: true } },
   ],
 
-  wishlists: [
-    { keys: { customerId: 1 }, options: { name: "idx_customerId", background: true } },
-    { keys: { customerId: 1, "items.productId": 1 }, options: { name: "idx_customerId_itemsProductId", background: true } },
-  ],
-
-  carts: [
-    { keys: { customerId: 1 }, options: { name: "idx_customerId_unique", background: true, unique: true } },
-  ],
-
   // NOTE: the `withdrawals` block previously declared here was a phantom
   // collection — withdrawals are stored as `Transaction.type:"Withdrawal"`
   // rows in the `transactions` collection. Removed in P3-2. The migration
@@ -136,17 +104,6 @@ const INDEX_DEFINITIONS = {
     // Removed. The additive index below is for the admin
     // `(order, customer)` history aggregation.
     { keys: { order: 1, customer: 1, createdAt: -1 }, options: { name: "idx_order_customer_created", background: true } },
-  ],
-
-  orderotps: [
-    // P6.1 — backs OrderReturnService.getReturnDetails active-OTP lookup.
-    // Filter shape: { orderId, type, consumedAt: null, expiresAt: { $gt } }
-    { keys: { orderId: 1, type: 1, expiresAt: -1 }, options: { name: "idx_orderId_type_expiresAt", background: true } },
-  ],
-
-  deliveryassignments: [
-    // P6.1 — backs orderWorkflowService delivery broadcast lifecycle queries.
-    { keys: { orderId: 1, status: 1, attempt: -1 }, options: { name: "idx_orderId_status_attempt", background: true } },
   ],
 
   // ---- P3-4: missing performance indexes ----

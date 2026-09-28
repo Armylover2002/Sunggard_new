@@ -58,10 +58,9 @@ async function assertRiderWithinPickupRadius(deliveryOid, parcelId) {
    * Checked on the claim as well as on the broadcast/feed — a rider holding
    * an id from an earlier round, or one who has since ridden out of their
    * zone, could otherwise still take a job the push never should have let
-   * them see. Mirrors cityParcelWorkflowService.js's acceptAtomic: an
-   * assigned rider is judged against their assignment, not their GPS; an
-   * unassigned one (legacy, or none configured) falls back to physically
-   * standing in the job's zone.
+   * them see. An assigned rider is judged against their assignment, not
+   * their GPS; an unassigned one (legacy, or none configured) falls back to
+   * physically standing in the job's zone.
    */
   if (parcel.zoneId) {
     const assignedZoneIds = (rider.zoneIds || []).map(String);

@@ -3,7 +3,6 @@ import Delivery from "../../models/delivery.js";
 import Setting from "../../models/setting.js";
 import CashDeposit from "../../models/cashDeposit.js";
 import Parcel from "../../models/parcel.js";
-import CityParcel from "../../models/cityParcel.js";
 import logger from "../logger.js";
 
 /**
@@ -183,7 +182,7 @@ export async function getRiderHeldCash(riderId) {
   const oid = toOid(riderId);
   if (!oid) return { amount: 0, jobs: 0 };
 
-  const [parcelRows, cityRows] = await Promise.all([
+  const [parcelRows] = await Promise.all([
     Parcel.aggregate([
       {
         $match: {
@@ -200,29 +199,13 @@ export async function getRiderHeldCash(riderId) {
         },
       },
     ]),
-    CityParcel.aggregate([
-      {
-        $match: {
-          deliveryPartnerId: oid,
-          paymentMethod: "COD",
-          "codCollection.status": "RIDER_HOLDING",
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          amount: { $sum: { $ifNull: ["$codCollection.amount", "$fare"] } },
-          count: { $sum: 1 },
-        },
-      },
-    ]),
   ]);
 
   return {
-    amount: round2((parcelRows[0]?.amount || 0) + (cityRows[0]?.amount || 0)),
-    jobs: (parcelRows[0]?.count || 0) + (cityRows[0]?.count || 0),
+    amount: round2(parcelRows[0]?.amount || 0),
+    jobs: parcelRows[0]?.count || 0,
     outstationAmount: round2(parcelRows[0]?.amount || 0),
-    localAmount: round2(cityRows[0]?.amount || 0),
+    localAmount: 0,
   };
 }
 
@@ -387,7 +370,7 @@ export async function filterRidersWithCashHeadroom(riderIds = []) {
 
   const oids = ids.map(toOid).filter(Boolean);
 
-  const [riders, parcelRows, cityRows, pendingRows] = await Promise.all([
+  const [riders, parcelRows, pendingRows] = await Promise.all([
     Delivery.find({ _id: { $in: oids } })
       .select("cashLimit")
       .lean(),
@@ -406,21 +389,6 @@ export async function filterRidersWithCashHeadroom(riderIds = []) {
         },
       },
     ]),
-    CityParcel.aggregate([
-      {
-        $match: {
-          deliveryPartnerId: { $in: oids },
-          paymentMethod: "COD",
-          "codCollection.status": "RIDER_HOLDING",
-        },
-      },
-      {
-        $group: {
-          _id: "$deliveryPartnerId",
-          amount: { $sum: { $ifNull: ["$codCollection.amount", "$fare"] } },
-        },
-      },
-    ]),
     // Only needed under the looser rule, but fetched unconditionally: it is
     // one indexed group-by, and branching the Promise.all to save it would
     // cost more in readability than it saves in round trips.
@@ -431,7 +399,7 @@ export async function filterRidersWithCashHeadroom(riderIds = []) {
   ]);
 
   const heldBy = new Map();
-  [...parcelRows, ...cityRows].forEach((row) => {
+  parcelRows.forEach((row) => {
     const id = String(row._id);
     heldBy.set(id, (heldBy.get(id) || 0) + (row.amount || 0));
   });
@@ -488,7 +456,7 @@ export async function getFleetCashOverview({ search = "", page = 1, limit = 25 }
 
   const skip = (Math.max(1, page) - 1) * limit;
 
-  const [riders, total, parcelRows, cityRows, pendingRows] = await Promise.all([
+  const [riders, total, parcelRows, pendingRows] = await Promise.all([
     Delivery.find(riderMatch)
       .select("name phone profileImage vehicleType isOnline isActive cashLimit")
       .sort({ name: 1 })
@@ -512,22 +480,6 @@ export async function getFleetCashOverview({ search = "", page = 1, limit = 25 }
         },
       },
     ]),
-    CityParcel.aggregate([
-      {
-        $match: {
-          paymentMethod: "COD",
-          deliveryPartnerId: { $ne: null },
-          "codCollection.status": "RIDER_HOLDING",
-        },
-      },
-      {
-        $group: {
-          _id: "$deliveryPartnerId",
-          amount: { $sum: { $ifNull: ["$codCollection.amount", "$fare"] } },
-          count: { $sum: 1 },
-        },
-      },
-    ]),
     CashDeposit.aggregate([
       { $match: { status: "PENDING" } },
       { $group: { _id: "$riderId", amount: { $sum: "$amount" }, count: { $sum: 1 } } },
@@ -546,7 +498,6 @@ export async function getFleetCashOverview({ search = "", page = 1, limit = 25 }
     });
   };
   bump(parcelRows, "outstation");
-  bump(cityRows, "local");
 
   const pendingBy = new Map(
     pendingRows.map((row) => [String(row._id), { amount: row.amount || 0, count: row.count || 0 }]),

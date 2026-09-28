@@ -1,12 +1,9 @@
 import mongoose from "mongoose";
 
-import CityParcel from "../../models/cityParcel.js";
 import Parcel from "../../models/parcel.js";
-import CityParcelEvent from "../../models/cityParcelEvent.js";
 import ParcelEvent from "../../models/parcelEvent.js";
 import Setting from "../../models/setting.js";
 import User from "../../models/customer.js";
-import { PORTER_BOOKING_KIND } from "../../constants/porterPayment.js";
 import { getCapturedPaymentForBooking } from "./porterPaymentService.js";
 
 /**
@@ -79,7 +76,7 @@ function fareLines(breakdown = {}, kind) {
   push("Weight charge", breakdown.weightFare);
   push("Express delivery", breakdown.expressCharge);
   push("Platform fee", breakdown.platformCharge);
-  push("Courier handling", kind === PORTER_BOOKING_KIND.PARCEL ? breakdown.courierCharge : 0);
+  push("Courier handling", breakdown.courierCharge);
   push("Waiting charge", breakdown.waitingCharge);
   push("Return leg", breakdown.returnCharge);
 
@@ -134,10 +131,7 @@ async function paymentBlock(kind, booking) {
   const isCod = String(booking.paymentMethod || "").toUpperCase() === "COD";
 
   if (isCod) {
-    const cod =
-      kind === PORTER_BOOKING_KIND.CITY_PARCEL
-        ? booking.codCollection
-        : booking.codSettlement;
+    const cod = booking.codSettlement;
     const collectedAt = cod?.collectedAt || cod?.riderCollectedAt || null;
 
     return {
@@ -190,14 +184,6 @@ async function paymentBlock(kind, booking) {
 
 /** The delivery timeline, so the invoice doubles as proof of service. */
 async function timelineFor(kind, bookingId) {
-  if (kind === PORTER_BOOKING_KIND.CITY_PARCEL) {
-    const events = await CityParcelEvent.find({ cityParcelId: bookingId })
-      .sort({ at: 1 })
-      .select("status at note actor")
-      .lean();
-    return events.map((e) => ({ status: e.status, at: e.at, note: e.note || "" }));
-  }
-
   const events = await ParcelEvent.find({ parcelId: bookingId })
     .sort({ at: 1 })
     .select("status at note actor")
@@ -208,62 +194,6 @@ async function timelineFor(kind, bookingId) {
 /* ==========================================================================
    The two shapes
    ========================================================================== */
-
-function cityParcelInvoiceBody(booking) {
-  return {
-    invoiceNo: booking.referenceId || `CP-${String(booking._id).slice(-6).toUpperCase()}`,
-    serviceName: "Local delivery",
-    parties: {
-      /** Who booked and pays — the invoice is addressed to them. */
-      billedTo: {
-        name: booking.customerId?.name || "Customer",
-        phone: booking.customerId?.phone || "",
-        email: booking.customerId?.email || "",
-      },
-      /** Who physically handed the parcel over, which is often someone else. */
-      sender: {
-        name: booking.sender?.name || booking.customerId?.name || "",
-        phone: booking.sender?.phone || booking.customerId?.phone || "",
-      },
-      receiver: {
-        name: booking.receiver?.name || "",
-        phone: booking.receiver?.phone || "",
-        receivedBy: booking.receiver?.receivedByName || "",
-        relation: booking.receiver?.relationToReceiver || "",
-      },
-      rider: booking.deliveryPartnerId
-        ? {
-            name: booking.deliveryPartnerId.name || "",
-            phone: booking.deliveryPartnerId.phone || "",
-            vehicle: booking.deliveryPartnerId.vehicleNumber || "",
-          }
-        : null,
-    },
-    route: {
-      pickup: booking.pickupAddress?.fullAddress || "",
-      pickupNote: booking.pickupAddress?.addressNote || "",
-      drop: booking.dropAddress?.fullAddress || "",
-      dropNote: booking.dropAddress?.addressNote || "",
-      distanceKm: booking.distanceKm,
-      speed: booking.deliverySpeed,
-    },
-    shipment: {
-      type: booking.package?.packageType || "",
-      weightKg: booking.package?.weightKg,
-      description: booking.package?.description || "",
-      declaredValue: booking.package?.declaredValue || 0,
-      attempts: (booking.attemptHistory || []).length,
-      returned: Boolean(booking.returnLeg?.returnedAt),
-    },
-    dates: {
-      bookedAt: booking.createdAt,
-      pickedUpAt: booking.pickedUpAt,
-      deliveredAt: booking.deliveredAt,
-      promisedBy: booking.deliveryEta,
-    },
-    status: booking.status,
-  };
-}
 
 function parcelInvoiceBody(booking) {
   return {
@@ -338,17 +268,11 @@ export async function buildPorterInvoice({ kind, bookingId, requesterId, isAdmin
 
   const scope = isAdmin ? {} : { customerId: requesterId };
 
-  const booking =
-    kind === PORTER_BOOKING_KIND.CITY_PARCEL
-      ? await CityParcel.findOne({ _id: bookingId, ...scope })
-          .populate("customerId", "name phone email")
-          .populate("deliveryPartnerId", "name phone vehicleNumber")
-          .lean()
-      : await Parcel.findOne({ _id: bookingId, ...scope })
-          .populate("customerId", "name phone email")
-          .populate("deliveryPartnerId", "name phone vehicleNumber")
-          .populate("courierCompanyId", "name phone")
-          .lean();
+  const booking = await Parcel.findOne({ _id: bookingId, ...scope })
+    .populate("customerId", "name phone email")
+    .populate("deliveryPartnerId", "name phone vehicleNumber")
+    .populate("courierCompanyId", "name phone")
+    .lean();
 
   if (!booking) {
     const err = new Error("Booking not found");
@@ -363,10 +287,7 @@ export async function buildPorterInvoice({ kind, bookingId, requesterId, isAdmin
     timelineFor(kind, booking._id),
   ]);
 
-  const body =
-    kind === PORTER_BOOKING_KIND.CITY_PARCEL
-      ? cityParcelInvoiceBody(booking)
-      : parcelInvoiceBody(booking);
+  const body = parcelInvoiceBody(booking);
 
   const charges = fareLines(breakdown, kind);
   /** What the customer saved in total — the headline figure, tax included. */

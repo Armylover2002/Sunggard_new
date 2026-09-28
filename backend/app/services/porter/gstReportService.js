@@ -1,6 +1,4 @@
-import CityParcel from "../../models/cityParcel.js";
 import Parcel from "../../models/parcel.js";
-import CityParcelConfig from "../../models/cityParcelConfig.js";
 import ParcelConfig from "../../models/parcelConfig.js";
 import { normalizeGstConfig } from "../../utils/gst.js";
 
@@ -226,29 +224,20 @@ async function monthlySeries(Model, window, label) {
 export async function getPorterGstReport({ from = null, to = null } = {}) {
   const window = dateWindow({ from, to });
 
-  const [local, outstation, localSeries, outstationSeries, cityConfig, parcelConfig] =
-    await Promise.all([
-      summariseCollection(CityParcel, window),
-      summariseCollection(Parcel, window),
-      monthlySeries(CityParcel, window, "local"),
-      monthlySeries(Parcel, window, "outstation"),
-      CityParcelConfig.getConfig(),
-      ParcelConfig.getOrCreate(),
-    ]);
+  const [outstation, outstationSeries, parcelConfig] = await Promise.all([
+    summariseCollection(Parcel, window),
+    monthlySeries(Parcel, window, "outstation"),
+    ParcelConfig.getOrCreate(),
+  ]);
 
   const combined = {
-    charged: addBuckets(local.charged, outstation.charged),
-    collected: addBuckets(local.collected, outstation.collected),
-    outstanding: addBuckets(local.outstanding, outstation.outstanding),
+    charged: outstation.charged,
+    collected: outstation.collected,
+    outstanding: outstation.outstanding,
   };
 
-  /**
-   * The two series are merged by period rather than concatenated, so the
-   * chart has one row per month with both products on it. Concatenating
-   * produces two points at the same x and a chart that reads as noise.
-   */
   const byPeriod = new Map();
-  [...localSeries, ...outstationSeries].forEach((row) => {
+  outstationSeries.forEach((row) => {
     const entry = byPeriod.get(row.period) || {
       period: row.period,
       localGst: 0,
@@ -256,8 +245,7 @@ export async function getPorterGstReport({ from = null, to = null } = {}) {
       totalGst: 0,
       bookings: 0,
     };
-    if (row.source === "local") entry.localGst = row.gst;
-    else entry.outstationGst = row.gst;
+    entry.outstationGst = row.gst;
     entry.totalGst = round2(entry.localGst + entry.outstationGst);
     entry.bookings += row.bookings;
     byPeriod.set(row.period, entry);
@@ -266,10 +254,8 @@ export async function getPorterGstReport({ from = null, to = null } = {}) {
   return {
     window: { from, to },
     rates: {
-      local: normalizeGstConfig(cityConfig.gst),
       outstation: normalizeGstConfig(parcelConfig.gst),
     },
-    local,
     outstation,
     combined,
     series: [...byPeriod.values()].sort((a, b) => a.period.localeCompare(b.period)),
@@ -299,7 +285,6 @@ export async function getPorterGstLedger({
   };
 
   const skip = (Math.max(1, page) - 1) * limit;
-  const wantLocal = source === "all" || source === "local";
   const wantOutstation = source === "all" || source === "outstation";
 
   const project = {
@@ -317,46 +302,17 @@ export async function getPorterGstLedger({
     "fareBreakdown.gstin": 1,
   };
 
-  /**
-   * Both collections are queried over the same window and merged in memory.
-   * A `$unionWith` would push the merge into Mongo, but it would also tie
-   * this report to a specific server version for a page of at most a few
-   * hundred rows — not a trade worth making.
-   */
-  const [localRows, outstationRows, localCount, outstationCount] = await Promise.all([
-    wantLocal
-      ? CityParcel.find(match, { ...project, referenceId: 1, customerId: 1 })
-          .sort({ createdAt: -1 })
-          .limit(skip + limit)
-          .lean()
-      : [],
+  const [outstationRows, outstationCount] = await Promise.all([
     wantOutstation
       ? Parcel.find(match, { ...project, customerId: 1, destinationCity: 1 })
           .sort({ createdAt: -1 })
           .limit(skip + limit)
           .lean()
       : [],
-    wantLocal ? CityParcel.countDocuments(match) : 0,
     wantOutstation ? Parcel.countDocuments(match) : 0,
   ]);
 
   const rows = [
-    ...localRows.map((row) => ({
-      source: "local",
-      id: String(row._id),
-      invoiceNo: row.referenceId || `CP-${String(row._id).slice(-6).toUpperCase()}`,
-      date: row.createdAt,
-      paymentMethod: row.paymentMethod,
-      paymentStatus: row.paymentStatus,
-      total: round2(row.payableFare > 0 ? row.payableFare : row.fare),
-      discount: round2(row.discountAmount),
-      taxable: round2(row.fareBreakdown?.taxableAmount ?? row.fare),
-      gstPercent: Number(row.fareBreakdown?.gstPercent) || 0,
-      gst: round2(row.fareBreakdown?.gstAmount),
-      cgst: round2(row.fareBreakdown?.cgst),
-      sgst: round2(row.fareBreakdown?.sgst),
-      gstin: row.fareBreakdown?.gstin || "",
-    })),
     ...outstationRows.map((row) => ({
       source: "outstation",
       id: String(row._id),
@@ -378,7 +334,7 @@ export async function getPorterGstLedger({
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(skip, skip + limit);
 
-  const total = localCount + outstationCount;
+  const total = outstationCount;
 
   return {
     items: rows,

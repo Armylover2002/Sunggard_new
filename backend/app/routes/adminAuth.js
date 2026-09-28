@@ -8,14 +8,12 @@ import {
     getAdminProfile,
     updateAdminProfile,
     updateAdminPassword,
-    getAdminStats,
     getDeliveryPartners,
     getDeliveryPartnerById,
     updateDeliveryPartnerIdentity,
     approveDeliveryPartner,
     rejectDeliveryPartner,
     setDeliveryPartnerActive,
-    getActiveFleet,
     getAdminWalletData,
     getDeliveryTransactions,
     settleTransaction,
@@ -43,10 +41,7 @@ import {
 import {
     exportAdminFinanceStatementController,
     getAdminFinanceLedgerController,
-    getAdminFinancePayoutsController,
-    getAdminFinanceSummaryController,
     getDeliverySettingsController,
-    processAdminFinancePayoutsController,
     updateDeliverySettingsController,
 } from "../controller/adminFinanceController.js";
 
@@ -92,34 +87,10 @@ router.put(
 );
 
 router.get(
-    "/stats",
-    verifyToken,
-    allowRoles("admin"),
-    getAdminStats
-);
-router.get(
-    "/finance/summary",
-    verifyToken,
-    allowRoles("admin"),
-    getAdminFinanceSummaryController,
-);
-router.get(
     "/finance/ledger",
     verifyToken,
     allowRoles("admin"),
     getAdminFinanceLedgerController,
-);
-router.get(
-    "/finance/payouts",
-    verifyToken,
-    allowRoles("admin"),
-    getAdminFinancePayoutsController,
-);
-router.post(
-    "/finance/payouts/process",
-    verifyToken,
-    allowRoles("admin"),
-    processAdminFinancePayoutsController,
 );
 router.get(
     "/finance/export-statement",
@@ -211,7 +182,6 @@ router.patch(
     setDeliveryPartnerActive
 );
 
-router.get("/active-fleet", verifyToken, allowRoles("admin"), getActiveFleet);
 router.get("/wallet-data", verifyToken, allowRoles("admin"), getAdminWalletData);
 
 // Delivery Payouts / Funds

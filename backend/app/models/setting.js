@@ -9,7 +9,7 @@ const settingSchema = new mongoose.Schema(
         // General
         appName: {
             type: String,
-            default: "Appzeto Quick Commerce",
+            default: "Appzeto Porter",
         },
         supportEmail: {
             type: String,
@@ -147,21 +147,6 @@ const settingSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
-        lowStockAlertsEnabled: {
-            type: Boolean,
-            default: true,
-        },
-        productApproval: {
-            sellerCreateRequiresApproval: {
-                type: Boolean,
-                default: false,
-            },
-            sellerEditRequiresApproval: {
-                type: Boolean,
-                default: false,
-            },
-        },
-
         /**
          * COD cash policy for the porter fleet.
          *

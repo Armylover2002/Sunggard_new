@@ -32,7 +32,7 @@ export const customerPorterApi = {
    * Built server-side deliberately. A PDF generated from whatever a page
    * happened to have in state shows a subset, sometimes stale, and different
    * on the customer screen from the admin screen — the same booking would
-   * produce two different invoices. `kind` is 'city_parcel' | 'parcel'.
+   * produce two different invoices. `kind` is 'parcel'.
    */
   getBookingInvoice: (kind, id) =>
     axiosInstance.get(`/porter/invoice/${kind}/${id}`),

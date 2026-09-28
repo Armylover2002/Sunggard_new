@@ -30,11 +30,11 @@ jest.unstable_mockModule("../app/config/redis.js", () => ({
   createBullRedisClient: () => null,
 }));
 
-jest.unstable_mockModule("../app/queues/orderQueues.js", () => ({
-  sellerTimeoutQueue: {
+jest.unstable_mockModule("../app/modules/notifications/notification.queue.js", () => ({
+  notificationQueue: {
     isReady: jest.fn().mockResolvedValue(true),
   },
-  deliveryTimeoutQueue: {
+  notificationDeadQueue: {
     isReady: jest.fn().mockResolvedValue(true),
   },
 }));

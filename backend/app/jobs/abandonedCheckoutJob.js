@@ -4,7 +4,7 @@ import logger from "../services/logger.js";
 /**
  * Clears out bookings whose payment sheet was opened and never completed.
  *
- * Both porter products insert their row before the customer pays, because
+ * Parcel (outstation) inserts its row before the customer pays, because
  * the gateway order has to hang off something. Listings already hide those
  * rows (see services/bookingCheckoutService.js), but hidden is not gone:
  * without this they accumulate in the collection forever, one per abandoned
@@ -27,12 +27,11 @@ const sweep = async () => {
   const startedAt = Date.now();
 
   try {
-    const { cityParcels, parcels } = await sweepAbandonedCheckouts({ limit: 200 });
+    const { parcels } = await sweepAbandonedCheckouts({ limit: 200 });
 
-    if (cityParcels || parcels) {
+    if (parcels) {
       logger.info("Abandoned checkout sweep", {
         jobName: "abandonedCheckoutJob",
-        cityParcels,
         parcels,
         durationMs: Date.now() - startedAt,
       });

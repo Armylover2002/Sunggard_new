@@ -1,5 +1,5 @@
 import Delivery from "../../models/delivery.js";
-import Order from "../../models/order.js";
+import Parcel from "../../models/parcel.js";
 import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
 import { zonesForPoint, smallestZone } from "../../services/deliveryZoneService.js";
@@ -68,7 +68,6 @@ export const getDeliveryPartners = async (req, res) => {
       "isOnline",
       "isBusy",
       "isParcelService",
-      "isQuickCommerceService",
       // CAR WASH DISABLED — "isCarWashService",
       "experience",
       "experienceDetails",
@@ -90,9 +89,9 @@ export const getDeliveryPartners = async (req, res) => {
 
     const riderIds = deliveryPartners.map((r) => r._id);
     const deliveryCounts = riderIds.length
-      ? await Order.aggregate([
-          { $match: { deliveryBoy: { $in: riderIds }, status: "delivered" } },
-          { $group: { _id: "$deliveryBoy", count: { $sum: 1 } } },
+      ? await Parcel.aggregate([
+          { $match: { deliveryPartnerId: { $in: riderIds }, status: "DELIVERED" } },
+          { $group: { _id: "$deliveryPartnerId", count: { $sum: 1 } } },
         ])
       : [];
     const deliveryCountMap = new Map(
@@ -120,7 +119,7 @@ export const getDeliveryPartnerById = async (req, res) => {
   try {
     const rider = await Delivery.findById(req.params.id)
       .select(
-        "name phone email address vehicleType vehicleNumber drivingLicenseNumber aadharNumber panNumber accountHolder accountNumber ifsc profileImage documents isVerified applicationStatus isParcelService isQuickCommerceService experience experienceDetails currentArea zoneIds createdAt",
+        "name phone email address vehicleType vehicleNumber drivingLicenseNumber aadharNumber panNumber accountHolder accountNumber ifsc profileImage documents isVerified applicationStatus isParcelService experience experienceDetails currentArea zoneIds createdAt",
         // CAR WASH DISABLED — removed isCarWashService from select
       )
       .populate("zoneIds", "name city color")
@@ -249,73 +248,6 @@ export const setDeliveryPartnerActive = async (req, res) => {
       isActive ? "Rider reactivated" : "Rider deactivated",
       rider,
     );
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
-
-export const getActiveFleet = async (req, res) => {
-  try {
-    const { page, limit, skip } = getPagination(req, {
-      defaultLimit: 25,
-      maxLimit: 200,
-    });
-
-    const query = {
-      deliveryBoy: { $ne: null },
-      status: {
-        $in: ["confirmed", "packed", "shipped", "out_for_delivery"],
-      },
-    };
-
-    const [activeOrders, total] = await Promise.all([
-      Order.find(query)
-        .sort({ updatedAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate("deliveryBoy", "name phone documents vehicleType")
-        .populate("seller", "shopName address name")
-        .populate("customer", "name phone")
-        .lean(),
-      Order.countDocuments(query),
-    ]);
-
-    const fleetData = activeOrders.map((order) => ({
-      id: order.orderId,
-      status:
-        order.status === "out_for_delivery"
-          ? "On the Way"
-          : order.status === "packed"
-            ? "At Pickup"
-            : order.status === "shipped"
-              ? "In Transit"
-              : "Assigned",
-      deliveryBoy: {
-        name: order.deliveryBoy?.name || "Unknown",
-        phone: order.deliveryBoy?.phone || "N/A",
-        id: order.deliveryBoy?._id || "N/A",
-        vehicle: order.deliveryBoy?.vehicleType || "N/A",
-        image:
-          order.deliveryBoy?.documents?.profileImage ||
-          "https://via.placeholder.com/200",
-      },
-      seller: {
-        name: order.seller?.shopName || order.seller?.name || "Unknown",
-      },
-      customer: {
-        name: order.customer?.name || "Guest",
-        phone: order.customer?.phone || "N/A",
-      },
-      lastUpdate: order.updatedAt,
-    }));
-
-    return handleResponse(res, 200, "Active fleet fetched successfully", {
-      items: fleetData,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit) || 1,
-    });
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

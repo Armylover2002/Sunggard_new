@@ -1,25 +1,7 @@
-import Order from "../models/order.js";
 import Transaction from "../models/transaction.js";
 import handleResponse from "../utils/helper.js";
 import mongoose from "mongoose";
 import Wallet from "../models/wallet.js";
-import { getSellerStats as getSellerStatsFromService } from "../services/seller/sellerStatsService.js";
-
-/* ===============================
-   GET SELLER DASHBOARD STATS
-   Delegates to SellerStatsService (P6.2 — cache-fronted) so the heavy
-   $facet aggregation + category pipeline are absorbed for ~60s.
-================================ */
-export const getSellerStats = async (req, res) => {
-    try {
-        const result = await getSellerStatsFromService(req.user.id, {
-            range: req.query?.range,
-        });
-        return handleResponse(res, 200, "Stats fetched successfully", result);
-    } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
-    }
-};
 
 /* ===============================
    GET SELLER EARNINGS / TRANSACTIONS
@@ -27,11 +9,9 @@ export const getSellerStats = async (req, res) => {
 export const getSellerEarnings = async (req, res) => {
     try {
         const sellerId = req.user.id;
-        const sellerOid = new mongoose.Types.ObjectId(sellerId);
 
         const transactions = await Transaction.find({ user: sellerId, userModel: 'Seller' })
-            .sort({ createdAt: -1 })
-            .populate("order", "orderId");
+            .sort({ createdAt: -1 });
 
         const settledBalance = transactions
             .filter(t => t.status === 'Settled')
@@ -46,24 +26,6 @@ export const getSellerEarnings = async (req, res) => {
         const onHoldBalance = wallet ? wallet.pendingBalance : 0;
         const liveAvailableBalance = wallet ? wallet.availableBalance : settledBalance;
 
-        // Keep "Total Revenue" aligned with Dashboard definition:
-        // sum of non-cancelled seller orders from Order collection.
-        const [orderRevenueAgg] = await Order.aggregate([
-            {
-                $match: {
-                    seller: sellerOid,
-                    status: { $ne: 'cancelled' },
-                },
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalRevenue: { $sum: { $ifNull: ["$pricing.total", 0] } },
-                },
-            },
-        ]);
-        const totalRevenue = Number(orderRevenueAgg?.totalRevenue || 0);
-
         const totalWithdrawn = transactions
             .filter(t => t.type === 'Withdrawal' && t.status === 'Settled')
             .reduce((acc, t) => acc + Math.abs(t.amount), 0);
@@ -77,7 +39,7 @@ export const getSellerEarnings = async (req, res) => {
                 $match: {
                     user: new mongoose.Types.ObjectId(sellerId),
                     userModel: 'Seller',
-                    type: 'Order Payment',
+                    status: 'Settled',
                     createdAt: { $gte: sixMonthsAgo }
                 }
             },
@@ -107,9 +69,8 @@ export const getSellerEarnings = async (req, res) => {
             balances: {
                 settledBalance: settledBalance,
                 pendingPayouts: pendingPayouts,
-                onHoldBalance: onHoldBalance, // New field
-                availableBalance: liveAvailableBalance, // New field for clarity
-                totalRevenue: totalRevenue,
+                onHoldBalance: onHoldBalance,
+                availableBalance: liveAvailableBalance,
                 totalWithdrawn: totalWithdrawn
             },
             monthlyChart: chartData,
@@ -121,7 +82,7 @@ export const getSellerEarnings = async (req, res) => {
                 date: t.createdAt.toISOString().split('T')[0],
                 time: t.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 customer: t.type === 'Withdrawal' ? 'Bank Transfer' : 'Customer',
-                ref: t.order ? `#${t.order.orderId}` : t.reference || t._id
+                ref: t.reference || t._id
             }))
         });
     } catch (error) {

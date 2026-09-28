@@ -1,15 +1,12 @@
-import CityParcel from "../models/cityParcel.js";
-import CityParcelEvent from "../models/cityParcelEvent.js";
 import Parcel from "../models/parcel.js";
 import ParcelEvent from "../models/parcelEvent.js";
-import { CITY_PARCEL_STATUS } from "../constants/cityParcelWorkflow.js";
 import logger from "./logger.js";
 
 /**
  * Bookings that exist only to hold a payment gateway order open.
  *
- * Both porter products write their row to the database BEFORE the customer
- * has paid, because Razorpay needs something to hang an order id off and the
+ * Parcel (outstation) writes its row to the database BEFORE the customer has
+ * paid, because Razorpay needs something to hang an order id off and the
  * signature that comes back has to be matched against a booking we already
  * know about. That row is scaffolding, not a booking: nobody has been
  * dispatched, no money has moved, and the customer may simply close the
@@ -44,21 +41,6 @@ export const ABANDONED_CHECKOUT_TTL_MS = () =>
   parseInt(process.env.ABANDONED_CHECKOUT_TTL_MS || `${2 * 60 * 60 * 1000}`, 10);
 
 /**
- * A city parcel still waiting on its gateway sheet.
- *
- * Every non-COD method here goes through Razorpay (see createCityParcel), so
- * "not COD and not paid and never broadcast" is exactly the set that has no
- * business appearing anywhere. The status check is what keeps a real booking
- * safe: the moment payment verifies, the parcel moves to SEARCHING and stops
- * matching, and a COD booking never matches at all.
- */
-export const CITY_PARCEL_AWAITING_PAYMENT = Object.freeze({
-  status: CITY_PARCEL_STATUS.REQUESTED,
-  paymentStatus: { $ne: "PAID" },
-  paymentMethod: { $ne: "COD" },
-});
-
-/**
  * An outstation parcel still waiting on its gateway sheet.
  *
  * Narrower than the city one on purpose: only UPI opens a Razorpay sheet
@@ -81,17 +63,14 @@ export const PARCEL_AWAITING_PAYMENT = Object.freeze({
  * separate `$ne`s would exclude, for example, every COD booking.
  *
  * @param {Object} filter    the caller's own filter, returned unmodified
- * @param {Object} awaiting  CITY_PARCEL_AWAITING_PAYMENT or PARCEL_AWAITING_PAYMENT
+ * @param {Object} awaiting  PARCEL_AWAITING_PAYMENT
  */
 export function excludeAwaitingPayment(filter = {}, awaiting) {
   const existingNor = Array.isArray(filter.$nor) ? filter.$nor : [];
   return { ...filter, $nor: [...existingNor, awaiting] };
 }
 
-/** Shorthand for the two callers that always mean the same collection. */
-export const visibleCityParcels = (filter = {}) =>
-  excludeAwaitingPayment(filter, CITY_PARCEL_AWAITING_PAYMENT);
-
+/** Shorthand for the callers that always mean the same collection. */
 export const visibleParcels = (filter = {}) =>
   excludeAwaitingPayment(filter, PARCEL_AWAITING_PAYMENT);
 
@@ -102,7 +81,6 @@ export const visibleParcels = (filter = {}) =>
  * porter reporting pipelines share the exact predicate the listings use
  * rather than restating it and risking a different answer.
  */
-export const cityParcelVisibleMatch = (extra = {}) => visibleCityParcels(extra);
 export const parcelVisibleMatch = (extra = {}) => visibleParcels(extra);
 
 /**
@@ -123,28 +101,7 @@ export const parcelVisibleMatch = (extra = {}) => visibleParcels(extra);
  */
 export async function sweepAbandonedCheckouts({ limit = 200 } = {}) {
   const cutoff = new Date(Date.now() - ABANDONED_CHECKOUT_TTL_MS());
-  const result = { cityParcels: 0, parcels: 0 };
-
-  try {
-    const staleCity = await CityParcel.find({
-      ...CITY_PARCEL_AWAITING_PAYMENT,
-      createdAt: { $lt: cutoff },
-    })
-      .select("_id")
-      .limit(limit)
-      .lean();
-
-    if (staleCity.length) {
-      const ids = staleCity.map((row) => row._id);
-      await CityParcelEvent.deleteMany({ cityParcelId: { $in: ids } });
-      const { deletedCount } = await CityParcel.deleteMany({ _id: { $in: ids } });
-      result.cityParcels = deletedCount || 0;
-    }
-  } catch (err) {
-    logger.error("Abandoned city-parcel checkout sweep failed", {
-      error: err?.message,
-    });
-  }
+  const result = { parcels: 0 };
 
   try {
     const staleParcels = await Parcel.find({

@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import CashDeposit from "../models/cashDeposit.js";
 import Parcel from "../models/parcel.js";
-import CityParcel from "../models/cityParcel.js";
 import Delivery from "../models/delivery.js";
 import Notification from "../models/notification.js";
 import Transaction from "../models/transaction.js";
@@ -34,8 +33,6 @@ const toObjectId = (id) => new mongoose.Types.ObjectId(String(id));
 /** COD amount a booking is holding, falling back to the fare. */
 const parcelHeldAmount = (doc) =>
   round2(Number(doc?.codSettlement?.collectAmount) || Number(doc?.fare) || 0);
-const cityHeldAmount = (doc) =>
-  round2(Number(doc?.codCollection?.amount) || Number(doc?.fare) || 0);
 
 /**
  * Bookings already named by a deposit that is still awaiting review — they
@@ -60,21 +57,13 @@ async function getLockedRefIds(riderId) {
 export async function getRiderCodSummary(riderId) {
   const riderObjectId = toObjectId(riderId);
 
-  const [parcels, cityParcels, locked, pendingDeposits] = await Promise.all([
+  const [parcels, locked, pendingDeposits] = await Promise.all([
     Parcel.find({
       deliveryPartnerId: riderObjectId,
       paymentMethod: "COD",
       "codSettlement.status": { $in: HELD_PARCEL_STATUSES },
     })
       .select("fare codSettlement status createdAt destinationCity courierCompany")
-      .sort({ createdAt: 1 })
-      .lean(),
-    CityParcel.find({
-      deliveryPartnerId: riderObjectId,
-      paymentMethod: "COD",
-      "codCollection.status": "RIDER_HOLDING",
-    })
-      .select("fare codCollection status createdAt referenceId")
       .sort({ createdAt: 1 })
       .lean(),
     getLockedRefIds(riderObjectId),
@@ -90,14 +79,6 @@ export async function getRiderCodSummary(riderId) {
       label: `Outstation · ${String(doc._id).slice(-6).toUpperCase()}`,
       amount: parcelHeldAmount(doc),
       collectedAt: doc.codSettlement?.riderCollectedAt || doc.createdAt,
-      status: doc.status,
-    })),
-    ...cityParcels.map((doc) => ({
-      kind: "city_parcel",
-      refId: String(doc._id),
-      label: doc.referenceId || `Local · ${String(doc._id).slice(-6).toUpperCase()}`,
-      amount: cityHeldAmount(doc),
-      collectedAt: doc.codCollection?.collectedAt || doc.createdAt,
       status: doc.status,
     })),
   ].sort((a, b) => new Date(a.collectedAt) - new Date(b.collectedAt));
@@ -192,38 +173,22 @@ export async function createCashDeposit({
 async function markItemsRemitted(items) {
   const now = new Date();
   const parcelIds = items.filter((i) => i.kind === "parcel").map((i) => i.refId);
-  const cityIds = items.filter((i) => i.kind === "city_parcel").map((i) => i.refId);
 
-  const [parcelResult, cityResult] = await Promise.all([
-    parcelIds.length
-      ? Parcel.updateMany(
-          { _id: { $in: parcelIds }, "codSettlement.status": { $in: HELD_PARCEL_STATUSES } },
-          {
-            $set: {
-              "codSettlement.status": "REMITTED_TO_ADMIN",
-              "codSettlement.remittedAt": now,
-              paymentStatus: "PAID",
-            },
+  const parcelResult = parcelIds.length
+    ? await Parcel.updateMany(
+        { _id: { $in: parcelIds }, "codSettlement.status": { $in: HELD_PARCEL_STATUSES } },
+        {
+          $set: {
+            "codSettlement.status": "REMITTED_TO_ADMIN",
+            "codSettlement.remittedAt": now,
+            paymentStatus: "PAID",
           },
-        )
-      : { modifiedCount: 0 },
-    cityIds.length
-      ? CityParcel.updateMany(
-          { _id: { $in: cityIds }, "codCollection.status": "RIDER_HOLDING" },
-          {
-            $set: {
-              "codCollection.status": "REMITTED_TO_ADMIN",
-              "codCollection.remittedAt": now,
-              paymentStatus: "PAID",
-            },
-          },
-        )
-      : { modifiedCount: 0 },
-  ]);
+        },
+      )
+    : { modifiedCount: 0 };
 
   return {
     parcelsRemitted: parcelResult.modifiedCount || 0,
-    cityParcelsRemitted: cityResult.modifiedCount || 0,
   };
 }
 
@@ -243,7 +208,7 @@ export async function reviewCashDeposit({ depositId, adminId, approve, adminNote
     throw err;
   }
 
-  let remitted = { parcelsRemitted: 0, cityParcelsRemitted: 0 };
+  let remitted = { parcelsRemitted: 0 };
   if (approve) {
     remitted = await markItemsRemitted(deposit.items || []);
 
@@ -389,43 +354,25 @@ export async function listCashDeposits({
  * Transaction ledger that never knew about porter.
  */
 export async function getFleetCashHoldings() {
-  const [parcelRows, cityRows] = await Promise.all([
-    Parcel.aggregate([
-      {
-        $match: {
-          paymentMethod: "COD",
-          deliveryPartnerId: { $ne: null },
-          "codSettlement.status": { $in: HELD_PARCEL_STATUSES },
-        },
+  const parcelRows = await Parcel.aggregate([
+    {
+      $match: {
+        paymentMethod: "COD",
+        deliveryPartnerId: { $ne: null },
+        "codSettlement.status": { $in: HELD_PARCEL_STATUSES },
       },
-      {
-        $group: {
-          _id: "$deliveryPartnerId",
-          amount: { $sum: { $ifNull: ["$codSettlement.collectAmount", "$fare"] } },
-          count: { $sum: 1 },
-        },
+    },
+    {
+      $group: {
+        _id: "$deliveryPartnerId",
+        amount: { $sum: { $ifNull: ["$codSettlement.collectAmount", "$fare"] } },
+        count: { $sum: 1 },
       },
-    ]),
-    CityParcel.aggregate([
-      {
-        $match: {
-          paymentMethod: "COD",
-          deliveryPartnerId: { $ne: null },
-          "codCollection.status": "RIDER_HOLDING",
-        },
-      },
-      {
-        $group: {
-          _id: "$deliveryPartnerId",
-          amount: { $sum: { $ifNull: ["$codCollection.amount", "$fare"] } },
-          count: { $sum: 1 },
-        },
-      },
-    ]),
+    },
   ]);
 
   const byRider = new Map();
-  [...parcelRows, ...cityRows].forEach((row) => {
+  parcelRows.forEach((row) => {
     const key = String(row._id);
     const existing = byRider.get(key) || { amount: 0, count: 0 };
     byRider.set(key, {
@@ -469,7 +416,7 @@ export async function recordCodCollection({ riderId, kind, refId, amount }) {
   const value = round2(amount);
   if (!riderId || !(value > 0)) return null;
 
-  const prefix = kind === "city_parcel" ? "CASH-COL-CTY" : "CASH-COL-PCL";
+  const prefix = "CASH-COL-PCL";
   return Transaction.findOneAndUpdate(
     { reference: `${prefix}-${String(refId)}` },
     {

@@ -13,7 +13,7 @@ import mongoose from "mongoose";
 const RIDER_ID = new mongoose.Types.ObjectId().toString();
 const ADMIN_ID = new mongoose.Types.ObjectId().toString();
 const PARCEL_ID = new mongoose.Types.ObjectId().toString();
-const CITY_ID = new mongoose.Types.ObjectId().toString();
+const PARCEL_ID_2 = new mongoose.Types.ObjectId().toString();
 
 /** Mongoose query builders are chainable; the tests only need the tail value. */
 const chain = (result) => {
@@ -32,9 +32,6 @@ const chain = (result) => {
 const parcelFind = jest.fn();
 const parcelUpdateMany = jest.fn();
 const parcelAggregate = jest.fn().mockResolvedValue([]);
-const cityFind = jest.fn();
-const cityUpdateMany = jest.fn();
-const cityAggregate = jest.fn().mockResolvedValue([]);
 const depositFind = jest.fn();
 const depositCreate = jest.fn();
 const depositFindById = jest.fn();
@@ -46,9 +43,6 @@ const transactionFindOneAndUpdate = jest.fn().mockResolvedValue({});
 
 jest.unstable_mockModule("../app/models/parcel.js", () => ({
   default: { find: parcelFind, updateMany: parcelUpdateMany, aggregate: parcelAggregate },
-}));
-jest.unstable_mockModule("../app/models/cityParcel.js", () => ({
-  default: { find: cityFind, updateMany: cityUpdateMany, aggregate: cityAggregate },
 }));
 jest.unstable_mockModule("../app/models/cashDeposit.js", () => ({
   default: {
@@ -76,7 +70,7 @@ const {
   getFleetCashHoldings,
 } = await import("../app/services/riderCashService.js");
 
-/** One outstation parcel worth 250 and one local parcel worth 120. */
+/** Two outstation parcels the rider is holding COD cash for: 250 and 120. */
 function stubHeldJobs({ pendingDeposits = [] } = {}) {
   parcelFind.mockReturnValue(
     chain([
@@ -87,15 +81,10 @@ function stubHeldJobs({ pendingDeposits = [] } = {}) {
         status: "DELIVERED",
         createdAt: new Date("2026-01-01"),
       },
-    ]),
-  );
-  cityFind.mockReturnValue(
-    chain([
       {
-        _id: CITY_ID,
+        _id: PARCEL_ID_2,
         fare: 120,
-        referenceId: "CP-9001",
-        codCollection: { amount: 120, status: "RIDER_HOLDING", collectedAt: new Date("2026-01-02") },
+        codSettlement: { collectAmount: 120, status: "RIDER_HOLDING", riderCollectedAt: new Date("2026-01-02") },
         status: "DELIVERED",
         createdAt: new Date("2026-01-02"),
       },
@@ -115,7 +104,7 @@ beforeEach(() => {
 });
 
 describe("getRiderCodSummary", () => {
-  it("totals COD cash across both parcel flows, oldest job first", async () => {
+  it("totals COD cash across every held job, oldest job first", async () => {
     stubHeldJobs();
 
     const summary = await getRiderCodSummary(RIDER_ID);
@@ -123,7 +112,7 @@ describe("getRiderCodSummary", () => {
     expect(summary.depositableAmount).toBe(370);
     expect(summary.totalHeld).toBe(370);
     expect(summary.awaitingReviewAmount).toBe(0);
-    expect(summary.items.map((i) => i.kind)).toEqual(["parcel", "city_parcel"]);
+    expect(summary.items.map((i) => i.kind)).toEqual(["parcel", "parcel"]);
     expect(summary.items[0].amount).toBe(250);
   });
 
@@ -135,7 +124,8 @@ describe("getRiderCodSummary", () => {
     expect(summary.depositableAmount).toBe(120);
     expect(summary.awaitingReviewAmount).toBe(250);
     expect(summary.items).toHaveLength(1);
-    expect(summary.items[0].kind).toBe("city_parcel");
+    expect(summary.items[0].kind).toBe("parcel");
+    expect(String(summary.items[0].refId)).toBe(PARCEL_ID_2);
   });
 
   it("falls back to the fare when no COD amount was snapshotted", async () => {
@@ -149,7 +139,6 @@ describe("getRiderCodSummary", () => {
         },
       ]),
     );
-    cityFind.mockReturnValue(chain([]));
     depositFind.mockReturnValue(chain([]));
 
     const summary = await getRiderCodSummary(RIDER_ID);
@@ -181,12 +170,12 @@ describe("createCashDeposit", () => {
     const deposit = await createCashDeposit({
       riderId: RIDER_ID,
       method: "CASH",
-      selection: [{ refId: CITY_ID }],
+      selection: [{ refId: PARCEL_ID_2 }],
     });
 
     expect(deposit.amount).toBe(120);
     expect(deposit.items).toHaveLength(1);
-    expect(String(deposit.items[0].refId)).toBe(CITY_ID);
+    expect(String(deposit.items[0].refId)).toBe(PARCEL_ID_2);
   });
 
   it("refuses an electronic transfer with neither reference nor proof", async () => {
@@ -209,7 +198,6 @@ describe("createCashDeposit", () => {
 
   it("refuses when the rider is holding nothing", async () => {
     parcelFind.mockReturnValue(chain([]));
-    cityFind.mockReturnValue(chain([]));
     depositFind.mockReturnValue(chain([]));
 
     await expect(
@@ -240,7 +228,7 @@ describe("reviewCashDeposit", () => {
     status: "PENDING",
     items: [
       { kind: "parcel", refId: new mongoose.Types.ObjectId(PARCEL_ID), amount: 250 },
-      { kind: "city_parcel", refId: new mongoose.Types.ObjectId(CITY_ID), amount: 120 },
+      { kind: "parcel", refId: new mongoose.Types.ObjectId(PARCEL_ID_2), amount: 120 },
     ],
     adminNote: "",
     save: jest.fn().mockResolvedValue(true),
@@ -253,8 +241,7 @@ describe("reviewCashDeposit", () => {
   it("approving is what moves the covered bookings to REMITTED_TO_ADMIN", async () => {
     const deposit = buildDeposit();
     depositFindById.mockResolvedValue(deposit);
-    parcelUpdateMany.mockResolvedValue({ modifiedCount: 1 });
-    cityUpdateMany.mockResolvedValue({ modifiedCount: 1 });
+    parcelUpdateMany.mockResolvedValue({ modifiedCount: 2 });
 
     const result = await reviewCashDeposit({
       depositId: String(deposit._id),
@@ -262,8 +249,7 @@ describe("reviewCashDeposit", () => {
       approve: true,
     });
 
-    expect(result.parcelsRemitted).toBe(1);
-    expect(result.cityParcelsRemitted).toBe(1);
+    expect(result.parcelsRemitted).toBe(2);
     expect(deposit.status).toBe("APPROVED");
 
     const [parcelFilter, parcelUpdate] = parcelUpdateMany.mock.calls[0];
@@ -275,17 +261,12 @@ describe("reviewCashDeposit", () => {
     ]);
     expect(parcelUpdate.$set["codSettlement.status"]).toBe("REMITTED_TO_ADMIN");
     expect(parcelUpdate.$set.paymentStatus).toBe("PAID");
-
-    const [cityFilter, cityUpdate] = cityUpdateMany.mock.calls[0];
-    expect(cityFilter["codCollection.status"]).toBe("RIDER_HOLDING");
-    expect(cityUpdate.$set["codCollection.status"]).toBe("REMITTED_TO_ADMIN");
   });
 
   it("mirrors an approval onto the legacy cash ledger the admin screens read", async () => {
     const deposit = buildDeposit();
     depositFindById.mockResolvedValue(deposit);
-    parcelUpdateMany.mockResolvedValue({ modifiedCount: 1 });
-    cityUpdateMany.mockResolvedValue({ modifiedCount: 1 });
+    parcelUpdateMany.mockResolvedValue({ modifiedCount: 2 });
 
     await reviewCashDeposit({ depositId: String(deposit._id), adminId: ADMIN_ID, approve: true });
 
@@ -311,7 +292,6 @@ describe("reviewCashDeposit", () => {
     expect(deposit.status).toBe("REJECTED");
     expect(result.parcelsRemitted).toBe(0);
     expect(parcelUpdateMany).not.toHaveBeenCalled();
-    expect(cityUpdateMany).not.toHaveBeenCalled();
     expect(transactionFindOneAndUpdate).not.toHaveBeenCalled();
     expect(notificationCreate.mock.calls[0][0].message).toContain("Screenshot is unreadable");
   });
@@ -333,9 +313,8 @@ describe("reviewCashDeposit", () => {
 });
 
 describe("getFleetCashHoldings", () => {
-  it("merges a rider's outstation and local holdings into one row", async () => {
-    parcelAggregate.mockResolvedValue([{ _id: RIDER_ID, amount: 250, count: 1 }]);
-    cityAggregate.mockResolvedValue([{ _id: RIDER_ID, amount: 120, count: 2 }]);
+  it("rolls up a rider's held outstation jobs into one row", async () => {
+    parcelAggregate.mockResolvedValue([{ _id: RIDER_ID, amount: 370, count: 2 }]);
     deliveryFind.mockReturnValue(
       chain([{ _id: RIDER_ID, name: "Asha", phone: "9990001111", isOnline: true }]),
     );
@@ -344,12 +323,11 @@ describe("getFleetCashHoldings", () => {
 
     expect(result.totalHeld).toBe(370);
     expect(result.items).toHaveLength(1);
-    expect(result.items[0]).toMatchObject({ name: "Asha", heldAmount: 370, heldJobs: 3 });
+    expect(result.items[0]).toMatchObject({ name: "Asha", heldAmount: 370, heldJobs: 2 });
   });
 
   it("returns an empty view rather than querying riders when nobody holds cash", async () => {
     parcelAggregate.mockResolvedValue([]);
-    cityAggregate.mockResolvedValue([]);
 
     const result = await getFleetCashHoldings();
 

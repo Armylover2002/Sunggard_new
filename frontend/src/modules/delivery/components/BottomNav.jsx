@@ -1,13 +1,12 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Home, IndianRupee, History, User } from "lucide-react";
+import { Home, IndianRupee, User } from "lucide-react";
 import { motion } from "framer-motion";
 
 const BottomNav = () => {
   const navItems = [
     { path: "/delivery/dashboard", label: "Home", icon: Home },
     { path: "/delivery/earnings", label: "Earnings", icon: IndianRupee },
-    { path: "/delivery/history", label: "History", icon: History },
     { path: "/delivery/profile", label: "Profile", icon: User },
   ];
 

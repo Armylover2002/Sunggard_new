@@ -29,25 +29,15 @@ import mongoose from "mongoose";
 
 // Core domain models
 import "../models/admin.js";
-import "../models/cart.js";
-import "../models/category.js";
-import "../models/checkoutGroup.js";
 import "../models/coupon.js";
 import "../models/customer.js"; // Registers as mongoose.model("User")
 import "../models/delivery.js";
-import "../models/deliveryAssignment.js";
-import "../models/order.js";
-import "../models/orderOtp.js";
 import "../models/otpVerification.js";
-import "../models/product.js";
-import "../models/review.js";
 import "../models/seller.js";
 import "../models/ticket.js";
-import "../models/wishlist.js";
 
 // Finance models
 import "../models/financeAuditLog.js";
-import "../models/financeReports.js";
 import "../models/ledgerEntry.js";
 import "../models/payment.js";
 import "../models/paymentWebhookEvent.js";
@@ -56,21 +46,13 @@ import "../models/transaction.js";
 import "../models/wallet.js";
 
 // CMS / configuration models
-import "../models/experienceSection.js";
 import "../models/faq.js";
-import "../models/heroConfig.js";
-import "../models/offer.js";
-import "../models/offerSection.js";
 import "../models/setting.js";
 
 // Read-optimized / cache models
-import "../models/dashboardStats.js";
 import "../models/geocodeCache.js";
 import "../models/mediaMetadata.js";
 import "../models/notification.js";
-import "../models/searchIndexFailure.js";
-import "../models/sellerMetrics.js";
-import "../models/stockHistory.js";
 
 // Module-scoped models
 import "../modules/notifications/preference.model.js"; // NotificationPreference
@@ -90,22 +72,8 @@ export const REQUIRED_MODELS = Object.freeze([
   "Delivery",
   "Admin",
 
-  // Catalog
-  "Product",
-  "Category",
+  // Porter booking
   "Coupon",
-  "Offer",
-  "OfferSection",
-  "ExperienceSection",
-  "HeroConfig",
-
-  // Orders & checkout
-  "Order",
-  "CheckoutGroup",
-  "Cart",
-  "Wishlist",
-  "DeliveryAssignment",
-  "Review",
 
   // Payments & ledger
   "Payment",
@@ -118,7 +86,6 @@ export const REQUIRED_MODELS = Object.freeze([
 
   // OTP & auth
   "OtpVerification",
-  "OrderOtp",
   "OtpSession",
 
   // Notifications & messaging
@@ -134,11 +101,6 @@ export const REQUIRED_MODELS = Object.freeze([
 
   // Read-optimized / cache
   "GeocodeCache",
-  "StockHistory",
-  "DashboardStats",
-  "SellerMetrics",
-  "FinanceReports",
-  "SearchIndexFailure",
 ]);
 
 // ---- 3. Boot-time assertion ----

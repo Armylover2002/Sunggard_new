@@ -20,41 +20,19 @@ const generateToken = (seller) =>
 const parseBool = (value) =>
     value === true || value === "true" || value === 1 || value === "1";
 
+// Porter (parcel delivery) is the only service this app runs — every seller
+// hub is a parcel hub. Kept as a resolver (not a hardcoded literal at the
+// call site) so a stray `isParcelService: false` in the request body is
+// still rejected explicitly rather than silently ignored.
 const resolveSellerServiceFlags = (body) => {
-    const serviceType = String(body?.serviceType || "").trim().toLowerCase();
-
-    if (serviceType) {
-        if (serviceType === "parcel") {
-            return { isParcelService: true, isQuickCommerceService: false };
-        }
-        if (
-            serviceType === "quick-orders" ||
-            serviceType === "quick-order" ||
-            serviceType === "quick-commerce" ||
-            serviceType === "quick_commerce"
-        ) {
-            return { isParcelService: false, isQuickCommerceService: true };
-        }
-        return { error: "Invalid service type. Choose parcel or quick-orders." };
-    }
-
     const hasParcel = typeof body?.isParcelService !== "undefined";
-    const hasQuickCommerce = typeof body?.isQuickCommerceService !== "undefined";
+    const isParcelService = hasParcel ? parseBool(body.isParcelService) : true;
 
-    if (hasParcel || hasQuickCommerce) {
-        const isParcelService = hasParcel ? parseBool(body.isParcelService) : false;
-        const isQuickCommerceService = hasQuickCommerce
-            ? parseBool(body.isQuickCommerceService)
-            : false;
-
-        if (!isParcelService && !isQuickCommerceService) {
-            return { error: "Select parcel service or quick orders." };
-        }
-
-        return { isParcelService, isQuickCommerceService };
+    if (!isParcelService) {
+        return { error: "Parcel delivery service is required." };
     }
 
-    return { error: "Service preference is required (parcel or quick-orders)." };
+    return { isParcelService: true };
 };
 
 const SELLER_DOCUMENT_FIELDS = {
@@ -244,7 +222,6 @@ export const signupSeller = async (req, res) => {
             phoneVerified: true,
             isActive: false,
             isParcelService: serviceFlags.isParcelService,
-            isQuickCommerceService: serviceFlags.isQuickCommerceService,
         };
 
         if (parsedLat !== undefined && parsedLng !== undefined) {

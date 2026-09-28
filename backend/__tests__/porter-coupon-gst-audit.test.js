@@ -3,8 +3,8 @@ import { jest } from "@jest/globals";
 /**
  * AUDIT HARNESS — coupon x GST x payment interaction across the Porter matrix.
  *
- * Runs the REAL pricing, tax and coupon engines. Only the Coupon/CityParcel/
- * Parcel model reads are stubbed, because the arithmetic under audit does not
+ * Runs the REAL pricing, tax and coupon engines. Only the Coupon/Parcel
+ * model reads are stubbed, because the arithmetic under audit does not
  * depend on Mongo. Every expectation below is calculated by hand in the
  * comment above it, so a failure says which of the two is wrong.
  */
@@ -20,18 +20,11 @@ jest.unstable_mockModule("../app/models/coupon.js", () => ({
     updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
   },
 }));
-jest.unstable_mockModule("../app/models/order.js", () => ({ default: { countDocuments, find: jest.fn() } }));
-jest.unstable_mockModule("../app/models/cityParcel.js", () => ({
-  default: { countDocuments: (...a) => ({ session: () => countDocuments(...a) , then: (r)=>Promise.resolve(0).then(r) }) },
-}));
 jest.unstable_mockModule("../app/models/parcel.js", () => ({
   default: { countDocuments: (...a) => ({ session: () => countDocuments(...a), then: (r)=>Promise.resolve(0).then(r) }) },
 }));
 
 const { computeBookingDiscount } = await import("../app/services/finance/couponService.js");
-const { computeCityParcelFare, computeRiderEarning } = await import(
-  "../app/services/cityParcelFareService.js"
-);
 const { computeParcelDailyFare, applyBillableDaysToFare } = await import(
   "../app/utils/parcelFare.js"
 );
@@ -39,18 +32,7 @@ const { rebaseGstAfterDiscount } = await import("../app/utils/gst.js");
 
 const money = (n) => Math.round(Number(n) * 100) / 100;
 
-/** Rate card as an admin would save it on /admin/city-parcels/pricing. */
-const CITY = {
-  baseFare: 30,
-  perKmCharge: 12,
-  weightCharge: 10,
-  minFare: 45,
-  platformCharge: 5,
-  expressCharge: 20,
-  riderBaseFareSharePercent: 80,
-  riderDistanceFareSharePercent: 70,
-};
-
+/** Rate card as an admin would save it on /admin/parcels/pricing. */
 const PARCEL = { fixedDeliveryCharge: 80 };
 
 const GST_ON = { enabled: true, percent: 18, inclusive: false, gstin: "27AAAAA0000A1Z5" };
@@ -66,157 +48,7 @@ const PCT10 = {
 };
 
 /* ======================================================================
-   1. Local fare arithmetic, GST off then on
-   ====================================================================== */
-
-describe("local fare: GST off vs on", () => {
-  // 5 km, 2 kg, normal speed.
-  // base 30 + distance (5 x 12 = 60) + weight (2 x 10 = 20) + platform 5 = 115
-  const args = { config: { ...CITY, gst: GST_OFF }, distanceKm: 5, weightKg: 2 };
-
-  it("GST OFF: fare is the untaxed subtotal", () => {
-    const q = computeCityParcelFare(args);
-    expect(q.fare).toBe(115);
-    expect(q.taxableAmount).toBe(115);
-    expect(q.gstAmount).toBe(0);
-  });
-
-  it("GST ON 18%: 115 taxable, 20.70 tax, 135.70 gross", () => {
-    const q = computeCityParcelFare({ ...args, config: { ...CITY, gst: GST_ON } });
-    expect(q.taxableAmount).toBe(115);
-    expect(q.gstAmount).toBe(20.7); // 115 x 0.18
-    expect(q.cgst + q.sgst).toBe(20.7); // 10.35 + 10.35
-    expect(q.fare).toBe(135.7);
-  });
-});
-
-/* ======================================================================
-   2. THE CORE AUDIT — what a coupon does to the tax base
-   ====================================================================== */
-
-describe("coupon x GST: does the invoice reconcile with the tax actually due?", () => {
-  beforeEach(() => {
-    findOne.mockResolvedValue(PCT10);
-    findById.mockResolvedValue(PCT10);
-  });
-
-  it("GST OFF + 10% coupon: discount 11.50, payable 103.50", async () => {
-    const q = computeCityParcelFare({ config: { ...CITY, gst: GST_OFF }, distanceKm: 5, weightKg: 2 });
-    const d = await computeBookingDiscount({
-      couponCode: "SAVE10",
-      bookingKind: "porter_local",
-      fareAmount: q.fare,
-    });
-    // 10% of 115 = 11.50 -> payable 103.50. No tax involved, nothing to reconcile.
-    expect(d.discountAmount).toBe(11.5);
-    expect(d.payableFare).toBe(103.5);
-  });
-
-  it("GST ON + 10% coupon: records the tax base and what the customer pays", async () => {
-    const q = computeCityParcelFare({ config: { ...CITY, gst: GST_ON }, distanceKm: 5, weightKg: 2 });
-    const d = await computeBookingDiscount({
-      couponCode: "SAVE10",
-      bookingKind: "porter_local",
-      fareAmount: q.fare, // 135.70 — the TAX-INCLUSIVE gross
-    });
-
-    // The coupon is applied to the tax-inclusive gross, so "10% off" takes
-    // 13.57 rather than 10% of the pre-tax 115 (= 11.50).
-    expect(d.discountAmount).toBe(13.57);
-    expect(d.payableFare).toBe(122.13);
-
-    // What gets persisted on the booking as the tax record:
-    const storedTaxable = q.taxableAmount; // 115
-    const storedGst = q.gstAmount; // 20.70
-
-    // INVARIANT UNDER AUDIT: the tax recorded as charged should be the tax on
-    // the consideration actually received. Customer paid 122.13; at 18% that
-    // implies taxable 103.50 and GST 18.63.
-    const impliedTaxable = money(d.payableFare / 1.18); // 103.50
-    const impliedGst = money(d.payableFare - impliedTaxable); // 18.63
-
-    expect(impliedTaxable).toBe(103.5);
-    expect(impliedGst).toBe(18.63);
-
-    // The gap the platform over-declares, per booking:
-    const overDeclared = money(storedGst - impliedGst);
-    expect(overDeclared).toBe(2.07); // == 18% of the 11.50 pre-tax discount
-
-    // Documents the raw rate-card output before re-attribution.
-    expect(storedTaxable).toBe(115);
-    expect(storedGst).toBe(20.7);
-
-    // ...and the fix puts the tax back onto the money that changed hands.
-    const rebased = rebaseGstAfterDiscount(q, d.payableFare);
-    expect(rebased.taxableAmount).toBe(103.5);
-    expect(rebased.gstAmount).toBe(18.63);
-    // Compared in paise: the halves are 9.31 + 9.32 and adding them as floats
-    // is what drifts, not the split itself.
-    expect(money(rebased.cgst + rebased.sgst)).toBe(18.63);
-    expect(rebased.preDiscountTaxableAmount).toBe(115);
-    // The invoice now closes: taxable + tax == what the customer paid.
-    expect(money(rebased.taxableAmount + rebased.gstAmount)).toBe(d.payableFare);
-  });
-
-  it("a fixed-amount coupon also lands the tax on the amount paid", async () => {
-    findOne.mockResolvedValue({ ...PCT10, discountType: "fixed", discountValue: 20 });
-    const q = computeCityParcelFare({ config: { ...CITY, gst: GST_ON }, distanceKm: 5, weightKg: 2 });
-    const d = await computeBookingDiscount({
-      couponCode: "SAVE10",
-      bookingKind: "porter_local",
-      fareAmount: q.fare,
-    });
-    // 135.70 - 20 = 115.70 paid. The customer total is unchanged by the fix.
-    expect(d.payableFare).toBe(115.7);
-
-    const rebased = rebaseGstAfterDiscount(q, d.payableFare);
-    // 115.70 / 1.18 = 98.05 taxable, tax 17.65.
-    expect(rebased.taxableAmount).toBe(98.05);
-    expect(rebased.gstAmount).toBe(17.65);
-    expect(money(rebased.taxableAmount + rebased.gstAmount)).toBe(115.7);
-  });
-
-  it("with GST off, the taxable value is the discounted amount, not the list fare", async () => {
-    findOne.mockResolvedValue(PCT10);
-    const q = computeCityParcelFare({ config: { ...CITY, gst: GST_OFF }, distanceKm: 5, weightKg: 2 });
-    const d = await computeBookingDiscount({
-      couponCode: "SAVE10",
-      bookingKind: "porter_local",
-      fareAmount: q.fare,
-    });
-    const rebased = rebaseGstAfterDiscount(q, d.payableFare);
-    expect(rebased.taxableAmount).toBe(103.5);
-    expect(rebased.gstAmount).toBe(0);
-    expect(rebased.preDiscountTaxableAmount).toBe(115);
-  });
-
-  it("leaves an inclusive rate card reconciling too", async () => {
-    findOne.mockResolvedValue(PCT10);
-    const inclusive = computeCityParcelFare({
-      config: { ...CITY, gst: { enabled: true, percent: 18, inclusive: true } },
-      distanceKm: 5,
-      weightKg: 2,
-    });
-    // Inclusive: the customer pays the 115 quoted, tax backed out of it.
-    expect(inclusive.fare).toBe(115);
-    expect(inclusive.taxableAmount).toBe(97.46);
-    expect(inclusive.gstAmount).toBe(17.54);
-
-    const d = await computeBookingDiscount({
-      couponCode: "SAVE10",
-      bookingKind: "porter_local",
-      fareAmount: inclusive.fare,
-    });
-    expect(d.payableFare).toBe(103.5); // 115 - 11.50
-
-    const rebased = rebaseGstAfterDiscount(inclusive, d.payableFare);
-    expect(money(rebased.taxableAmount + rebased.gstAmount)).toBe(103.5);
-    expect(rebased.gstInclusive).toBe(true);
-  });
-});
-
-/* ======================================================================
-   2b. Outstation bookings must actually persist their tax split
+   1. Outstation breakdown carries the tax it charged
    ====================================================================== */
 
 describe("outstation breakdown carries the tax it charged", () => {
@@ -242,62 +74,136 @@ describe("outstation breakdown carries the tax it charged", () => {
 });
 
 /* ======================================================================
-   3. Rider earning must be immune to both GST and coupon
+   2. THE CORE AUDIT — what a coupon does to the tax base
    ====================================================================== */
 
-describe("rider earning is insulated from tax and discount", () => {
-  it("pays the same on an identical trip whether GST is on or off", () => {
-    const off = computeCityParcelFare({ config: { ...CITY, gst: GST_OFF }, distanceKm: 5, weightKg: 2 });
-    const on = computeCityParcelFare({ config: { ...CITY, gst: GST_ON }, distanceKm: 5, weightKg: 2 });
-    // 30 x 80% + 60 x 70% = 24 + 42 = 66
-    expect(computeRiderEarning(off, CITY)).toBe(66);
-    expect(computeRiderEarning(on, CITY)).toBe(66);
+describe("coupon x GST: does the invoice reconcile with the tax actually due?", () => {
+  beforeEach(() => {
+    findOne.mockResolvedValue(PCT10);
+    findById.mockResolvedValue(PCT10);
+  });
+
+  it("GST OFF + 10% coupon: discount 8.00, payable 72.00", async () => {
+    const daily = computeParcelDailyFare({ config: PARCEL });
+    const priced = applyBillableDaysToFare(daily, 1, GST_OFF);
+    const d = await computeBookingDiscount({
+      couponCode: "SAVE10",
+      bookingKind: "porter_outstation",
+      fareAmount: priced.fare,
+    });
+    // 10% of 80 = 8.00 -> payable 72.00. No tax involved, nothing to reconcile.
+    expect(d.discountAmount).toBe(8);
+    expect(d.payableFare).toBe(72);
+  });
+
+  it("GST ON + 10% coupon: records the tax base and what the customer pays", async () => {
+    const daily = computeParcelDailyFare({ config: PARCEL });
+    const priced = applyBillableDaysToFare(daily, 1, GST_ON);
+    const d = await computeBookingDiscount({
+      couponCode: "SAVE10",
+      bookingKind: "porter_outstation",
+      fareAmount: priced.fare, // 94.40 — the TAX-INCLUSIVE gross
+    });
+
+    // The coupon is applied to the tax-inclusive gross, so "10% off" takes
+    // 9.44 rather than 10% of the pre-tax 80 (= 8.00).
+    expect(d.discountAmount).toBe(9.44);
+    expect(d.payableFare).toBe(84.96);
+
+    // What gets persisted on the booking as the tax record:
+    const storedTaxable = priced.taxableAmount; // 80
+    const storedGst = priced.gstAmount; // 14.40
+
+    // INVARIANT UNDER AUDIT: the tax recorded as charged should be the tax on
+    // the consideration actually received. Customer paid 84.96; at 18% that
+    // implies taxable 72.00 and GST 12.96.
+    const impliedTaxable = money(d.payableFare / 1.18); // 72.00
+    const impliedGst = money(d.payableFare - impliedTaxable); // 12.96
+
+    expect(impliedTaxable).toBe(72);
+    expect(impliedGst).toBe(12.96);
+
+    // The gap the platform over-declares, per booking:
+    const overDeclared = money(storedGst - impliedGst);
+    expect(overDeclared).toBe(1.44); // == 18% of the 8.00 pre-tax discount
+
+    // Documents the raw rate-card output before re-attribution.
+    expect(storedTaxable).toBe(80);
+    expect(storedGst).toBe(14.4);
+
+    // ...and the fix puts the tax back onto the money that changed hands.
+    const rebased = rebaseGstAfterDiscount(priced, d.payableFare);
+    expect(rebased.taxableAmount).toBe(72);
+    expect(rebased.gstAmount).toBe(12.96);
+    expect(money(rebased.cgst + rebased.sgst)).toBe(12.96);
+    expect(rebased.preDiscountTaxableAmount).toBe(80);
+    // The invoice now closes: taxable + tax == what the customer paid.
+    expect(money(rebased.taxableAmount + rebased.gstAmount)).toBe(d.payableFare);
+  });
+
+  it("a fixed-amount coupon also lands the tax on the amount paid", async () => {
+    findOne.mockResolvedValue({ ...PCT10, discountType: "fixed", discountValue: 20 });
+    const daily = computeParcelDailyFare({ config: PARCEL });
+    const priced = applyBillableDaysToFare(daily, 1, GST_ON);
+    const d = await computeBookingDiscount({
+      couponCode: "SAVE10",
+      bookingKind: "porter_outstation",
+      fareAmount: priced.fare,
+    });
+    // 94.40 - 20 = 74.40 paid. The customer total is unchanged by the fix.
+    expect(d.payableFare).toBe(74.4);
+
+    const rebased = rebaseGstAfterDiscount(priced, d.payableFare);
+    // 74.40 / 1.18 = 63.05 taxable, tax 11.35.
+    expect(rebased.taxableAmount).toBe(63.05);
+    expect(rebased.gstAmount).toBe(11.35);
+    expect(money(rebased.taxableAmount + rebased.gstAmount)).toBe(74.4);
+  });
+
+  it("with GST off, the taxable value is the discounted amount, not the list fare", async () => {
+    findOne.mockResolvedValue(PCT10);
+    const daily = computeParcelDailyFare({ config: PARCEL });
+    const priced = applyBillableDaysToFare(daily, 1, GST_OFF);
+    const d = await computeBookingDiscount({
+      couponCode: "SAVE10",
+      bookingKind: "porter_outstation",
+      fareAmount: priced.fare,
+    });
+    const rebased = rebaseGstAfterDiscount(priced, d.payableFare);
+    expect(rebased.taxableAmount).toBe(72);
+    expect(rebased.gstAmount).toBe(0);
+    expect(rebased.preDiscountTaxableAmount).toBe(80);
+  });
+
+  it("leaves an inclusive rate card reconciling too", async () => {
+    findOne.mockResolvedValue(PCT10);
+    const daily = computeParcelDailyFare({ config: PARCEL });
+    const inclusive = applyBillableDaysToFare(daily, 1, {
+      enabled: true,
+      percent: 18,
+      inclusive: true,
+    });
+    // Inclusive: the customer pays the 80 quoted, tax backed out of it.
+    expect(inclusive.fare).toBe(80);
+    expect(inclusive.taxableAmount).toBe(67.8);
+    expect(inclusive.gstAmount).toBe(12.2);
+
+    const d = await computeBookingDiscount({
+      couponCode: "SAVE10",
+      bookingKind: "porter_outstation",
+      fareAmount: inclusive.fare,
+    });
+    expect(d.payableFare).toBe(72); // 80 - 8.00
+
+    const rebased = rebaseGstAfterDiscount(inclusive, d.payableFare);
+    expect(money(rebased.taxableAmount + rebased.gstAmount)).toBe(72);
+    expect(rebased.gstInclusive).toBe(true);
   });
 });
 
 /* ======================================================================
-   3b. The whole chain: quote -> coupon -> stored booking -> invoice
+   3. Rider payout is a distance calc, independent of tax and fare
    ====================================================================== */
-
-describe("invoice reconciles end to end", () => {
-  it("charges - discount + tax == the amount the customer pays", async () => {
-    findOne.mockResolvedValue(PCT10);
-
-    const quote = computeCityParcelFare({
-      config: { ...CITY, gst: GST_ON },
-      distanceKm: 5,
-      weightKg: 2,
-    });
-    const d = await computeBookingDiscount({
-      couponCode: "SAVE10",
-      bookingKind: "porter_local",
-      fareAmount: quote.fare,
-    });
-
-    // Exactly what the controller now persists on the booking.
-    const stored = { ...quote, ...rebaseGstAfterDiscount(quote, d.payableFare) };
-
-    // The pre-tax charge lines the invoice prints.
-    const chargeLines =
-      stored.baseFare + stored.distanceFare + stored.weightFare + stored.platformCharge;
-    expect(money(chargeLines)).toBe(115);
-
-    // The discount the invoice puts against those lines.
-    const taxableDiscount = money(stored.preDiscountTaxableAmount - stored.taxableAmount);
-    expect(taxableDiscount).toBe(11.5);
-
-    // Invoice subtotal is the taxable value, and the lines resolve to it.
-    expect(money(chargeLines - taxableDiscount)).toBe(stored.taxableAmount);
-
-    // Subtotal + tax == total == what payment/COD will actually collect.
-    expect(money(stored.taxableAmount + stored.gstAmount)).toBe(d.payableFare);
-
-    // And the customer's headline saving is still the full 13.57.
-    expect(d.discountAmount).toBe(13.57);
-    expect(money(taxableDiscount + (stored.preDiscountTaxableAmount * 0.18 - stored.gstAmount)))
-      .toBe(13.57);
-  });
-});
 
 describe("outstation payout is a distance calc, independent of tax and fare", () => {
   it("is unaffected by GST or the fare recorded on the parcel", async () => {
@@ -332,7 +238,48 @@ describe("outstation payout is a distance calc, independent of tax and fare", ()
 });
 
 /* ======================================================================
-   4. Outstation multi-day: tax on the total, not per day
+   4. The whole chain: quote -> coupon -> stored booking -> invoice
+   ====================================================================== */
+
+describe("invoice reconciles end to end", () => {
+  it("charges - discount + tax == the amount the customer pays", async () => {
+    findOne.mockResolvedValue(PCT10);
+
+    const daily = computeParcelDailyFare({ config: PARCEL });
+    const quote = applyBillableDaysToFare(daily, 1, GST_ON);
+    const d = await computeBookingDiscount({
+      couponCode: "SAVE10",
+      bookingKind: "porter_outstation",
+      fareAmount: quote.fare,
+    });
+
+    // Exactly what the controller now persists on the booking.
+    const stored = { ...quote, ...rebaseGstAfterDiscount(quote, d.payableFare) };
+
+    // The pre-tax charge lines the invoice prints.
+    const chargeLines =
+      stored.baseFare + stored.distanceFare + stored.weightFare + stored.platformCharge;
+    expect(money(chargeLines)).toBe(80);
+
+    // The discount the invoice puts against those lines.
+    const taxableDiscount = money(stored.preDiscountTaxableAmount - stored.taxableAmount);
+    expect(taxableDiscount).toBe(8);
+
+    // Invoice subtotal is the taxable value, and the lines resolve to it.
+    expect(money(chargeLines - taxableDiscount)).toBe(stored.taxableAmount);
+
+    // Subtotal + tax == total == what payment/COD will actually collect.
+    expect(money(stored.taxableAmount + stored.gstAmount)).toBe(d.payableFare);
+
+    // And the customer's headline saving is still the full 9.44.
+    expect(d.discountAmount).toBe(9.44);
+    expect(money(taxableDiscount + (stored.preDiscountTaxableAmount * 0.18 - stored.gstAmount)))
+      .toBe(9.44);
+  });
+});
+
+/* ======================================================================
+   5. Outstation multi-day: tax on the total, not per day
    ====================================================================== */
 
 describe("outstation fare with billable days", () => {
@@ -350,7 +297,7 @@ describe("outstation fare with billable days", () => {
 });
 
 /* ======================================================================
-   5. Coupon clamps
+   6. Coupon clamps
    ====================================================================== */
 
 describe("coupon clamps", () => {
@@ -360,27 +307,29 @@ describe("coupon clamps", () => {
       discountType: "fixed",
       discountValue: 10000,
     });
-    const q = computeCityParcelFare({ config: { ...CITY, gst: GST_ON }, distanceKm: 5, weightKg: 2 });
+    const daily = computeParcelDailyFare({ config: PARCEL });
+    const priced = applyBillableDaysToFare(daily, 1, GST_ON);
     const d = await computeBookingDiscount({
       couponCode: "SAVE10",
-      bookingKind: "porter_local",
-      fareAmount: q.fare,
+      bookingKind: "porter_outstation",
+      fareAmount: priced.fare,
     });
-    expect(d.discountAmount).toBe(135.7);
+    expect(d.discountAmount).toBe(94.4);
     expect(d.payableFare).toBe(0);
   });
 
   it("honours maxDiscount", async () => {
     findOne.mockResolvedValue({ ...PCT10, discountValue: 50, maxDiscount: 20 });
-    const q = computeCityParcelFare({ config: { ...CITY, gst: GST_ON }, distanceKm: 5, weightKg: 2 });
+    const daily = computeParcelDailyFare({ config: PARCEL });
+    const priced = applyBillableDaysToFare(daily, 1, GST_ON);
     const d = await computeBookingDiscount({
       couponCode: "SAVE10",
-      bookingKind: "porter_local",
-      fareAmount: q.fare,
+      bookingKind: "porter_outstation",
+      fareAmount: priced.fare,
     });
-    // 50% of 135.70 = 67.85, clamped to 20
+    // 50% of 94.40 = 47.20, clamped to 20
     expect(d.discountAmount).toBe(20);
-    expect(d.payableFare).toBe(115.7);
+    expect(d.payableFare).toBe(74.4);
   });
 
   it("rejects a coupon that does not apply to this booking kind", async () => {
@@ -388,8 +337,8 @@ describe("coupon clamps", () => {
     await expect(
       computeBookingDiscount({
         couponCode: "SAVE10",
-        bookingKind: "porter_local",
-        fareAmount: 135.7,
+        bookingKind: "porter_outstation",
+        fareAmount: 94.4,
       }),
     ).rejects.toThrow(/not valid for this type/i);
   });

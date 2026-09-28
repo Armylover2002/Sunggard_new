@@ -42,9 +42,6 @@ describe("sellerAuthController signupSeller", () => {
         shopName: "Noyo Mart",
         category: "Groceries",
         address: "MG Road",
-        // Signup refuses a seller who has not picked what they will do.
-        // Without this the controller answers 400 and never reaches create.
-        serviceType: "parcel",
         documents: JSON.stringify({
           tradeLicense: "https://example.com/trade-license.pdf",
           gstCertificate: "https://example.com/gst.pdf",
@@ -88,9 +85,8 @@ describe("sellerAuthController signupSeller", () => {
         isVerified: false,
         isActive: false,
         applicationStatus: "pending",
-        // serviceType: "parcel" must land as the pair of boolean flags.
+        // Porter is the only service; isParcelService defaults to true.
         isParcelService: true,
-        isQuickCommerceService: false,
       }),
     );
     expect(res.status).toHaveBeenCalledWith(201);

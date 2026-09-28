@@ -1,18 +1,9 @@
 import mongoose from "mongoose";
 import User from "../../models/customer.js";
-import Order from "../../models/order.js";
 
 export async function getUsersData({ page, limit, skip }) {
   const pipeline = [
     { $match: { role: "user" } },
-    {
-      $lookup: {
-        from: "orders",
-        localField: "_id",
-        foreignField: "customer",
-        as: "userOrders",
-      },
-    },
     {
       $project: {
         id: { $toString: "$_id" },
@@ -23,9 +14,6 @@ export async function getUsersData({ page, limit, skip }) {
         status: {
           $cond: [{ $eq: ["$isActive", false] }, "inactive", "active"],
         },
-        totalOrders: { $size: "$userOrders" },
-        totalSpent: { $sum: "$userOrders.pricing.total" },
-        lastOrderDate: { $max: "$userOrders.createdAt" },
         avatar: {
           $concat: [
             "https://api.dicebear.com/7.x/avataaars/svg?seed=",
@@ -34,7 +22,7 @@ export async function getUsersData({ page, limit, skip }) {
         },
       },
     },
-    { $sort: { totalOrders: -1 } },
+    { $sort: { joinedDate: -1 } },
   ];
 
   const [result] = await User.aggregate([
@@ -68,14 +56,6 @@ export async function getUserByIdData(id) {
       },
     },
     {
-      $lookup: {
-        from: "orders",
-        localField: "_id",
-        foreignField: "customer",
-        as: "userOrders",
-      },
-    },
-    {
       $project: {
         id: { $toString: "$_id" },
         name: { $ifNull: ["$name", "Unnamed Customer"] },
@@ -85,9 +65,6 @@ export async function getUserByIdData(id) {
         status: {
           $cond: [{ $eq: ["$isActive", false] }, "inactive", "active"],
         },
-        totalOrders: { $size: "$userOrders" },
-        totalSpent: { $sum: "$userOrders.pricing.total" },
-        lastOrderDate: { $max: "$userOrders.createdAt" },
         avatar: {
           $concat: [
             "https://api.dicebear.com/7.x/avataaars/svg?seed=",
@@ -103,11 +80,6 @@ export async function getUserByIdData(id) {
     return null;
   }
 
-  const recentOrders = await Order.find({ customer: id })
-    .sort({ createdAt: -1 })
-    .limit(10)
-    .populate("items.product", "name mainImage");
-
   const selectedUser = user[0];
   const addresses = Array.isArray(selectedUser.addresses)
     ? selectedUser.addresses
@@ -116,13 +88,5 @@ export async function getUserByIdData(id) {
   return {
     ...selectedUser,
     addresses,
-    recentOrders: recentOrders.map((order) => ({
-      id: order.orderId,
-      _id: order._id,
-      itemsCount: order.items.length,
-      amount: order.pricing.total,
-      date: order.createdAt,
-      status: order.status,
-    })),
   };
 }

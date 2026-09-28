@@ -1,11 +1,6 @@
-import Payout from "../models/payout.js";
 import Wallet from "../models/wallet.js";
-import Seller from "../models/seller.js";
-import Delivery from "../models/delivery.js";
 import handleResponse from "../utils/helper.js";
-import { getAdminFinanceSummary } from "../services/finance/walletService.js";
 import { getLedgerEntries } from "../services/finance/ledgerService.js";
-import { bulkProcessPayouts } from "../services/finance/payoutService.js";
 import { exportFinanceStatement } from "../services/finance/statementService.js";
 import {
   FINANCE_AUDIT_ACTION,
@@ -18,19 +13,9 @@ import {
 import { createFinanceAuditLog } from "../services/finance/auditLogService.js";
 import {
   financeLedgerQuerySchema,
-  payoutProcessSchema,
   updateDeliverySettingsSchema,
 } from "../validation/financeValidation.js";
 import { validateBodySafe as validateWithJoi } from "../middleware/validate.js";
-
-export const getAdminFinanceSummaryController = async (req, res) => {
-  try {
-    const summary = await getAdminFinanceSummary();
-    return handleResponse(res, 200, "Admin finance summary fetched", summary);
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
 
 export const getAdminFinanceLedgerController = async (req, res) => {
   try {
@@ -40,101 +25,6 @@ export const getAdminFinanceLedgerController = async (req, res) => {
     }
     const ledger = await getLedgerEntries(validated.value);
     return handleResponse(res, 200, "Finance ledger fetched", ledger);
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
-
-export const getAdminFinancePayoutsController = async (req, res) => {
-  try {
-    const {
-      seller,
-      rider,
-      status,
-      page = 1,
-      limit = 25,
-    } = req.query;
-
-    const query = {};
-    if (status) query.status = status;
-
-    const includeSeller = String(seller).toLowerCase() === "true";
-    const includeRider = String(rider).toLowerCase() === "true";
-    if (includeSeller && !includeRider) query.payoutType = "SELLER";
-    if (!includeSeller && includeRider) query.payoutType = "DELIVERY_PARTNER";
-
-    const safePage = Math.max(parseInt(page, 10) || 1, 1);
-    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 200);
-    const skip = (safePage - 1) * safeLimit;
-
-    const [rawItems, total] = await Promise.all([
-      Payout.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(safeLimit)
-        .populate("relatedOrderIds", "orderId paymentMode paymentStatus status")
-        .lean(),
-      Payout.countDocuments(query),
-    ]);
-
-    const sellerIds = rawItems
-      .filter((item) => item.payoutType === "SELLER")
-      .map((item) => item.beneficiaryId);
-    const riderIds = rawItems
-      .filter((item) => item.payoutType === "DELIVERY_PARTNER")
-      .map((item) => item.beneficiaryId);
-
-    const [sellers, riders] = await Promise.all([
-      Seller.find({ _id: { $in: sellerIds } })
-        .select("_id shopName name phone")
-        .lean(),
-      Delivery.find({ _id: { $in: riderIds } })
-        .select("_id name phone")
-        .lean(),
-    ]);
-
-    const sellerMap = new Map(sellers.map((seller) => [String(seller._id), seller]));
-    const riderMap = new Map(riders.map((rider) => [String(rider._id), rider]));
-
-    const items = rawItems.map((item) => {
-      const beneficiary =
-        item.payoutType === "SELLER"
-          ? sellerMap.get(String(item.beneficiaryId))
-          : riderMap.get(String(item.beneficiaryId));
-      return {
-        ...item,
-        beneficiary: beneficiary || null,
-      };
-    });
-
-    return handleResponse(res, 200, "Finance payouts fetched", {
-      items,
-      page: safePage,
-      limit: safeLimit,
-      total,
-      totalPages: Math.ceil(total / safeLimit) || 1,
-    });
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
-
-export const processAdminFinancePayoutsController = async (req, res) => {
-  try {
-    const validated = validateWithJoi(payoutProcessSchema, req.body || {});
-    if (!validated.isValid) {
-      return handleResponse(res, 400, validated.message);
-    }
-
-    const result = await bulkProcessPayouts({
-      payoutIds: validated.value.payoutIds,
-      payoutType: validated.value.payoutType,
-      limit: validated.value.limit,
-      remarks: validated.value.remarks || "",
-      adminId: req.user?.id || null,
-    });
-
-    return handleResponse(res, 200, "Payout processing completed", result);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

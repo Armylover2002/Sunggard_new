@@ -5,9 +5,7 @@ import NotFoundPage from "@shared/components/NotFoundPage";
 import { useSupportUnread } from "@core/context/SupportUnreadContext";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import {
-  LayoutDashboard,
   Tag,
-  Box,
   Building2,
   Truck,
   Wallet,
@@ -16,7 +14,6 @@ import {
   CircleDollarSign,
   Users,
   HelpCircle,
-  ClipboardList,
   RotateCcw,
   Settings,
   Terminal,
@@ -28,25 +25,6 @@ import {
   LifeBuoy,
 } from "lucide-react";
 
-const Dashboard = React.lazy(() => import("../pages/Dashboard"));
-const CategoryManagement = React.lazy(
-  () => import("../pages/CategoryManagement"),
-);
-const HeaderCategories = React.lazy(
-  () => import("../pages/categories/HeaderCategories"),
-);
-const Level2Categories = React.lazy(
-  () => import("../pages/categories/Level2Categories"),
-);
-const SubCategories = React.lazy(
-  () => import("../pages/categories/SubCategories"),
-);
-const CategoryHierarchy = React.lazy(
-  () => import("../pages/categories/CategoryHierarchy"),
-);
-const ProductManagement = React.lazy(
-  () => import("../pages/ProductManagement"),
-);
 const ActiveSellers = React.lazy(() => import("../pages/ActiveSellers"));
 const PendingSellers = React.lazy(() => import("../pages/PendingSellers"));
 const SellerLocations = React.lazy(() => import("../pages/SellerLocations"));
@@ -74,8 +52,6 @@ const PorterGst = React.lazy(() => import("../pages/porter/PorterGst"));
 const PorterCashDeposits = React.lazy(
   () => import("../pages/porter/PorterCashDeposits"),
 );
-// LOCAL CITY PARCEL DISABLED — re-enable by uncommenting this import + the routes below
-// const CityParcelAdmin = React.lazy(() => import("../pages/CityParcelAdmin"));
 const DeliveryFunds = React.lazy(() => import("../pages/DeliveryFunds"));
 const AdminWallet = React.lazy(() => import("../pages/AdminWallet"));
 const WithdrawalRequests = React.lazy(
@@ -92,27 +68,11 @@ const CustomerDetail = React.lazy(() => import("../pages/CustomerDetail"));
 const UserManagement = React.lazy(() => import("../pages/UserManagement"));
 const Profile = React.lazy(() => import("@/pages/Profile"));
 const FAQManagement = React.lazy(() => import("../pages/FAQManagement"));
-const OrdersList = React.lazy(() => import("../pages/OrdersList"));
-const OrderDetail = React.lazy(() => import("../pages/OrderDetail"));
-const Returns = React.lazy(() => import("../pages/Returns"));
 const SellerDetail = React.lazy(() => import("../pages/SellerDetail"));
 const SupportTickets = React.lazy(() => import("../pages/SupportTickets"));
-const ReviewModeration = React.lazy(() => import("../pages/ReviewModeration"));
-const FleetTracking = React.lazy(() => import("../pages/FleetTracking"));
 const CouponManagement = React.lazy(() => import("../pages/CouponManagement"));
-const ContentManager = React.lazy(() => import("../pages/ContentManager"));
-const HeroCategoriesPerPage = React.lazy(() => import("../pages/HeroCategoriesPerPage"));
 const NotificationComposer = React.lazy(
   () => import("../pages/NotificationComposer"),
-);
-const OffersManagement = React.lazy(
-  () => import("../pages/OffersManagement"),
-);
-const OfferSectionsManagement = React.lazy(
-  () => import("../pages/OfferSectionsManagement"),
-);
-const ShopByStoreManagement = React.lazy(
-  () => import("../pages/ShopByStoreManagement"),
 );
 const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
 const EnvSettings = React.lazy(() => import("../pages/EnvSettings"));
@@ -120,36 +80,10 @@ const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
 
 const navItems = [
   {
-    label: "Dashboard",
-    path: "/admin",
-    icon: LayoutDashboard,
-    color: "indigo",
-    end: true,
-  },
-  {
-    label: "Categories",
-    icon: Tag,
-    color: "rose",
-    children: [
-      { label: "All Categories", path: "/admin/categories/hierarchy" },
-      { label: "Header Categories", path: "/admin/categories/header" },
-      { label: "Main Categories", path: "/admin/categories/level2" },
-      { label: "Sub-Categories", path: "/admin/categories/sub" },
-    ],
-  },
-  { label: "Products", path: "/admin/products", icon: Box, color: "amber" },
-  {
-    label: "Marketing Tools",
+    label: "Send Notifications",
+    path: "/admin/notifications",
     icon: Sparkles,
     color: "amber",
-    children: [
-      { label: "Create Sections", path: "/admin/experience-studio" },
-      { label: "Hero & categories per page", path: "/admin/hero-categories" },
-      { label: "Send Notifications", path: "/admin/notifications" },
-      { label: "Coupons & Promos", path: "/admin/coupons" },
-      { label: "Offer Sections", path: "/admin/offer-sections" },
-      { label: "Shop by Store", path: "/admin/shop-by-store" },
-    ],
   },
   {
     label: "Customer Support",
@@ -157,7 +91,6 @@ const navItems = [
     color: "emerald",
     children: [
       { label: "Help Tickets", path: "/admin/support-tickets" },
-      { label: "Review Content", path: "/admin/moderation" },
     ],
   },
   {
@@ -242,7 +175,6 @@ const navItems = [
     children: [
       { label: "Active Drivers", path: "/admin/delivery-boys/active" },
       { label: "Waiting for Review", path: "/admin/delivery-boys/pending" },
-      { label: "Track Drivers", path: "/admin/tracking" },
       { label: "Live Fleet Map", path: "/admin/delivery-boys/live-map" },
       { label: "Send Money", path: "/admin/delivery-funds" },
     ],
@@ -262,18 +194,6 @@ const navItems = [
       { label: "Revenue Reports", path: "/admin/parcels/reports" },
     ],
   },
-  // LOCAL CITY PARCEL DISABLED — sidebar entry removed along with the routes above.
-  // {
-  //   label: "City Parcel",
-  //   icon: Truck,
-  //   color: "emerald",
-  //   group: "porter",
-  //   children: [
-  //     { label: "Needs Attention", path: "/admin/city-parcels/attention" },
-  //     { label: "All Parcels", path: "/admin/city-parcels/all" },
-  //     { label: "Rate Card", path: "/admin/city-parcels/pricing" },
-  //   ],
-  // },
   {
     // Same page/route as the "Coupons & Promos" entry under Marketing Tools
     // below — that whole group is hidden while the sidebar runs porter-only
@@ -308,21 +228,6 @@ const navItems = [
   },
   { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
   { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
-  {
-    label: "Orders",
-    icon: ClipboardList,
-    color: "fuchsia",
-    children: [
-      { label: "All Orders", path: "/admin/orders/all" },
-      { label: "New Orders", path: "/admin/orders/pending" },
-      { label: "Being Prepared", path: "/admin/orders/processed" },
-      { label: "On the Way", path: "/admin/orders/out-for-delivery" },
-      { label: "Delivered", path: "/admin/orders/delivered" },
-      { label: "Cancelled", path: "/admin/orders/cancelled" },
-      { label: "Returned", path: "/admin/orders/returned" },
-      { label: "Return Requests", path: "/admin/returns" },
-    ],
-  },
   {
     label: "Fees & Charges",
     path: "/admin/billing",
@@ -370,34 +275,15 @@ const AdminRoutes = () => {
           </DashboardLayout>
         }
       >
-        {/* Quick's dashboard is currently hidden from the sidebar (see
-            Sidebar's SHOW_QUICK_TAB), so the admin's default landing page is
-            the porter desk instead. Dashboard's import and route wiring stay
-            in place — nothing here was deleted — so this is a one-line
-            revert: swap the Navigate back for `<Dashboard />`. */}
+        {/* This deployment is Porter-only; the operations desk lands on the
+            Porter dashboard instead of a QC-only landing page. */}
         <Route path="/" element={<Navigate to="/admin/porter" replace />} />
         <Route path="/users" element={<UserManagement />} />
         <Route path="/profile" element={<AdminProfile />} />
-        {/* Lazy routes for new sections */}
-        <Route
-          path="/categories"
-          element={<Navigate to="/admin/categories/header" replace />}
-        />
-        <Route path="/categories/header" element={<HeaderCategories />} />
-        <Route path="/categories/level2" element={<Level2Categories />} />
-        <Route path="/categories/sub" element={<SubCategories />} />
-        <Route path="/categories/hierarchy" element={<CategoryHierarchy />} />
-        <Route path="/products" element={<ProductManagement />} />
         <Route path="/sellers/active" element={<ActiveSellers />} />
         <Route path="/sellers/active/:id" element={<SellerDetail />} />
         <Route path="/support-tickets" element={<SupportTickets />} />
-        <Route path="/moderation" element={<ReviewModeration />} />
-        <Route path="/experience-studio" element={<ContentManager />} />
-        <Route path="/hero-categories" element={<HeroCategoriesPerPage />} />
         <Route path="/notifications" element={<NotificationComposer />} />
-        <Route path="/offers" element={<OffersManagement />} />
-        <Route path="/offer-sections" element={<OfferSectionsManagement />} />
-        <Route path="/shop-by-store" element={<ShopByStoreManagement />} />
         <Route path="/coupons" element={<CouponManagement />} />
         <Route path="/sellers/pending" element={<PendingSellers />} />
         <Route path="/seller-locations" element={<SellerLocations />} />
@@ -408,9 +294,6 @@ const AdminRoutes = () => {
         />
         <Route path="/parcels" element={<AdminParcelDashboard />} />
         <Route path="/parcels/:tab" element={<AdminParcelDashboard />} />
-        {/* LOCAL CITY PARCEL DISABLED — re-enable with the import above */}
-        {/* <Route path="/city-parcels" element={<CityParcelAdmin />} /> */}
-        {/* <Route path="/city-parcels/:tab" element={<CityParcelAdmin />} /> */}
         <Route path="/porter" element={<PorterDashboard />} />
         <Route path="/porter/banners" element={<PorterBanners />} />
         <Route path="/porter/zones" element={<DeliveryZones />} />
@@ -421,7 +304,6 @@ const AdminRoutes = () => {
         <Route path="/porter/support" element={<PorterTickets />} />
         <Route path="/porter/customers" element={<PorterCustomers />} />
         <Route path="/porter/customers/:id" element={<PorterCustomerDetail />} />
-        <Route path="/tracking" element={<FleetTracking />} />
         <Route path="/delivery-boys/live-map" element={<FleetZoneMap />} />
         <Route path="/delivery-funds" element={<DeliveryFunds />} />
         <Route path="/wallet" element={<AdminWallet />} />
@@ -431,9 +313,6 @@ const AdminRoutes = () => {
         <Route path="/customers" element={<CustomerManagement />} />
         <Route path="/customers/:id" element={<CustomerDetail />} />
         <Route path="/faqs" element={<FAQManagement />} />
-        <Route path="/orders/:status" element={<OrdersList />} />
-        <Route path="/orders/view/:orderId" element={<OrderDetail />} />
-        <Route path="/returns" element={<Returns />} />
         <Route path="/billing" element={<BillingCharges />} />
         <Route path="/settings" element={<AdminSettings />} />
         <Route path="/env" element={<EnvSettings />} />

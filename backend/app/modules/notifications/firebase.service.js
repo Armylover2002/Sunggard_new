@@ -69,7 +69,7 @@ export async function sendFCM(tokens = [], payload = {}) {
   const resolvedLink = isWebLink(link) ? link : "";
   const title = payload.title || "";
   const body = payload.body || payload.message || "";
-  const tag = data.orderId || data.eventType || "quick-commerce";
+  const tag = data.orderId || data.eventType || "notification";
   const image = resolveImageUrl(payload, data);
   const chunks = chunkArray(tokens, MAX_FCM_MULTICAST_TOKENS);
 

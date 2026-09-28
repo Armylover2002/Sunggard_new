@@ -15,7 +15,6 @@ const OTHER_RIDER_ID = new mongoose.Types.ObjectId().toString();
 const BOOKING_ID = new mongoose.Types.ObjectId().toString();
 
 const parcelFindById = jest.fn();
-const cityFindById = jest.fn();
 const createCodQr = jest.fn();
 const fetchCodQrStatus = jest.fn();
 const closeCodQr = jest.fn().mockResolvedValue(null);
@@ -23,9 +22,6 @@ const isCodQrAvailable = jest.fn().mockReturnValue(true);
 
 jest.unstable_mockModule("../app/models/parcel.js", () => ({
   default: { findById: parcelFindById },
-}));
-jest.unstable_mockModule("../app/models/cityParcel.js", () => ({
-  default: { findById: cityFindById },
 }));
 jest.unstable_mockModule("../app/services/codQrService.js", () => ({
   createCodQr,
@@ -60,18 +56,17 @@ function mockRes() {
   return res;
 }
 
-/** A COD city-parcel document as the controller mutates it. */
-const cityBooking = (overrides = {}) => ({
+/** A COD outstation-parcel document as the controller mutates it. */
+const parcelBooking = (overrides = {}) => ({
   _id: BOOKING_ID,
-  referenceId: "CP-4242",
   deliveryPartnerId: RIDER_ID,
   paymentMethod: "COD",
   paymentStatus: "PENDING",
   // Pre-pickup: the QR flow is only offered before the rider has physically
   // collected the cash — see PRE_PICKUP_STATUSES in the controller.
   status: "ACCEPTED",
-  fare: 180,
-  codCollection: { amount: 180, status: "COLLECT_PENDING" },
+  fare: 300,
+  codSettlement: { collectAmount: 300, status: "COLLECT_PENDING" },
   codOnlineQr: {},
   save: jest.fn().mockResolvedValue(true),
   ...overrides,
@@ -85,23 +80,23 @@ beforeEach(() => {
 
 describe("riderCreateCodQr", () => {
   it("mints a fixed-amount QR for the booking's COD amount", async () => {
-    const booking = cityBooking();
-    cityFindById.mockResolvedValue(booking);
+    const booking = parcelBooking();
+    parcelFindById.mockResolvedValue(booking);
     createCodQr.mockResolvedValue({
       qrId: "qr_1",
       imageUrl: "https://rzp/qr_1.png",
-      amount: 18000,
+      amount: 30000,
       closeBy: new Date(),
     });
 
     const res = mockRes();
     await riderCreateCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 
     expect(createCodQr).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 180 }),
+      expect.objectContaining({ amount: 300 }),
     );
     expect(booking.codOnlineQr.qrId).toBe("qr_1");
     expect(booking.save).toHaveBeenCalled();
@@ -109,14 +104,14 @@ describe("riderCreateCodQr", () => {
   });
 
   it("reuses a live QR instead of minting a second way to charge the same booking", async () => {
-    const booking = cityBooking({
-      codOnlineQr: { qrId: "qr_existing", imageUrl: "u", amount: 18000, paidAt: null },
+    const booking = parcelBooking({
+      codOnlineQr: { qrId: "qr_existing", imageUrl: "u", amount: 30000, paidAt: null },
     });
-    cityFindById.mockResolvedValue(booking);
+    parcelFindById.mockResolvedValue(booking);
 
     const res = mockRes();
     await riderCreateCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 
@@ -125,11 +120,11 @@ describe("riderCreateCodQr", () => {
   });
 
   it("refuses a booking assigned to someone else", async () => {
-    cityFindById.mockResolvedValue(cityBooking({ deliveryPartnerId: OTHER_RIDER_ID }));
+    parcelFindById.mockResolvedValue(parcelBooking({ deliveryPartnerId: OTHER_RIDER_ID }));
 
     const res = mockRes();
     await riderCreateCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 
@@ -138,11 +133,11 @@ describe("riderCreateCodQr", () => {
   });
 
   it("refuses a booking that is already paid", async () => {
-    cityFindById.mockResolvedValue(cityBooking({ paymentStatus: "PAID" }));
+    parcelFindById.mockResolvedValue(parcelBooking({ paymentStatus: "PAID" }));
 
     const res = mockRes();
     await riderCreateCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 
@@ -151,11 +146,11 @@ describe("riderCreateCodQr", () => {
   });
 
   it("refuses once the parcel has already been picked up", async () => {
-    cityFindById.mockResolvedValue(cityBooking({ status: "PICKED_UP" }));
+    parcelFindById.mockResolvedValue(parcelBooking({ status: "PICKED_UP" }));
 
     const res = mockRes();
     await riderCreateCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 
@@ -168,53 +163,21 @@ describe("riderCreateCodQr", () => {
 
     const res = mockRes();
     await riderCreateCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 
     expect(res.statusCode).toBe(503);
-    expect(cityFindById).not.toHaveBeenCalled();
+    expect(parcelFindById).not.toHaveBeenCalled();
   });
 });
 
 describe("riderCheckCodQr", () => {
-  it("converts a paid city booking out of COD entirely", async () => {
-    const booking = cityBooking({
-      codOnlineQr: { qrId: "qr_1", amount: 18000 },
-      codCollection: { amount: 180, status: "COLLECT_PENDING" },
-    });
-    cityFindById.mockResolvedValue(booking);
-    fetchCodQrStatus.mockResolvedValue({ paid: true, paymentId: "pay_1", amountReceived: 18000 });
-
-    const res = mockRes();
-    await riderCheckCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
-      res,
-    );
-
-    expect(booking.paymentStatus).toBe("PAID");
-    expect(booking.paymentMethod).toBe("UPI");
-    // Zeroed and NOT_APPLICABLE, so this can never appear as cash the rider
-    // is holding or owes a deposit for.
-    expect(booking.codCollection.amount).toBe(0);
-    expect(booking.codCollection.status).toBe("NOT_APPLICABLE");
-    expect(booking.save).toHaveBeenCalled();
-    expect(closeCodQr).toHaveBeenCalledWith("qr_1");
-    expect(res.body.result.paid).toBe(true);
-  });
-
   it("converts a paid outstation parcel out of COD entirely", async () => {
-    const parcel = {
-      _id: BOOKING_ID,
-      deliveryPartnerId: RIDER_ID,
-      paymentMethod: "COD",
-      paymentStatus: "PENDING",
-      status: "PICKUP_REACHED",
-      fare: 300,
-      codSettlement: { collectAmount: 300, status: "RIDER_HOLDING" },
+    const parcel = parcelBooking({
       codOnlineQr: { qrId: "qr_2", amount: 30000 },
-      save: jest.fn().mockResolvedValue(true),
-    };
+      codSettlement: { collectAmount: 300, status: "RIDER_HOLDING" },
+    });
     parcelFindById.mockResolvedValue(parcel);
     fetchCodQrStatus.mockResolvedValue({ paid: true, paymentId: "pay_2" });
 
@@ -224,19 +187,25 @@ describe("riderCheckCodQr", () => {
       res,
     );
 
+    expect(parcel.paymentStatus).toBe("PAID");
     expect(parcel.paymentMethod).toBe("UPI");
+    // Zeroed and NOT_APPLICABLE, so this can never appear as cash the rider
+    // is holding or owes a deposit for.
     expect(parcel.codSettlement.collectAmount).toBe(0);
     expect(parcel.codSettlement.status).toBe("NOT_APPLICABLE");
+    expect(parcel.save).toHaveBeenCalled();
+    expect(closeCodQr).toHaveBeenCalledWith("qr_2");
+    expect(res.body.result.paid).toBe(true);
   });
 
   it("reports still-waiting without touching the booking", async () => {
-    const booking = cityBooking({ codOnlineQr: { qrId: "qr_1", amount: 18000 } });
-    cityFindById.mockResolvedValue(booking);
+    const booking = parcelBooking({ codOnlineQr: { qrId: "qr_1", amount: 30000 } });
+    parcelFindById.mockResolvedValue(booking);
     fetchCodQrStatus.mockResolvedValue({ paid: false, amountReceived: 0 });
 
     const res = mockRes();
     await riderCheckCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 
@@ -246,16 +215,16 @@ describe("riderCheckCodQr", () => {
   });
 
   it("answers from the document once converted, without calling Razorpay again", async () => {
-    const booking = cityBooking({
+    const booking = parcelBooking({
       paymentStatus: "PAID",
       paymentMethod: "UPI",
       codOnlineQr: { qrId: "qr_1", paidAt: new Date() },
     });
-    cityFindById.mockResolvedValue(booking);
+    parcelFindById.mockResolvedValue(booking);
 
     const res = mockRes();
     await riderCheckCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 
@@ -264,15 +233,15 @@ describe("riderCheckCodQr", () => {
   });
 
   it("closes a stale QR and refuses once the rider has already picked up for cash", async () => {
-    const booking = cityBooking({
+    const booking = parcelBooking({
       status: "PICKED_UP",
-      codOnlineQr: { qrId: "qr_1", amount: 18000 },
+      codOnlineQr: { qrId: "qr_1", amount: 30000 },
     });
-    cityFindById.mockResolvedValue(booking);
+    parcelFindById.mockResolvedValue(booking);
 
     const res = mockRes();
     await riderCheckCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 
@@ -283,11 +252,11 @@ describe("riderCheckCodQr", () => {
   });
 
   it("refuses to poll a booking with no QR", async () => {
-    cityFindById.mockResolvedValue(cityBooking({ codOnlineQr: {} }));
+    parcelFindById.mockResolvedValue(parcelBooking({ codOnlineQr: {} }));
 
     const res = mockRes();
     await riderCheckCodQr(
-      { params: { kind: "city_parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
+      { params: { kind: "parcel", id: BOOKING_ID }, user: { id: RIDER_ID } },
       res,
     );
 

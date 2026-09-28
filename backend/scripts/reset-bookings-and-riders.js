@@ -4,10 +4,9 @@
  *
  * Use this script to:
  *  1. Cancel (or wipe) active City Parcel and Standard Parcel bookings.
- *  2. Unassign and cancel pending Quick-Commerce delivery jobs.
- *  3. Clear skippedBy lists so riders are not excluded from broadcasts.
- *  4. Free all riders (set isBusy: false).
- *  5. Ensure riders are online, verified, and ready to receive fresh test bookings.
+ *  2. Clear skippedBy lists so riders are not excluded from broadcasts.
+ *  3. Free all riders (set isBusy: false).
+ *  4. Ensure riders are online, verified, and ready to receive fresh test bookings.
  *
  * Usage:
  *   node scripts/reset-bookings-and-riders.js
@@ -129,18 +128,11 @@ async function main() {
   console.log(" RESET SUMMARY");
   console.log("===================================================================");
   if (options.wipe) {
-    console.log(`  City Parcels deleted:          ${result.cityParcelsDeleted}`);
-    console.log(`  City Parcel OTPs deleted:      ${result.otpsDeleted}`);
-    console.log(`  City Parcel Events deleted:    ${result.eventsDeleted}`);
     console.log(`  Standard Parcels deleted:      ${result.parcelsDeleted}`);
   } else {
-    console.log(`  City Parcels cancelled:        ${result.cityParcelsCancelled}`);
-    console.log(`  City Parcel skips cleared:     ${result.cityParcelSkipsCleared}`);
     console.log(`  Standard Parcels cancelled:    ${result.parcelsCancelled}`);
     console.log(`  Standard Parcel skips cleared: ${result.parcelSkipsCleared}`);
   }
-  console.log(`  Quick-Commerce orders freed:   ${result.ordersUnassigned}`);
-  console.log(`  Delivery assignments cancelled:${result.assignmentsCancelled}`);
   console.log(`  Booking notifications cleared: ${result.notificationsDeleted}`);
   console.log(`  Rider profiles updated:        ${result.ridersUpdated}`);
 
@@ -159,7 +151,6 @@ async function main() {
       console.log(`     - isOnline:            ${rider.isOnline}`);
       console.log(`     - isVerified:          ${rider.isVerified}`);
       console.log(`     - isParcelService:     ${rider.isParcelService}`);
-      console.log(`     - isQuickCommerce:     ${rider.isQuickCommerceService}`);
       console.log(`     - Coordinates [lng,lat]: [${rider.coordinates.join(", ")}]`);
 
       if (rider.readyForTesting) {

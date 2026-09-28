@@ -130,7 +130,7 @@ async function showSystemNotification({ title, body, data } = {}) {
   const safeTitle = String(title || "Notification");
   const safeBody = String(body || "");
   const link = data?.link || "/";
-  const tag = data?.orderId || data?.eventType || "quick-commerce";
+  const tag = data?.orderId || data?.eventType || "notification";
   const image = String(data?.image || data?.imageUrl || "").trim();
 
   // Prefer SW notifications so they land in the OS notification center consistently.

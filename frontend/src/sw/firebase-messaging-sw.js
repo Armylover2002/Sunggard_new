@@ -49,7 +49,7 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId || firebaseConfig.apiKey
     const title = notification.title || data.title || "Notification";
     const body = notification.body || data.body || "";
     const link = data.link || "/";
-    const tag = notification.tag || data.orderId || data.eventType || "quick-commerce";
+    const tag = notification.tag || data.orderId || data.eventType || "notification";
     const image = String(notification.image || data.image || data.imageUrl || "").trim();
 
     return {

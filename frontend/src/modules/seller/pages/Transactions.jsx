@@ -53,8 +53,8 @@ const Transactions = () => {
       bg: "bg-amber-50",
     },
     {
-      label: "Total Revenue",
-      value: `₹${(data?.balances?.totalRevenue || 0).toLocaleString()}`,
+      label: "Available Balance",
+      value: `₹${(data?.balances?.availableBalance ?? data?.balances?.settledBalance ?? 0).toLocaleString()}`,
       icon: HiOutlineCreditCard,
       color: "text-brand-600",
       bg: "bg-brand-50",

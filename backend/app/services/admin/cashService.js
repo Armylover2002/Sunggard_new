@@ -217,12 +217,11 @@ export async function getRiderCashDetailsData(riderId) {
     userModel: "Delivery",
     type: "Cash Collection",
   })
-    .populate("order", "orderId pricing createdAt")
     .sort({ createdAt: -1 })
     .limit(20);
 
   return transactions.map((transaction) => ({
-    id: transaction.order?.orderId || transaction.reference || "N/A",
+    id: transaction.reference || "N/A",
     amount: transaction.amount,
     time: new Date(transaction.createdAt).toLocaleTimeString("en-IN", {
       hour: "2-digit",

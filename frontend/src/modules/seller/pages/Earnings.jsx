@@ -127,8 +127,8 @@ const Earnings = () => {
           <Card className="bg-gradient-to-br from-brand-600 to-teal-700 text-white border-none shadow-lg h-full">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-brand-100 font-medium">Total Revenue</p>
-                <h3 className="text-4xl font-bold mt-2">₹{Number(data?.balances?.totalRevenue ?? 0).toLocaleString()}</h3>
+                <p className="text-brand-100 font-medium">Available Balance</p>
+                <h3 className="text-4xl font-bold mt-2">₹{Number(data?.balances?.availableBalance ?? data?.balances?.settledBalance ?? 0).toLocaleString()}</h3>
               </div>
               <div className="p-3 bg-white/20 rounded-xl">
                 <DollarSign className="h-8 w-8 text-white" />

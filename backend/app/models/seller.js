@@ -139,11 +139,6 @@ const sellerSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    /** Quick-commerce / product orders from marketplace. */
-    isQuickCommerceService: {
-      type: Boolean,
-      default: true,
-    },
     lastLogin: Date,
   },
   { timestamps: true },

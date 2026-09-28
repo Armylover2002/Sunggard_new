@@ -2,19 +2,11 @@ import customerRoute from "./customerAuth.js";
 import deliveryRoute from "./deliveryAuth.js";
 import adminRoute from "./adminAuth.js";
 import sellerRoute from "./sellerAuth.js";
-import categoryRoute from "./categoryRoutes.js";
-import productRoute from "./productRoutes.js";
-import cartRoute from "./cartRoutes.js";
-import wishlistRoute from "./wishlistRoutes.js";
-import orderRoute from "./orderRoutes.js";
 import paymentRoute from "./paymentRoutes.js";
 import notificationRoute from "./notificationRoutes.js";
 import pushRoute from "./pushRoutes.js";
 import ticketRoute from "./ticketRoutes.js";
-import reviewRoute from "./reviewRoutes.js";
 import faqRoute from "./faqRoutes.js";
-import experienceRoute from "./experienceRoutes.js";
-import offerRoute from "./offerRoutes.js";
 import couponRoute from "./couponRoutes.js";
 import settingsRoute from "./settingsRoutes.js";
 import mapsRoute from "./mapsRoutes.js";
@@ -23,8 +15,6 @@ import healthRoute from "./healthRoutes.js";
 import metricsRoute from "./metricsRoutes.js";
 import authOtpRoute from "../modules/otp/otp.routes.js";
 import parcelRoute from "./parcelRoutes.js";
-// LOCAL CITY PARCEL DISABLED — outstation (parcelRoute) is the only live parcel flow.
-// import cityParcelRoute from "./cityParcelRoutes.js";
 import porterRoute from "./porterRoutes.js";
 // CAR WASH DISABLED — re-enable by uncommenting import + mount below
 // import carWashRoute from "./carWashRoutes.js";
@@ -41,44 +31,24 @@ const setupRoutes = (app) => {
 
     router.use("/customer", customerRoute);
     router.use("/delivery", deliveryRoute);
-    // categoryRoute is mounted twice on purpose:
-    //   /admin/categories → admin category management (auth enforced inside the router)
-    //   /categories       → public category browsing (read-only handlers)
-    // Same router, two URL surfaces. Do not deduplicate without coordinated frontend changes.
-    router.use("/admin/categories", categoryRoute);
     router.use("/admin", adminRoute);
     router.use("/seller", sellerRoute);
     router.use("/settings", settingsRoute);
-    router.use("/categories", categoryRoute);
-    router.use("/products", productRoute);
-    router.use("/cart", cartRoute);
-    router.use("/wishlist", wishlistRoute);
-    router.use("/orders", orderRoute);
     router.use("/payments", paymentRoute);
     router.use("/maps", mapsRoute);
     router.use("/media", mediaRoute);
-    // experienceRoute, offerRoute, couponRoute are mounted at "/" intentionally:
-    // each of these routers declares ABSOLUTE paths internally (e.g.
-    //   router.get("/experience", ...), router.get("/offers", ...),
-    //   router.get("/admin-offers", ...), router.get("/admin/coupons", ...))
-    // Mounting them under an explicit prefix would double the path
-    // ("/offers/offers", etc.) and break every existing frontend caller.
-    // The right cleanup is to rewrite each router to use a relative prefix
-    // and update the frontend in the same PR. Until then, keep the "/" mount.
-    router.use("/", experienceRoute);
-    router.use("/", offerRoute);
+    // couponRoute is mounted at "/" intentionally: it declares ABSOLUTE
+    // paths internally (e.g. router.get("/admin/coupons", ...)). Mounting
+    // it under an explicit prefix would double the path and break every
+    // existing frontend caller.
     router.use("/", couponRoute);
     router.use("/notifications", notificationRoute);
     router.use("/auth/otp", authOtpRoute);
     router.use("/push", pushRoute);
     router.use("/tickets", ticketRoute);
-    router.use("/reviews", reviewRoute);
     router.use("/admin/faqs", faqRoute);
     router.use("/public/faqs", faqRoute); // For public access without admin prefix
     router.use("/parcel", parcelRoute);
-    // LOCAL CITY PARCEL DISABLED — re-enable by uncommenting the import above
-    // and this mount. /parcel (outstation) is unaffected either way.
-    // router.use("/city-parcel", cityParcelRoute);
     // Porter desk: parcel-side dashboard and delivery zones. Reads from both
     // parcel modules above; owns nothing they depend on.
     router.use("/porter", porterRoute);

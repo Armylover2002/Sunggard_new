@@ -209,10 +209,6 @@ const deliverySchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
-        isQuickCommerceService: {
-            type: Boolean,
-            default: true,
-        },
         location: {
             type: {
                 type: String,

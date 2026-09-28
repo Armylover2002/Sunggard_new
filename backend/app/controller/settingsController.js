@@ -3,10 +3,6 @@ import Setting from "../models/setting.js";
 import handleResponse from "../utils/helper.js";
 import { buildKey, getOrSet, getTTL, invalidate } from "../services/cacheService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
-import {
-  DEFAULT_PRODUCT_APPROVAL_CONFIG,
-  normalizeProductApprovalConfig,
-} from "../services/productModerationService.js";
 
 /** Allowed keys for settings update (strip unknown keys) */
 const ALLOWED_KEYS = [
@@ -48,8 +44,6 @@ const ALLOWED_KEYS = [
   "handlingFeeStrategy",
   "codEnabled",
   "onlineEnabled",
-  "lowStockAlertsEnabled",
-  "productApproval",
   "legalContent",
 ];
 
@@ -123,11 +117,6 @@ const updateSettingsSchema = Joi.object({
   ),
   codEnabled: Joi.boolean(),
   onlineEnabled: Joi.boolean(),
-  lowStockAlertsEnabled: Joi.boolean(),
-  productApproval: Joi.object({
-    sellerCreateRequiresApproval: Joi.boolean(),
-    sellerEditRequiresApproval: Joi.boolean(),
-  }).unknown(false),
   legalContent: Joi.object({
     customerPrivacyPolicy: Joi.string().allow("").max(100000),
     customerTerms:         Joi.string().allow("").max(100000),
@@ -156,7 +145,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval legalContent createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled legalContent createdAt",
           )
           .lean();
         return existing || null;
@@ -169,8 +158,6 @@ export const getPublicSettings = async (req, res) => {
       settings = created.toObject();
       await invalidate("cache:platform:settings:*");
     }
-
-    settings.productApproval = normalizeProductApprovalConfig(settings || {});
 
     return handleResponse(res, 200, "Settings fetched successfully", settings);
   } catch (error) {
@@ -214,7 +201,6 @@ export const updateSettings = async (req, res) => {
     if (Object.keys(toSet).length === 0) {
       const current = await Setting.findOne(filter).lean();
       const result = current || {};
-      result.productApproval = normalizeProductApprovalConfig(result);
       return handleResponse(res, 200, "Settings unchanged", result);
     }
 
@@ -226,11 +212,6 @@ export const updateSettings = async (req, res) => {
     await invalidate("cache:platform:settings:*");
 
     const result = settings?.toObject?.() || settings || {};
-    if (!result.productApproval) {
-      result.productApproval = { ...DEFAULT_PRODUCT_APPROVAL_CONFIG };
-    } else {
-      result.productApproval = normalizeProductApprovalConfig(result);
-    }
 
     return handleResponse(res, 200, "Settings updated successfully", result);
   } catch (err) {

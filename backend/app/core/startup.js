@@ -12,7 +12,6 @@ import { getProcessRole, isComponentEnabled, validateProcessRole } from './proce
 import { isRedisEnabled, getRedisClient, waitForRedis } from '../config/redis.js';
 import { useRealSMS } from '../utils/otp.js';
 import { createAllIndexes } from '../services/databaseIndexManager.js';
-import { startSearchIndexWorker } from '../services/searchSyncService.js';
 // Side-effect import: registers every Mongoose model so the boot-time
 // `assertAllModelsRegistered()` check below works regardless of which
 // controllers the process role pulls in. Audit-plan ticket P1-5.
@@ -280,15 +279,6 @@ async function startup() {
       console.error('[Startup] Warning: Failed to create indexes:', error.message);
     }
     
-    // Step 7: Start search index worker (if worker role)
-    if (isComponentEnabled('worker')) {
-      try {
-        await startSearchIndexWorker();
-      } catch (error) {
-        console.error('[Startup] Warning: Failed to start search index worker:', error.message);
-      }
-    }
-
     // Step 8: Subscribe to cache invalidation events
     if (isRedisEnabled() && isComponentEnabled('http')) {
       try {
@@ -296,18 +286,6 @@ async function startup() {
         await subscribeToInvalidations(() => {});
       } catch (error) {
         console.error('[Startup] Warning: Failed to subscribe to cache invalidations:', error.message);
-      }
-    }
-
-    // Step 9: Warm dashboard summaries
-    if (isComponentEnabled('worker') && process.env.DASHBOARD_SUMMARIES_ENABLED !== 'false') {
-      try {
-        const { refreshAllSummaries } = await import('../services/dashboardSummaryService.js');
-        refreshAllSummaries().catch(err =>
-          console.error('[Startup] Warning: Dashboard summary warm-up failed:', err.message)
-        );
-      } catch (error) {
-        console.error('[Startup] Warning: Failed to initiate dashboard warm-up:', error.message);
       }
     }
 

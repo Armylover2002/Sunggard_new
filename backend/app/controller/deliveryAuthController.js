@@ -63,7 +63,7 @@ const getUploadedFiles = (req) => {
 };
 
 const mergeSignupData = (delivery, deliveryData) => {
-    const alwaysSet = new Set(["otp", "otpExpiry", "documents", "isParcelService", "isQuickCommerceService"]);
+    const alwaysSet = new Set(["otp", "otpExpiry", "documents", "isParcelService"]);
     const identityFields = ["aadharNumber", "panNumber", "vehicleNumber", "drivingLicenseNumber"];
 
     Object.entries(deliveryData).forEach(([key, value]) => {
@@ -96,39 +96,19 @@ const mergeSignupData = (delivery, deliveryData) => {
     });
 };
 
+// Porter (parcel delivery) is the only service this app runs — every rider
+// is a parcel rider. Kept as a resolver (not a hardcoded literal at the call
+// site) so a stray `isParcelService: false` in the request body is still
+// rejected explicitly rather than silently ignored.
 const resolveServiceFlags = (body) => {
-    const serviceType = String(body?.serviceType || "").trim().toLowerCase();
-
-    if (serviceType) {
-        if (serviceType === "parcel") {
-            return { isParcelService: true, isQuickCommerceService: false };
-        }
-        if (serviceType === "quick-orders" || serviceType === "quick-commerce" || serviceType === "quick_commerce") {
-            return { isParcelService: false, isQuickCommerceService: true };
-        }
-        if (serviceType === "both") {
-            return { isParcelService: true, isQuickCommerceService: true };
-        }
-        return { error: "Invalid service type. Choose parcel, quick-orders, or both." };
-    }
-
     const hasParcel = typeof body?.isParcelService !== "undefined";
-    const hasQuickCommerce = typeof body?.isQuickCommerceService !== "undefined";
+    const isParcelService = hasParcel ? parseBool(body.isParcelService) : true;
 
-    if (hasParcel || hasQuickCommerce) {
-        const isParcelService = hasParcel ? parseBool(body.isParcelService) : false;
-        const isQuickCommerceService = hasQuickCommerce
-            ? parseBool(body.isQuickCommerceService)
-            : false;
-
-        if (!isParcelService && !isQuickCommerceService) {
-            return { error: "Select at least one service: parcel, quick orders, or both." };
-        }
-
-        return { isParcelService, isQuickCommerceService };
+    if (!isParcelService) {
+        return { error: "Parcel delivery service is required." };
     }
 
-    return { error: "Service preference is required (parcel, quick-orders, or both)." };
+    return { isParcelService: true };
 };
 
 /**
@@ -349,7 +329,6 @@ export const signupDelivery = async (req, res) => {
             experience: pickBodyString(body, ["experience"]),
             experienceDetails: pickBodyString(body, ["experienceDetails", "experience_details"]),
             isParcelService: serviceFlags.isParcelService,
-            isQuickCommerceService: serviceFlags.isQuickCommerceService,
             // A resubmission after rejection is a fresh application, not a
             // continuation of the rejected one — send it back to the queue.
             applicationStatus: "pending",
@@ -548,7 +527,6 @@ export const updateDeliveryProfile = async (req, res) => {
             experience,
             experienceDetails,
             isParcelService,
-            isQuickCommerceService,
             zoneId,
         } = req.body;
 
@@ -597,17 +575,11 @@ export const updateDeliveryProfile = async (req, res) => {
         if (typeof isParcelService !== 'undefined') {
             delivery.isParcelService = parseBool(isParcelService);
         }
-        if (typeof isQuickCommerceService !== 'undefined') {
-            delivery.isQuickCommerceService = parseBool(isQuickCommerceService);
-        }
-        if (
-            delivery.isParcelService === false &&
-            delivery.isQuickCommerceService === false
-        ) {
+        if (delivery.isParcelService === false) {
             return handleResponse(
                 res,
                 400,
-                "At least one service must remain enabled (parcel or quick orders).",
+                "Parcel service must remain enabled.",
             );
         }
 

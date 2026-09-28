@@ -29,29 +29,11 @@ import {
   registerSchedulerStopper,
 } from "./app/core/shutdown.js";
 import { registerScheduledJob, startScheduledJobs } from "./app/services/distributedScheduler.js";
-import { getOrderAutoCancelJobHandler, getOrderAutoCancelJobInterval } from "./app/jobs/orderAutoCancelJob.js";
-import { getReturnWindowReleaseJobHandler, getReturnWindowReleaseJobInterval } from "./app/jobs/returnWindowReleaseJob.js";
-import {
-  getPayoutBatchJobHandler,
-  getPayoutBatchJobInterval,
-  isPayoutBatchJobEnabled
-} from "./app/jobs/payoutBatchJob.js";
-import {
-  getWalletLedgerVerifierHandler,
-  getWalletLedgerVerifierInterval,
-  isWalletLedgerVerifierEnabled,
-} from "./app/jobs/walletLedgerVerifierJob.js";
 import {
   getFirebaseTrackingCleanupJobHandler,
   getFirebaseTrackingCleanupJobInterval,
   isFirebaseTrackingCleanupJobEnabled,
 } from "./app/jobs/firebaseTrackingCleanupJob.js";
-// LOCAL CITY PARCEL DISABLED — re-enable by uncommenting import + usage below
-// import {
-//   getCityParcelSweeperJobHandler,
-//   getCityParcelSweeperJobInterval,
-//   isCityParcelSweeperEnabled,
-// } from "./app/jobs/cityParcelSweeperJob.js";
 import {
   getAbandonedCheckoutJobHandler,
   getAbandonedCheckoutJobInterval,
@@ -216,7 +198,7 @@ function createApp() {
     res.status(200).json({
       success: true,
       error: false,
-      message: "Quick Commerce API",
+      message: "SunGguard Porter API",
       result: {
         version: "1.0.0",
         status: "running",
@@ -280,13 +262,6 @@ async function startHttpServer() {
   registerHttpServer(server);
   registerSocketIO(io);
   
-  // Optionally enable inline queue workers (not recommended for production)
-  if (process.env.ENABLE_INLINE_QUEUE_WORKER === "true") {
-    logger.warn('Inline queue worker enabled - not recommended for production');
-    const { registerOrderQueueProcessors } = await import("./app/queues/orderQueueProcessors.js");
-    registerOrderQueueProcessors();
-  }
-  
   return new Promise((resolve, reject) => {
     server.once("error", (err) => {
       if (err.code === "EADDRINUSE") {
@@ -322,8 +297,6 @@ async function startHttpServer() {
  * Start queue workers (Worker role)
  */
 async function startQueueWorkers() {
-  const { registerOrderQueueProcessors } = await import("./app/queues/orderQueueProcessors.js");
-  const { sellerTimeoutQueue, deliveryTimeoutQueue, returnPickupTimeoutQueue } = await import("./app/queues/orderQueues.js");
   const { registerNotificationQueueProcessors } = await import(
     "./app/modules/notifications/notification.worker.js"
   );
@@ -331,21 +304,14 @@ async function startQueueWorkers() {
     "./app/modules/notifications/notification.queue.js"
   );
 
-  registerOrderQueueProcessors();
   registerNotificationQueueProcessors();
 
   // Register queues for graceful shutdown
-  registerBullQueue(sellerTimeoutQueue);
-  registerBullQueue(deliveryTimeoutQueue);
-  registerBullQueue(returnPickupTimeoutQueue);
   registerBullQueue(notificationQueue);
   registerBullQueue(notificationDeadQueue);
 
   logger.info('Queue workers started', {
     queues: [
-      'seller-timeout',
-      'delivery-timeout',
-      'return-pickup-timeout',
       'notifications',
       'notifications-dead',
     ],
@@ -357,39 +323,6 @@ async function startQueueWorkers() {
  * Start scheduled jobs (Scheduler role)
  */
 async function startScheduler() {
-  // Register order auto-cancel job
-  registerScheduledJob(
-    'orderAutoCancelJob',
-    getOrderAutoCancelJobInterval(),
-    getOrderAutoCancelJobHandler()
-  );
-
-  // Register return window release job (seller payout hold release)
-  registerScheduledJob(
-    'returnWindowReleaseJob',
-    getReturnWindowReleaseJobInterval(),
-    getReturnWindowReleaseJobHandler()
-  );
-  
-  // Register payout batch job (if enabled)
-  if (isPayoutBatchJobEnabled()) {
-    registerScheduledJob(
-      'payoutBatchJob',
-      getPayoutBatchJobInterval(),
-      getPayoutBatchJobHandler()
-    );
-  }
-
-  // Phase 2 P2-9: wallet ↔ ledger drift verifier. Read-only sampling job
-  // — disabled by default and enabled per env (FINANCE_VERIFIER_ENABLED).
-  if (isWalletLedgerVerifierEnabled()) {
-    registerScheduledJob(
-      'walletLedgerVerifierJob',
-      getWalletLedgerVerifierInterval(),
-      getWalletLedgerVerifierHandler()
-    );
-  }
-
   // Firebase RTDB tracking cleanup — safety net for rider-presence nodes
   // that escape the synchronous lifecycle hooks (force-quit, network drop).
   // Per-order tracking is cleaned by hooks; this job only sweeps stale
@@ -401,15 +334,6 @@ async function startScheduler() {
       getFirebaseTrackingCleanupJobHandler()
     );
   }
-
-  // LOCAL CITY PARCEL DISABLED — only the outstation parcel flow is live.
-  // if (isCityParcelSweeperEnabled()) {
-  //   registerScheduledJob(
-  //     'cityParcelSweeperJob',
-  //     getCityParcelSweeperJobInterval(),
-  //     getCityParcelSweeperJobHandler()
-  //   );
-  // }
 
   // Bookings whose payment sheet was never completed. Listings already hide
   // them; this stops them accumulating in the collection forever.
@@ -425,12 +349,8 @@ async function startScheduler() {
   await startScheduledJobs();
   registerSchedulerStopper(stopScheduledJobs);
 
-  const scheduledJobs = ['orderAutoCancelJob', 'returnWindowReleaseJob'];
-  if (isPayoutBatchJobEnabled()) scheduledJobs.push('payoutBatchJob');
-  if (isWalletLedgerVerifierEnabled()) scheduledJobs.push('walletLedgerVerifierJob');
+  const scheduledJobs = [];
   if (isFirebaseTrackingCleanupJobEnabled()) scheduledJobs.push('firebaseTrackingCleanupJob');
-  // LOCAL CITY PARCEL DISABLED
-  // if (isCityParcelSweeperEnabled()) scheduledJobs.push('cityParcelSweeperJob');
   if (isAbandonedCheckoutJobEnabled()) scheduledJobs.push('abandonedCheckoutJob');
   logger.info('Scheduler started', {
     jobs: scheduledJobs,

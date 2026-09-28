@@ -1,4 +1,3 @@
-export * from "./admin/dashboardController.js";
 export * from "./admin/settingsController.js";
 export * from "./admin/profileController.js";
 export * from "./admin/deliveryController.js";

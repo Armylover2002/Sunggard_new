@@ -12,7 +12,7 @@ export const adminPorterApi = {
 
     /**
      * Rider earnings attributable to porter jobs only. Supports kind
-     * (parcel|city_parcel|city_parcel_return), page and limit.
+     * (parcel), page and limit.
      */
     getRiderPayouts: (params) =>
         axiosInstance.get('/porter/admin/rider-payouts', { params }),
@@ -96,7 +96,7 @@ export const adminPorterApi = {
        Not under /admin: a customer downloads the same invoice from the same
        endpoint, and the server scopes the read by role. One code path means
        the money on the invoice cannot differ depending on who printed it.
-       `kind` is 'city_parcel' | 'parcel'.
+       `kind` is 'parcel'.
        -------------------------------------------------------------------- */
     getBookingInvoice: (kind, id) =>
         axiosInstance.get(`/porter/invoice/${kind}/${id}`),

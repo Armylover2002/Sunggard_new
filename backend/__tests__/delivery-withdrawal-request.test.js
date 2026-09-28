@@ -29,9 +29,6 @@ jest.unstable_mockModule("../app/models/delivery.js", () => ({
 jest.unstable_mockModule("../app/models/transaction.js", () => ({
   default: { find: transactionFind, create: transactionCreate },
 }));
-jest.unstable_mockModule("../app/models/order.js", () => ({ default: {} }));
-jest.unstable_mockModule("../app/models/deliveryAssignment.js", () => ({ default: {} }));
-jest.unstable_mockModule("../app/models/wallet.js", () => ({ default: {} }));
 jest.unstable_mockModule("../app/models/parcel.js", () => ({ default: {} }));
 jest.unstable_mockModule("../app/models/parcelConfig.js", () => ({ default: {} }));
 jest.unstable_mockModule("../app/services/firebaseService.js", () => ({
@@ -39,9 +36,6 @@ jest.unstable_mockModule("../app/services/firebaseService.js", () => ({
   appendTrailPoint: jest.fn(),
   clearOrderTracking: jest.fn(),
   clearRiderPresence: jest.fn(),
-}));
-jest.unstable_mockModule("../app/services/orderSettlement.js", () => ({
-  applyDeliveredSettlement: jest.fn(),
 }));
 jest.unstable_mockModule("../app/services/delivery/deliveryEarningsService.js", () => ({
   getDeliveryStats: jest.fn(),

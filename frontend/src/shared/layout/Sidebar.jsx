@@ -227,88 +227,13 @@ const SidebarItem = ({ item, isOpen, onToggle }) => {
     );
 };
 
-/** Two service lines under one desk: everyday quick-commerce ops, and the
- *  porter-style parcel/courier ops. A section only needs the switch when
- *  both lines are present in its nav — most roles never see it. */
-const DeskTabs = ({ active, onChange }) => (
-    <div
-        className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1"
-        role="tablist"
-        aria-label="Desk section"
-    >
-        {[
-            { key: "quick", label: "Quick" },
-            { key: "porter", label: "Porter" },
-        ].map((tab) => (
-            <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={active === tab.key}
-                onClick={() => onChange(tab.key)}
-                className={cn(
-                    "rounded-lg py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors",
-                    active === tab.key
-                        ? "bg-white/[0.12] text-white"
-                        : "text-white/45 hover:text-white/75",
-                )}
-                style={{ fontFamily: MONO, letterSpacing: "0.08em" }}
-            >
-                {tab.label}
-            </button>
-        ))}
-    </div>
-);
-
-/**
- * The Quick/Porter switcher is temporarily disabled — the desk runs
- * porter-only for now. Nothing about the Quick nav items, their routes, or
- * the DeskTabs component below was deleted: flip this back to `true` to
- * restore the switcher exactly as it was.
- */
-const SHOW_QUICK_TAB = false;
-
-/** Does this pathname belong to a porter-grouped item, directly or via a child link? */
-const isPorterPath = (items, pathname) =>
-    items.some(
-        (item) =>
-            item.group === "porter" &&
-            (item.path === pathname || item.children?.some((child) => child.path === pathname)),
-    );
-
 const SidebarContent = ({ items, onClose, openMenu, handleToggle }) => {
     const { settings } = useSettings();
     const { user, role, logout } = useAuth();
-    const location = useLocation();
     const appName = settings?.appName || "App";
     const logoUrl = settings?.logoUrl || "";
     const [logoBroken, setLogoBroken] = useState(false);
     const showLogo = Boolean(logoUrl) && !logoBroken;
-
-    const hasPorterItems = items.some((item) => item.group === "porter");
-    const quickTabEnabled = SHOW_QUICK_TAB && hasPorterItems;
-    const [deskTab, setDeskTab] = useState(() =>
-        quickTabEnabled && !isPorterPath(items, location.pathname) ? "quick" : "porter",
-    );
-
-    // Follow the URL: landing on a Porter page (deep link, refresh) should
-    // switch the tab so the active row is actually visible in the list.
-    useEffect(() => {
-        if (!quickTabEnabled) {
-            if (deskTab !== "porter") setDeskTab("porter");
-            return;
-        }
-        if (isPorterPath(items, location.pathname)) setDeskTab("porter");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [items, location.pathname, quickTabEnabled]);
-
-    const visibleItems = hasPorterItems
-        ? items.filter((item) =>
-              quickTabEnabled
-                  ? (deskTab === "porter" ? item.group === "porter" : item.group !== "porter")
-                  : item.group === "porter",
-          )
-        : items;
 
     const isAdmin = role === "admin";
 
@@ -377,19 +302,13 @@ const SidebarContent = ({ items, onClose, openMenu, handleToggle }) => {
                 />
             </div>
 
-            {quickTabEnabled && (
-                <div className="px-5 pt-4">
-                    <DeskTabs active={deskTab} onChange={setDeskTab} />
-                </div>
-            )}
-
             <nav
                 data-lenis-prevent
                 className="custom-scrollbar-dark relative z-20 min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4"
                 style={{ WebkitOverflowScrolling: "touch" }}
             >
                 <RailCaption className="px-4 pb-3">Sections</RailCaption>
-                {visibleItems.map((item, idx) => (
+                {items.map((item, idx) => (
                     <SidebarItem
                         key={item.path || item.label || idx}
                         item={item}

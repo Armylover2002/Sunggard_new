@@ -107,7 +107,6 @@ async function seedDrivers() {
       isActive: true,
       isOnline: true,
       isParcelService: true,
-      isQuickCommerceService: false,
       lastLocationAt: new Date(),
     });
     out.push(doc);

@@ -8,9 +8,6 @@ import Joi from "joi";
  * as a silent zero; the pricing endpoint had no fallback at all and stored
  * `NaN`. A phone or a pincode was any string of any length.
  *
- * Modelled on `adminUpdateCityConfigSchema` in ./cityParcelValidation.js,
- * which is the one porter endpoint that already did this properly.
- *
  * NOTE ON `stripUnknown`: the validate() middleware strips keys a schema does
  * not declare, so every field a controller reads must be declared here or it
  * will stop being saved.

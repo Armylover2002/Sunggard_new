@@ -1,93 +1,46 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import BottomNav from './BottomNav';
 import { sellerApi } from '@/modules/seller/services/sellerApi';
 import { useAuth } from "@core/context/AuthContext";
-import { motion, AnimatePresence } from 'framer-motion';
-import { BellRing, Check, X, Clock, Truck } from 'lucide-react';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import SellerOrdersContext from '@/modules/seller/context/SellerOrdersContext';
 import SellerEarningsContext, { defaultEarnings } from '@/modules/seller/context/SellerEarningsContext';
-import { getOrderSocket, onSellerOrderNew, onReturnDropOtp, onParcelNew } from '@/core/services/orderSocket';
-import { createSocketTokenReader } from '@core/utils/authStorage';
-import { STORAGE_KEYS } from '@core/utils/storage';
-import orderAlertSound from '@/assets/sounds/order_alert.mp3';
 import { ADMIN_THEME_VARS, COUNTER } from '@shared/design/tokens';
 
 /** Counter ink for the dot grid — 5.5%, per the DepotGround recipe. */
 const DOT = 'rgba(15,23,42,0.055)';
 
-const POLL_INTERVAL_MS = 15000;
-
-function secondsLeftUntilSellerExpiry(order) {
-    if (!order) return 0;
-    const raw = order.sellerPendingExpiresAt ?? order.expiresAt;
-    if (!raw) return 60;
-    const ms = new Date(raw).getTime() - Date.now();
-    return Math.max(0, Math.ceil(ms / 1000));
-}
-
-function isSellerAlertEligible(order) {
-    if (!order?.orderId) return false;
-    const ws = String(order.workflowStatus || '').toUpperCase();
-    const status = String(order.status || '').toLowerCase();
-    const hasExpiry = Boolean(order.sellerPendingExpiresAt ?? order.expiresAt);
-
-    if (hasExpiry && secondsLeftUntilSellerExpiry(order) <= 0) return false;
-    if (ws) return ws === 'SELLER_PENDING';
-    return status === 'pending';
-}
-
 const DashboardLayout = ({ children, navItems, title }) => {
-    const [newOrderAlert, setNewOrderAlert] = useState(null);
-    const [newReturnAlert, setNewReturnAlert] = useState(null);
-    const [newParcelAlert, setNewParcelAlert] = useState(null);
-    const [timeLeft, setTimeLeft] = useState(0);
-    const acceptWindowTotalRef = useRef(60);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const { user, role } = useAuth();
+    const { role } = useAuth();
     const location = useLocation();
-    const navigate = useNavigate();
 
-    const [sellerOrders, setSellerOrders] = useState([]);
-    const [ordersLoading, setOrdersLoading] = useState(false);
     const [sellerEarningsData, setSellerEarningsData] = useState(defaultEarnings);
     const [earningsLoading, setEarningsLoading] = useState(false);
 
-    const shownOrderIdsRef = useRef(new Set());
-    const isFirstLoadRef = useRef(true);
-    const newOrderAlertRef = useRef(null);
-    const fetchOrdersRef = useRef(null);
-    const orderRingtoneRef = useRef(null);
-
-    const getOrderRingtone = () => {
-        if (!orderRingtoneRef.current) {
-            const audio = new Audio(orderAlertSound);
-            audio.loop = true;
-            audio.preload = 'auto';
-            orderRingtoneRef.current = audio;
+    const refreshEarnings = useCallback(async () => {
+        if (role !== 'seller') return;
+        try {
+            setEarningsLoading(true);
+            const res = await sellerApi.getEarnings();
+            if (res.data?.success) {
+                setSellerEarningsData(res.data.result || defaultEarnings);
+            }
+        } catch {
+            // Keep last known earnings data on failure.
+        } finally {
+            setEarningsLoading(false);
         }
-        return orderRingtoneRef.current;
-    };
+    }, [role]);
 
-    const startOrderRingtone = () => {
-        const audio = getOrderRingtone();
-        audio.play().catch(() => {});
-    };
-
-    const stopOrderRingtone = () => {
-        if (orderRingtoneRef.current) {
-            orderRingtoneRef.current.pause();
-            orderRingtoneRef.current.currentTime = 0;
+    useEffect(() => {
+        if (role === 'seller') {
+            refreshEarnings();
         }
-    };
-
-    const refreshOrders = async () => {};
-    const refreshEarnings = async () => {};
+    }, [role, refreshEarnings]);
 
     useEffect(() => {
         setIsSidebarOpen(false);
@@ -130,23 +83,15 @@ const DashboardLayout = ({ children, navItems, title }) => {
                 <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
                 
                 <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 md:px-8 md:py-8">
-                    <SellerOrdersContext.Provider
+                    <SellerEarningsContext.Provider
                         value={{
-                            orders: role === 'seller' ? sellerOrders : [],
-                            ordersLoading: role === 'seller' ? ordersLoading : false,
-                            refreshOrders,
+                            earningsData: role === 'seller' ? sellerEarningsData : defaultEarnings,
+                            earningsLoading: role === 'seller' ? earningsLoading : false,
+                            refreshEarnings,
                         }}
                     >
-                        <SellerEarningsContext.Provider
-                            value={{
-                                earningsData: role === 'seller' ? sellerEarningsData : defaultEarnings,
-                                earningsLoading: role === 'seller' ? earningsLoading : false,
-                                refreshEarnings,
-                            }}
-                        >
-                            {children}
-                        </SellerEarningsContext.Provider>
-                    </SellerOrdersContext.Provider>
+                        {children}
+                    </SellerEarningsContext.Provider>
                 </main>
             </div>
         </div>

@@ -10,9 +10,9 @@
  * continue to work unchanged — they resolve to the aggregate exported from
  * `./api/index.js`.
  *
- * New code SHOULD import the specific slice it needs:
+ * New code SHOULD import the specific slice it needs, e.g.:
  *
- *   import { adminOrdersApi } from '@modules/admin/services/api/ordersApi';
+ *   import { adminFinanceApi } from '@modules/admin/services/api/financeApi';
  */
 export { adminApi } from './api';
 export { default } from './api';

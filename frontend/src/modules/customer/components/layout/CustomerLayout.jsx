@@ -3,8 +3,6 @@ import Header from './Header';
 import Footer from './Footer';
 import BottomNav from './BottomNav';
 import DesktopNav from './DesktopNav';
-import MiniCart from '../shared/MiniCart';
-import ProductDetailSheet from '../shared/ProductDetailSheet';
 import LocationGate from '../shared/LocationGate';
 import MobileFooterMessage from './MobileFooterMessage';
 import { useProductDetail } from '../../context/ProductDetailContext';
@@ -15,7 +13,7 @@ import { onReturnPickupOtp, onReturnDropOtp } from '@core/services/orderSocket';
 import { toast } from 'sonner';
 import { ShieldCheck, Package } from 'lucide-react';
 
-const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showCart: showCartProp, showBottomNav: showBottomNavProp }) => {
+const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showBottomNav: showBottomNavProp }) => {
     const location = useLocation();
     const { isOpen: isProductDetailOpen } = useProductDetail();
     const { user, token } = useAuth();
@@ -85,49 +83,22 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     // Legal and informational pages are read end-to-end and navigated back out
     // of, so they get no bottom nav.
     const hideBottomNavRoutes = ['/checkout', '/search', '/chat', '/terms', '/privacy'];
-    const hideCartRoutes = ['/checkout', '/search', '/chat', '/parcel'];
 
     // If props are passed, use them. Otherwise, use route-based logic.
     const isParcelSearchPage = path.startsWith('/parcel/search');
 
-    /**
-     * Both City Parcel screens draw their own header — Back, title, and either
-     * Cancel or a status chip — so the layout must not add a second one.
-     */
-    const isCityParcelFlow =
-        path === '/parcel/local' || path.startsWith('/parcel/local/');
-
-    /**
-     * Only booking loses the bottom nav. It pins its own action bar to the
-     * bottom edge, and the floating nav sits at z-500 — so the Continue button
-     * rendered underneath it. Checkout is excluded for the same reason: a
-     * focused, multi-step task owns its full screen, and tapping away
-     * mid-booking loses the draft.
-     *
-     * Tracking keeps the nav. It has no bottom bar to collide with, and it is
-     * a screen people sit on and then navigate away from.
-     */
-    const isCityParcelBooking = path === '/parcel/local';
-    const isParcelPage = path === '/parcel' || path.startsWith('/parcel/');
     const showHeader = showHeaderProp !== undefined
         ? showHeaderProp
-        : (!isCityParcelFlow &&
-            !hideHeaderRoutes.includes(path) &&
+        : (!hideHeaderRoutes.includes(path) &&
             !path.startsWith('/category') &&
             !path.startsWith('/orders') &&
             // CAR WASH DISABLED — !path.startsWith('/car-wash') &&
             !path.startsWith('/parcel') &&
-            !isParcelSearchPage &&
-            !isCityParcelBooking);
+            !isParcelSearchPage);
     const showBottomNav = showBottomNavProp !== undefined
         ? showBottomNavProp
         : (!hideBottomNavRoutes.includes(path) &&
-            !isParcelSearchPage &&
-            !isCityParcelBooking);
-    const showCart = showCartProp !== undefined
-        ? showCartProp
-        : (!hideCartRoutes.includes(path) && !path.startsWith('/orders') && !isParcelPage);
-
+            !isParcelSearchPage);
     // Condition to hide the MobileFooterMessage ("India's last minute app") on specific pages
     const hideFooterMessageRoutes = ['/profile', '/profile/edit', '/profile/parcel-history'];
     const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category');
@@ -164,9 +135,6 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
                 {children}
             </main>
 
-            {/* QUICK COMMERCE DISABLED — MiniCart and ProductDetailSheet */}
-            {/* {showCart && <MiniCart />} */}
-            {/* <ProductDetailSheet /> */}
             <LocationGate />
 
             <div className="hidden md:block">

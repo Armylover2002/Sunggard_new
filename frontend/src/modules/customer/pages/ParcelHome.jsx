@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Plus, Shield, TrendingUp, ArrowRight, Package, Truck, MapPin, Clock,
+  Plus, Shield, TrendingUp, ArrowRight, MapPin, Clock,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { parcelApi } from "../services/parcelApi";
 import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storage";
@@ -18,130 +17,8 @@ import PorterBannerCarousel from "../components/porter/PorterBannerCarousel";
 const getCustomerToken = createSocketTokenReader(STORAGE_KEYS.AUTH_CUSTOMER);
 
 /**
- * The parcel home.
- *
- * LOCAL CITY PARCEL DISABLED — only the outstation flow is booked here now.
- * Re-enable by restoring the cityParcelApi import/calls, the ServiceToggle,
- * and the local-branch rendering below (see git history for this file).
+ * The parcel home — the outstation parcel flow is booked here.
  */
-
-const STATUS_TONE = {
-  REQUESTED: { tone: "idle", label: "Awaiting Pickup" },
-  SEARCHING: { tone: "warn", label: "Finding Rider" },
-  ACCEPTED: { tone: "transit", label: "Rider Assigned" },
-  RIDER_ASSIGNED: { tone: "transit", label: "On The Way" },
-  PICKUP_REACHED: { tone: "transit", label: "At Pickup" },
-  PICKED_UP: { tone: "transit", label: "In Transit" },
-  OUT_FOR_DELIVERY: { tone: "transit", label: "In Transit" },
-  DROP_REACHED: { tone: "transit", label: "At Drop" },
-  DELIVERY_FAILED: { tone: "fail", label: "Needs You" },
-  RETURN_IN_TRANSIT: { tone: "warn", label: "Coming Back" },
-  DELIVERED: { tone: "done", label: "Delivered" },
-  RETURNED: { tone: "idle", label: "Returned" },
-  CANCELLED: { tone: "idle", label: "Cancelled" },
-};
-
-/* -------------------------------------------------------------------------- */
-
-const ProgressLeg = ({ from, to, active }) => (
-  <div className="flex items-center gap-2">
-    <span
-      className={cn(
-        "h-2.5 w-2.5 shrink-0 rounded-full",
-        active ? "bg-sg-accent" : "border border-sg-line-strong",
-      )}
-    />
-    <div className="relative h-px flex-1 bg-sg-line-strong">
-      {active ? (
-        <span className="absolute inset-y-0 left-0 w-1/2 bg-sg-accent" />
-      ) : null}
-      <span
-        className={cn(
-          "absolute -top-2.5 left-1/2 grid h-5 w-5 -translate-x-1/2 place-items-center rounded-full",
-          active ? "bg-sg-accent text-sg-accent-ink" : "bg-sg-surface-2 text-sg-ink-3",
-        )}
-      >
-        {active ? <Truck className="h-3 w-3" /> : <Package className="h-3 w-3" />}
-      </span>
-    </div>
-    <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-sg-line-strong" />
-  </div>
-);
-
-const ShipmentCard = ({ parcel, onOpen }) => {
-  const meta = STATUS_TONE[parcel.status] || STATUS_TONE.REQUESTED;
-  const moving = ["PICKED_UP", "OUT_FOR_DELIVERY", "DROP_REACHED"].includes(parcel.status);
-
-  return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Label>Waybill ID</Label>
-          <Data className="mt-0.5 block text-[15px] font-semibold text-sg-ink">
-            {parcel.referenceId}
-          </Data>
-        </div>
-        <StatusChip tone={meta.tone}>{meta.label}</StatusChip>
-      </div>
-
-      <div className="mt-4">
-        <ProgressLeg active={moving} />
-        <div className="mt-2 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-[13px] font-semibold text-sg-ink">
-              {parcel.pickupAddress?.fullAddress?.split(",")[0] || "Pickup"}
-            </p>
-            <Data className="text-[10px] text-sg-ink-3">
-              {parcel.pickedUpAt
-                ? new Date(parcel.pickedUpAt).toLocaleTimeString("en-IN", {
-                    hour: "2-digit", minute: "2-digit",
-                  })
-                : "--:--"}
-            </Data>
-          </div>
-          <div className="min-w-0 text-right">
-            <p className="truncate text-[13px] text-sg-ink-2">
-              {parcel.dropAddress?.fullAddress?.split(",")[0] || "Drop"}
-            </p>
-            <Data className="text-[10px] text-sg-ink-3">
-              {parcel.deliveryEta
-                ? new Date(parcel.deliveryEta).toLocaleTimeString("en-IN", {
-                    hour: "2-digit", minute: "2-digit",
-                  })
-                : "--:--"}
-            </Data>
-          </div>
-        </div>
-      </div>
-
-      {parcel.status === "DELIVERY_FAILED" ? (
-        <div className="mt-3 rounded-[var(--sg-r)] bg-sg-fail-soft px-3 py-2.5">
-          <p className="text-[12px] font-semibold text-sg-fail">
-            We couldn't hand it to {parcel.receiver?.name || "the receiver"}
-          </p>
-          <p className="mt-0.5 text-[12px] text-sg-ink-2">
-            Tell us what to do next before it comes back to you.
-          </p>
-        </div>
-      ) : null}
-
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-sg-line pt-3">
-        <div className="flex items-center gap-1.5 text-sg-ink-3">
-          <MapPin className="h-3.5 w-3.5" />
-          <Data className="text-[11px]">{parcel.distanceKm} km</Data>
-        </div>
-        <button
-          type="button"
-          onClick={() => onOpen(parcel)}
-          className="grid h-8 w-8 place-items-center rounded-full bg-sg-surface-2 text-sg-ink transition active:scale-95"
-          aria-label={`Track ${parcel.referenceId}`}
-        >
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
-    </Card>
-  );
-};
 
 /* -------------------------------------------------------------------------- */
 
@@ -172,7 +49,6 @@ const ParcelHome = () => {
     [outstation],
   );
 
-  const isLocal = false;
   const active = activeOutstation;
 
   return (
@@ -188,9 +64,7 @@ const ParcelHome = () => {
 
         <h1 className="sg-display mt-4 text-[28px] text-sg-ink">Start a Shipment</h1>
         <p className="mt-2 text-[14px] leading-relaxed text-sg-ink-2">
-          {isLocal
-            ? "Pick up from your door and hand it to someone across the city, verified at the doorstep."
-            : "We collect from you and hand it to your courier partner for the journey out of town."}
+          We collect from you and hand it to your courier partner for the journey out of town.
         </p>
 
         <PrimaryButton
@@ -240,20 +114,8 @@ const ParcelHome = () => {
         ) : active.length === 0 ? (
           <EmptyNote
             title="No shipments moving"
-            body={
-              isLocal
-                ? "Book a local delivery and it will show up here."
-                : "Book an outstation pickup and it will show up here."
-            }
+            body="Book an outstation pickup and it will show up here."
           />
-        ) : isLocal ? (
-          active.map((parcel) => (
-            <ShipmentCard
-              key={parcel._id}
-              parcel={parcel}
-              onOpen={(p) => navigate(`/parcel/local/track/${p._id}`)}
-            />
-          ))
         ) : (
           active.map((parcel) => (
             <Card key={parcel._id} className="p-4">

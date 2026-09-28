@@ -1,6 +1,5 @@
 import Setting from "../../models/setting.js";
 import handleResponse from "../../utils/helper.js";
-import { normalizeProductApprovalConfig } from "../../services/productModerationService.js";
 
 function flattenForMongoSet(prefix, value, target) {
   if (value === undefined) return;
@@ -36,7 +35,6 @@ export const getPlatformSettings = async (req, res) => {
     }
 
     const result = settings?.toObject?.() || settings || {};
-    result.productApproval = normalizeProductApprovalConfig(result);
 
     return handleResponse(
       res,
@@ -64,7 +62,6 @@ export const updatePlatformSettings = async (req, res) => {
     );
 
     const result = settings?.toObject?.() || settings || {};
-    result.productApproval = normalizeProductApprovalConfig(result);
 
     return handleResponse(
       res,

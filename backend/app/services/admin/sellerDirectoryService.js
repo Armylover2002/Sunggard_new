@@ -1,6 +1,4 @@
 import Seller from "../../models/seller.js";
-import Order from "../../models/order.js";
-import Product from "../../models/product.js";
 import {
   computeMapBounds,
   computeMapCenter,
@@ -20,7 +18,7 @@ export async function getSellerLocationsData({
   city = "all",
   lifecycle = "all",
   mapLimit: rawMapLimit = "500",
-  sort = "orders_desc",
+  sort = "recent",
   page,
   limit,
   skip,
@@ -98,56 +96,8 @@ export async function getSellerLocationsData({
     return seller.city.toLowerCase() === normalizedCity.toLowerCase();
   });
 
-  const sellerIds = filteredByCity.map((seller) => seller._id);
-  const activeStatuses = ["pending", "confirmed", "packed", "out_for_delivery"];
-  const recentWindowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-  const ordersBySeller = sellerIds.length
-    ? await Order.aggregate([
-        { $match: { seller: { $in: sellerIds } } },
-        {
-          $group: {
-            _id: "$seller",
-            totalOrders: { $sum: 1 },
-            activeOrders: {
-              $sum: {
-                $cond: [{ $in: ["$status", activeStatuses] }, 1, 0],
-              },
-            },
-            deliveredOrders: {
-              $sum: {
-                $cond: [{ $eq: ["$status", "delivered"] }, 1, 0],
-              },
-            },
-            ordersLast24h: {
-              $sum: {
-                $cond: [{ $gte: ["$createdAt", recentWindowStart] }, 1, 0],
-              },
-            },
-            lastOrderAt: { $max: "$createdAt" },
-          },
-        },
-      ])
-    : [];
-
-  const orderMap = new Map(ordersBySeller.map((row) => [String(row._id), row]));
-
   const rows = filteredByCity.map((seller) => {
-    const orderStats = orderMap.get(String(seller._id)) || {};
-    const activeOrders = Number(orderStats.activeOrders || 0);
-    const totalOrders = Number(orderStats.totalOrders || 0);
-    const deliveredOrders = Number(orderStats.deliveredOrders || 0);
-    const ordersLast24h = Number(orderStats.ordersLast24h || 0);
     const radiusKm = normalizeRadiusKm(seller.serviceRadiusKm, 5);
-
-    let densityScore = 1;
-    if (activeOrders >= 20) {
-      densityScore = 4;
-    } else if (activeOrders >= 10) {
-      densityScore = 3;
-    } else if (activeOrders >= 5) {
-      densityScore = 2;
-    }
 
     return {
       id: seller.id,
@@ -166,12 +116,6 @@ export async function getSellerLocationsData({
       },
       serviceRadiusKm: radiusKm,
       serviceRadiusMeters: Math.round(radiusKm * 1000),
-      activeOrders,
-      totalOrders,
-      deliveredOrders,
-      ordersLast24h,
-      densityScore,
-      lastOrderAt: orderStats.lastOrderAt || null,
       approvedAt: seller.reviewedAt || null,
       createdAt: seller.createdAt || null,
     };
@@ -183,12 +127,10 @@ export async function getSellerLocationsData({
     name_desc: (a, b) => b.shopName.localeCompare(a.shopName),
     radius_desc: (a, b) => b.serviceRadiusKm - a.serviceRadiusKm,
     radius_asc: (a, b) => a.serviceRadiusKm - b.serviceRadiusKm,
-    orders_desc: (a, b) => b.activeOrders - a.activeOrders,
-    orders_asc: (a, b) => a.activeOrders - b.activeOrders,
     city_asc: (a, b) => a.city.localeCompare(b.city),
     city_desc: (a, b) => b.city.localeCompare(a.city),
   };
-  const sortedRows = [...rows].sort(sorters[normalizedSort] || sorters.orders_desc);
+  const sortedRows = [...rows].sort(sorters[normalizedSort] || sorters.recent);
 
   const total = sortedRows.length;
   const pagedItems = sortedRows.slice(skip, skip + limit);
@@ -220,11 +162,6 @@ export async function getSellerLocationsData({
   const radiusValues = rows
     .filter((row) => row.hasValidLocation)
     .map((row) => row.serviceRadiusKm);
-  const totalActiveOrders = rows.reduce((accumulator, row) => accumulator + row.activeOrders, 0);
-  const totalDeliveredOrders = rows.reduce(
-    (accumulator, row) => accumulator + row.deliveredOrders,
-    0,
-  );
 
   return {
     items: pagedItems,
@@ -238,8 +175,6 @@ export async function getSellerLocationsData({
       mappedSellers: mappedCount,
       unmappedSellers: Math.max(0, rows.length - mappedCount),
       citiesCovered: new Set(rows.map((row) => row.city).filter(Boolean)).size,
-      totalActiveOrders,
-      totalDeliveredOrders,
       averageRadiusKm: radiusValues.length
         ? Number(
             (
@@ -306,103 +241,7 @@ export async function getActiveSellersData({
       .lean(),
   ]);
 
-  const sellerIds = sellers.map((seller) => seller._id);
-  const allActiveSellerIds = allActiveSellers.map((seller) => seller._id);
-
-  const [ordersBySeller, productsBySeller, overallOrderStats] = await Promise.all([
-    sellerIds.length
-      ? Order.aggregate([
-          { $match: { seller: { $in: sellerIds } } },
-          {
-            $group: {
-              _id: "$seller",
-              totalOrders: { $sum: 1 },
-              deliveredOrders: {
-                $sum: {
-                  $cond: [{ $eq: ["$status", "delivered"] }, 1, 0],
-                },
-              },
-              pendingOrders: {
-                $sum: {
-                  $cond: [
-                    {
-                      $in: [
-                        "$status",
-                        ["pending", "confirmed", "packed", "out_for_delivery"],
-                      ],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-              totalRevenue: {
-                $sum: {
-                  $cond: [
-                    { $eq: ["$status", "delivered"] },
-                    { $ifNull: ["$pricing.total", 0] },
-                    0,
-                  ],
-                },
-              },
-              lastOrderAt: { $max: "$createdAt" },
-            },
-          },
-        ])
-      : Promise.resolve([]),
-    sellerIds.length
-      ? Product.aggregate([
-          { $match: { sellerId: { $in: sellerIds } } },
-          {
-            $group: {
-              _id: "$sellerId",
-              productCount: { $sum: 1 },
-              activeProductCount: {
-                $sum: {
-                  $cond: [{ $eq: ["$status", "active"] }, 1, 0],
-                },
-              },
-            },
-          },
-        ])
-      : Promise.resolve([]),
-    allActiveSellerIds.length
-      ? Order.aggregate([
-          { $match: { seller: { $in: allActiveSellerIds } } },
-          {
-            $group: {
-              _id: null,
-              totalOrders: { $sum: 1 },
-              totalRevenue: {
-                $sum: {
-                  $cond: [
-                    { $eq: ["$status", "delivered"] },
-                    { $ifNull: ["$pricing.total", 0] },
-                    0,
-                  ],
-                },
-              },
-            },
-          },
-        ])
-      : Promise.resolve([]),
-  ]);
-
-  const orderMap = new Map(ordersBySeller.map((row) => [String(row._id), row]));
-  const productMap = new Map(productsBySeller.map((row) => [String(row._id), row]));
-
   const enrichedSellers = sellers.map((seller) => {
-    const orderStats = orderMap.get(String(seller._id)) || {};
-    const productStats = productMap.get(String(seller._id)) || {};
-    const totalOrders = Number(orderStats.totalOrders || 0);
-    const deliveredOrders = Number(orderStats.deliveredOrders || 0);
-    const pendingOrders = Number(orderStats.pendingOrders || 0);
-    const totalRevenue = Number(orderStats.totalRevenue || 0);
-    const activeProductCount = Number(productStats.activeProductCount || 0);
-    const productCount = Number(productStats.productCount || 0);
-    const fulfillmentRate = totalOrders
-      ? Math.round((deliveredOrders / totalOrders) * 100)
-      : 0;
     const joinedAt = seller.reviewedAt || seller.createdAt || new Date();
 
     return {
@@ -421,22 +260,6 @@ export async function getActiveSellersData({
         month: "short",
         year: "numeric",
       }),
-      lastOrderAt: orderStats.lastOrderAt || null,
-      lastOrderLabel: orderStats.lastOrderAt
-        ? new Date(orderStats.lastOrderAt).toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })
-        : "No orders yet",
-      totalOrders,
-      deliveredOrders,
-      pendingOrders,
-      totalRevenue,
-      avgOrderValue: totalOrders ? totalRevenue / totalOrders : 0,
-      fulfillmentRate,
-      productCount,
-      activeProductCount,
       serviceRadius: Number(seller.serviceRadius || 5),
       location: getSellerDisplayLocation(seller),
       city: seller.address || "Location not set",
@@ -456,8 +279,6 @@ export async function getActiveSellersData({
   const total = filteredSortedSellers.length;
   const pagedItems = filteredSortedSellers.slice(skip, skip + limit);
 
-  const totalRevenue = overallOrderStats[0]?.totalRevenue || 0;
-  const totalOrders = overallOrderStats[0]?.totalOrders || 0;
   const newThisMonth = allActiveSellers.filter((seller) => {
     const createdAt = seller.createdAt ? new Date(seller.createdAt) : null;
     if (!createdAt) {
@@ -469,10 +290,6 @@ export async function getActiveSellersData({
     monthStart.setDate(1);
     return createdAt >= monthStart;
   }).length;
-
-  const highVolume = filteredSortedSellers.filter(
-    (seller) => seller.totalOrders >= 100 || seller.totalRevenue >= 100000,
-  ).length;
 
   const uniqueCategories = [
     ...new Set(
@@ -491,12 +308,7 @@ export async function getActiveSellersData({
     totalPages: Math.ceil(total / limit) || 1,
     stats: {
       totalActiveSellers: totalActiveCount,
-      totalOrders,
-      totalRevenue,
       newThisMonth,
-      highVolume,
-      averageRevenuePerSeller: totalActiveCount ? totalRevenue / totalActiveCount : 0,
-      averageOrdersPerSeller: totalActiveCount ? totalOrders / totalActiveCount : 0,
     },
     filters: {
       categories: uniqueCategories,

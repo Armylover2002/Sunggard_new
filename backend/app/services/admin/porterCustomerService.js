@@ -1,26 +1,18 @@
 import mongoose from "mongoose";
 import Customer from "../../models/customer.js";
 import Parcel from "../../models/parcel.js";
-import CityParcel from "../../models/cityParcel.js";
 import { escapeRegex } from "../../utils/regex.js";
-import {
-  visibleCityParcels,
-  visibleParcels,
-} from "../bookingCheckoutService.js";
+import { visibleParcels } from "../bookingCheckoutService.js";
 
 /**
  * Admin "Porter Customers" desk.
  *
- * Porter bookings live in two separate collections — the pickup-service flow
- * (`models/parcel.js`) and the point-to-point city flow (`models/cityParcel.js`)
- * — that deliberately share no state (see porterDashboardController.js). This
- * service is the one place their per-customer numbers get added together.
- *
- * The listing is anchored on the bookings, not on the customer table: it
- * starts from Parcel/CityParcel (both indexed on customerId), groups by
- * customer, and only then looks up the customer profile. That keeps the
- * query cheap regardless of how many millions of shoppers never touched
- * Porter — this desk only ever fans out over people who actually booked.
+ * Porter bookings live in `models/parcel.js` (the pickup-service flow). The
+ * listing is anchored on the bookings, not on the customer table: it starts
+ * from Parcel (indexed on customerId), groups by customer, and only then
+ * looks up the customer profile. That keeps the query cheap regardless of
+ * how many millions of shoppers never touched Porter — this desk only ever
+ * fans out over people who actually booked.
  */
 
 /** A booking is finished, one way or another; only DELIVERED counts as money actually earned. */
@@ -36,30 +28,17 @@ const SORT_FIELDS = {
   joinedDate: "customer.createdAt",
 };
 
-const cityParcelCollection = () => CityParcel.collection.name;
-
 /**
- * Both halves of the union skip bookings whose payment sheet never closed.
+ * Skips bookings whose payment sheet never closed.
  *
  * Those rows are written before the customer pays, so counting them made
  * this desk claim bookings that do not exist — a customer who opened the
  * pay screen twice and walked away read as "2 total bookings", with a last
- * booking date, next to a lifetime spend of zero. The two collections need
- * separate predicates because they open a gateway sheet for different
- * payment methods.
+ * booking date, next to a lifetime spend of zero.
  */
 const bookingUnionPipeline = (extraMatch = {}) => [
   { $match: visibleParcels(extraMatch) },
   { $project: { customerId: 1, fare: 1, status: 1, createdAt: 1 } },
-  {
-    $unionWith: {
-      coll: cityParcelCollection(),
-      pipeline: [
-        { $match: visibleCityParcels(extraMatch) },
-        { $project: { customerId: 1, fare: 1, status: 1, createdAt: 1 } },
-      ],
-    },
-  },
 ];
 
 export async function getPorterCustomersData({
@@ -205,7 +184,7 @@ export async function getPorterCustomerByIdData(id) {
   if (!mongoose.Types.ObjectId.isValid(id)) return null;
   const customerObjectId = new mongoose.Types.ObjectId(id);
 
-  const [customer, statsAgg, recentPickup, recentCity] = await Promise.all([
+  const [customer, statsAgg, recentPickup] = await Promise.all([
     Customer.findOne({ _id: id, role: "user" })
       .select("name email phone avatar isActive isVerified addresses createdAt lastLogin")
       .lean(),
@@ -228,13 +207,6 @@ export async function getPorterCustomerByIdData(id) {
       .limit(RECENT_BOOKINGS_LIMIT)
       .select("status fare paymentMethod paymentStatus pickupAddress dropAddress createdAt")
       .lean(),
-    CityParcel.find(visibleCityParcels({ customerId: id }))
-      .sort({ createdAt: -1 })
-      .limit(RECENT_BOOKINGS_LIMIT)
-      .select(
-        "referenceId status fare paymentMethod paymentStatus pickupAddress dropAddress receiver createdAt deliveredAt cancelledAt",
-      )
-      .lean(),
   ]);
 
   if (!customer) return null;
@@ -243,10 +215,8 @@ export async function getPorterCustomerByIdData(id) {
   const deliveredBookings = stats.deliveredBookings || 0;
   const totalSpent = round2(stats.totalSpent || 0);
 
-  const recentBookings = [
-    ...recentPickup.map((doc) => toBookingRow(doc, "pickup")),
-    ...recentCity.map((doc) => toBookingRow(doc, "city")),
-  ]
+  const recentBookings = recentPickup
+    .map((doc) => toBookingRow(doc, "pickup"))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, RECENT_BOOKINGS_LIMIT);
 

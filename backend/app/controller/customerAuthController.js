@@ -244,7 +244,6 @@ export const getCustomerTransactions = async (req, res) => {
             Transaction.find({ user: customerId, userModel: "User" })
                 .sort({ createdAt: -1 })
                 .limit(100)
-                .populate("order", "orderId")
                 .lean(),
         ]);
 
@@ -273,7 +272,7 @@ export const getCustomerTransactions = async (req, res) => {
                 amount: Math.abs(Number(t.amount) || 0),
                 date: t.createdAt,
                 reference: t.reference || "",
-                orderId: t.order?.orderId || null,
+                orderId: null,
                 source: "legacy",
             };
         });

@@ -32,7 +32,6 @@ const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 const formatServiceTypes = (rider) => {
     const services = [];
     if (rider.isParcelService) services.push("Parcel");
-    if (rider.isQuickCommerceService) services.push("Quick Orders");
     // CAR WASH DISABLED
     // if (rider.isCarWashService) services.push("Car Wash");
     return services.length ? services.join(" · ") : "Not specified";
@@ -106,10 +105,8 @@ const mapDeliveryPartner = (r) => ({
     zoneCity: r.zoneIds?.[0]?.city || '',
     // CAR WASH DISABLED — isCarWashService: r.isCarWashService,
     isParcelService: r.isParcelService,
-    isQuickCommerceService: r.isQuickCommerceService !== false,
     serviceLabel: formatServiceTypes({
         isParcelService: r.isParcelService,
-        isQuickCommerceService: r.isQuickCommerceService !== false,
         // CAR WASH DISABLED — isCarWashService: r.isCarWashService,
     }),
 });
@@ -421,9 +418,6 @@ return (
                                                         <Badge variant="info" className="text-[8px] font-black uppercase px-1.5 py-0.5">Washer</Badge>
                                                     )}
                                                     */}
-                                                    {rider.isQuickCommerceService && (
-                                                        <Badge variant="warning" className="text-[8px] font-black uppercase px-1.5 py-0.5">Quick Orders</Badge>
-                                                    )}
                                                     {rider.isParcelService && (
                                                         <Badge variant="primary" className="text-[8px] font-black uppercase px-1.5 py-0.5">Parcel</Badge>
                                                     )}
@@ -555,9 +549,6 @@ return (
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Services Selected</p>
                                     <p className="text-xs font-bold text-slate-700">{viewingRider.serviceLabel}</p>
                                     <div className="flex flex-wrap gap-1.5 mt-2">
-                                        {viewingRider.isQuickCommerceService && (
-                                            <Badge variant="warning" className="text-[9px] font-black uppercase">Quick Orders</Badge>
-                                        )}
                                         {viewingRider.isParcelService && (
                                             <Badge variant="primary" className="text-[9px] font-black uppercase">Parcel Delivery</Badge>
                                         )}

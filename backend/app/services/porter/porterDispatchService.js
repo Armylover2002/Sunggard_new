@@ -1,14 +1,11 @@
 import Admin from "../../models/admin.js";
-import { startBroadcast } from "../cityParcelWorkflowService.js";
 import { startParcelBroadcast } from "../parcelWorkflowService.js";
 import {
   emitToAdmins,
   emitToCustomer,
   emitParcelNewToNearbySellers,
 } from "../orderSocketEmitter.js";
-import { recordEvent } from "../cityParcelStateMachine.js";
 import { recordParcelEvent, PARCEL_EVENT_ACTOR } from "../parcelEventService.js";
-import { CITY_PARCEL_STATUS as S, CITY_PARCEL_EVENT_ACTOR } from "../../constants/cityParcelWorkflow.js";
 import { emitNotificationEvent } from "../../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../../modules/notifications/notification.constants.js";
 import { PORTER_BOOKING_KIND } from "../../constants/porterPayment.js";
@@ -30,22 +27,6 @@ import logger from "../logger.js";
  * both land for the same payment, milliseconds apart, and neither can know
  * which of them got there first.
  */
-
-/** Local delivery: start looking for a rider inside the booking's zone. */
-async function activateCityParcel(booking) {
-  await recordEvent({
-    cityParcelId: booking._id,
-    status: S.REQUESTED,
-    previousStatus: S.REQUESTED,
-    actor: CITY_PARCEL_EVENT_ACTOR.SYSTEM,
-    note: "Payment confirmed",
-  }).catch(() => {
-    /* the timeline is a record, not a gate */
-  });
-
-  const { parcel } = await startBroadcast(booking._id);
-  return parcel || booking;
-}
 
 /** Outstation parcel: tell the admins and the hubs, then start the search. */
 async function activateOutstationParcel(booking) {
@@ -93,16 +74,8 @@ async function activateOutstationParcel(booking) {
 export async function activatePorterBookingAfterPayment(booking) {
   if (!booking) return null;
 
-  // `referenceId` only exists on a City Parcel, and is the cheapest reliable
-  // way to tell the two documents apart without the caller passing a kind.
-  const kind = booking.referenceId
-    ? PORTER_BOOKING_KIND.CITY_PARCEL
-    : PORTER_BOOKING_KIND.PARCEL;
-
-  const activated =
-    kind === PORTER_BOOKING_KIND.CITY_PARCEL
-      ? await activateCityParcel(booking)
-      : await activateOutstationParcel(booking);
+  const kind = PORTER_BOOKING_KIND.PARCEL;
+  const activated = await activateOutstationParcel(booking);
 
   emitToCustomer(String(booking.customerId), "porter:payment:confirmed", {
     kind,

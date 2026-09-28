@@ -7,13 +7,8 @@ import DeliveryAuth from "../pages/DeliveryAuth";
 // CAR WASH DISABLED
 // import CarWashPartnerAuth from "../pages/CarWashPartnerAuth";
 import Dashboard from "../pages/Dashboard";
-import OrderDetails from "../pages/OrderDetails";
-import Navigation from "../pages/Navigation";
-import DeliveryConfirmation from "../pages/DeliveryConfirmation";
 import EarningsPage from "../pages/EarningsPage";
-import CodCash from "../pages/CodCash";
 import PorterCash from "../pages/PorterCash";
-import OrderHistory from "../pages/OrderHistory";
 import Profile from "../pages/Profile";
 import PersonalDetails from "../pages/profile/PersonalDetails";
 import VehicleInfo from "../pages/profile/VehicleInfo";
@@ -27,9 +22,6 @@ import Withdrawals from "../pages/profile/Withdrawals";
 import Wallet from "../pages/profile/Wallet";
 import Notifications from "../pages/Notifications";
 import ParcelTaskPage from "../pages/ParcelTaskPage";
-// LOCAL CITY PARCEL DISABLED — re-enable by uncommenting these imports + routes below
-// import CityParcelTaskPage from "../pages/CityParcelTaskPage";
-// import CityParcelJobs from "../pages/CityParcelJobs";
 import NotFoundPage from "@shared/components/NotFoundPage";
 // Legal / informational pages for delivery partners
 import DeliveryPrivacyPage from "../pages/DeliveryPrivacyPage";
@@ -50,14 +42,9 @@ const DeliveryRoutes = () => {
         {/* CAR WASH DISABLED */}
         {/* <Route path="car-wash-auth" element={<CarWashPartnerAuth />} /> */}
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="order-details/:orderId" element={<OrderDetails />} />
-        <Route path="navigation" element={<Navigation />} />
-        <Route path="confirm-delivery/:orderId" element={<DeliveryConfirmation />} />
         <Route path="earnings" element={<EarningsPage />} />
-        <Route path="cod-cash" element={<CodCash />} />
         {/* Parcel COD cash the rider holds, and the deposit-for-approval flow. */}
         <Route path="porter-cash" element={<PorterCash />} />
-        <Route path="history" element={<OrderHistory />} />
         <Route path="profile" element={<Profile />} />
         <Route path="profile/personal-details" element={<PersonalDetails />} />
         <Route path="profile/vehicle-info" element={<VehicleInfo />} />
@@ -75,9 +62,6 @@ const DeliveryRoutes = () => {
         <Route path="profile/about" element={<DeliveryAboutPage />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="parcel-task/:parcelId" element={<ParcelTaskPage />} />
-        {/* LOCAL CITY PARCEL DISABLED — re-enable with the imports above */}
-        {/* <Route path="city-parcel-jobs" element={<CityParcelJobs />} /> */}
-        {/* <Route path="city-parcel/:cityParcelId" element={<CityParcelTaskPage />} /> */}
         <Route path="/" element={<Navigate to="dashboard" replace />} />
       </Route>
       <Route path="*" element={<NotFoundPage homePath="/delivery/dashboard" />} />

@@ -170,10 +170,7 @@ export async function recordPorterPaymentCaptured(payment) {
       method: payment.instrument?.method || "",
       gatewayPaymentId: payment.gatewayPaymentId || "",
       gstAmount: payment.taxSnapshot?.gstAmount || 0,
-      note:
-        payment.bookingKind === "city_parcel"
-          ? "Local delivery booking"
-          : "Outstation parcel booking",
+      note: "Outstation parcel booking",
       at: payment.capturedAt || new Date(),
     }),
     recordPorterLedgerEntry({
@@ -215,7 +212,7 @@ export async function recordPorterCodCollected({
   const rupees = round2(amount);
   if (!customerId || !(rupees > 0)) return;
 
-  const reference = `PORTER-COD-${bookingKind === "city_parcel" ? "CTY" : "PCL"}-${String(bookingId)}`;
+  const reference = `PORTER-COD-PCL-${String(bookingId)}`;
 
   await Promise.all([
     pushCustomerTransaction(customerId, {

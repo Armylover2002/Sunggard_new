@@ -28,24 +28,7 @@ const localDedupeStore = new Map();
 let listenerRegistered = false;
 
 function dedupeKeyForNotification(eventType, notification, payload = {}) {
-  // City parcel statuses mostly share a handful of generic event types
-  // (e.g. SEARCHING/ACCEPTED/PICKED_UP/CANCELLED all resolve to
-  // CITY_PARCEL_STATUS_UPDATE), so the fallback below — which only keys on
-  // eventType/role/recipient — would treat the second status change to the
-  // same parcel as a duplicate of the first and silently drop it. Keying on
-  // the parcel + status instead keeps each lifecycle step distinct.
-  if (payload.cityParcelId) {
-    return [
-      "notify",
-      String(eventType || "UNKNOWN"),
-      String(notification?.role || "unknown"),
-      String(notification?.userId || "unknown"),
-      String(payload.cityParcelId),
-      String(payload.data?.status || notification?.data?.status || ""),
-    ].join(":");
-  }
-
-  // Same reasoning as cityParcelId above: an outstation parcel's PARCEL_STATUS_UPDATE
+  // An outstation parcel's PARCEL_STATUS_UPDATE
   // fires once per lifecycle step (ACCEPTED, RIDER_ASSIGNED, PICKUP_REACHED,
   // PICKED_UP...), all under the same eventType. Without status in the key, only
   // the first status change ever got a key claim; every later one this parcel
@@ -117,31 +100,20 @@ async function claimDedupeKey(key, ttlSeconds) {
   return true;
 }
 
+// "Order updates" -> booking/customer-facing parcel status updates.
 function isOrderUpdateEvent(eventType) {
   return [
-    NOTIFICATION_EVENTS.ORDER_PLACED,
-    NOTIFICATION_EVENTS.PAYMENT_SUCCESS,
-    NOTIFICATION_EVENTS.ORDER_CONFIRMED,
-    NOTIFICATION_EVENTS.ORDER_PACKED,
-    NOTIFICATION_EVENTS.OUT_FOR_DELIVERY,
-    NOTIFICATION_EVENTS.ORDER_DELIVERED,
-    NOTIFICATION_EVENTS.ORDER_CANCELLED,
-    NOTIFICATION_EVENTS.REFUND_INITIATED,
-    NOTIFICATION_EVENTS.REFUND_COMPLETED,
-    NOTIFICATION_EVENTS.NEW_ORDER,
-    NOTIFICATION_EVENTS.RETURN_REQUESTED,
-    NOTIFICATION_EVENTS.RETURN_APPROVED,
-    NOTIFICATION_EVENTS.RETURN_REJECTED,
-    NOTIFICATION_EVENTS.RETURN_COMPLETED,
+    NOTIFICATION_EVENTS.PARCEL_REQUESTED,
+    NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
+    NOTIFICATION_EVENTS.PARCEL_DELIVERED,
   ].includes(eventType);
 }
 
+// "Delivery updates" -> rider-facing job offers/assignments.
 function isDeliveryUpdateEvent(eventType) {
   return [
-    NOTIFICATION_EVENTS.DELIVERY_ASSIGNED,
-    NOTIFICATION_EVENTS.ORDER_READY,
-    NOTIFICATION_EVENTS.RETURN_PICKUP_ASSIGNED,
-    NOTIFICATION_EVENTS.RETURN_PICKUP_OTP,
+    NOTIFICATION_EVENTS.NEW_PARCEL_BROADCAST,
+    NOTIFICATION_EVENTS.PARCEL_ASSIGNED,
   ].includes(eventType);
 }
 

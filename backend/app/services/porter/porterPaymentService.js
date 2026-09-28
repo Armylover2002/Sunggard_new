@@ -1,6 +1,5 @@
 
 import PorterPayment from "../../models/porterPayment.js";
-import CityParcel from "../../models/cityParcel.js";
 import Parcel from "../../models/parcel.js";
 import {
   PORTER_BOOKING_KIND,
@@ -49,12 +48,6 @@ import logger from "../logger.js";
    ========================================================================== */
 
 const BOOKINGS = {
-  [PORTER_BOOKING_KIND.CITY_PARCEL]: {
-    model: CityParcel,
-    label: "Local delivery",
-    /** Waybill the customer would recognise. */
-    reference: (doc) => doc.referenceId || `CP-${String(doc._id).slice(-6).toUpperCase()}`,
-  },
   [PORTER_BOOKING_KIND.PARCEL]: {
     model: Parcel,
     label: "Outstation parcel",
@@ -86,29 +79,6 @@ const toPaise = (rupees) => Math.round((Number(rupees) || 0) * 100);
  * actually charged, not what the current config would charge.
  */
 function buildBookingSnapshot(kind, booking) {
-  if (kind === PORTER_BOOKING_KIND.CITY_PARCEL) {
-    return {
-      kind,
-      referenceId: booking.referenceId,
-      pickup: booking.pickupAddress,
-      drop: booking.dropAddress,
-      sender: booking.sender,
-      receiver: {
-        name: booking.receiver?.name,
-        // Never snapshot the receiver's full number: this document is read by
-        // reporting and invoice code, and the receiver never consented to
-        // having their number copied around the system.
-        phoneLast4: String(booking.receiver?.phone || "").replace(/\D/g, "").slice(-4),
-      },
-      package: booking.package,
-      distanceKm: booking.distanceKm,
-      deliverySpeed: booking.deliverySpeed,
-      zoneId: booking.zoneId ? String(booking.zoneId) : null,
-      deliveryEta: booking.deliveryEta,
-      bookedAt: booking.createdAt,
-    };
-  }
-
   return {
     kind,
     pickup: booking.pickupAddress,
@@ -256,7 +226,7 @@ export function absorbGatewayEntity(payment, entity) {
  * characters, hence the truncation rather than a longer, prettier string.
  */
 function buildMerchantReference(kind, bookingId, attempt) {
-  const prefix = kind === PORTER_BOOKING_KIND.CITY_PARCEL ? "CTY" : "PCL";
+  const prefix = "PCL";
   const suffix = `A${Math.max(1, Number(attempt) || 1)}`;
   return `PTR-${prefix}-${String(bookingId).slice(-12)}-${suffix}`.slice(0, 40);
 }

@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, ShoppingCart, Heart, User, Menu, MapPin } from 'lucide-react';
+import { Search, User, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useWishlist } from '../../context/WishlistContext';
-import { useCart } from '../../context/CartContext';
 import { useLocation as useAppLocation } from "../../context/LocationContext";
 import { useSettings } from '@core/context/SettingsContext';
 
 const Header = () => {
     const { settings } = useSettings();
-    const { count: wishlistCount } = useWishlist();
-    const { cartCount } = useCart();
     const location = useLocation();
     const isCheckoutPage = location.pathname === '/checkout';
     const { currentLocation, openLocationPicker, isFetchingLocation } = useAppLocation();
@@ -153,26 +149,6 @@ const Header = () => {
 
                     {/* Desktop Right Icons */}
                     <div className="hidden md:flex items-center gap-4">
-                        {/* QUICK COMMERCE DISABLED — Wishlist & Cart
-                        <Link to="/wishlist" className="relative flex items-center justify-center p-2 hover:bg-slate-50 rounded-full transition-colors group">
-                            <Heart className="h-6 w-6 text-slate-600 group-hover:text-[var(--primary)] transition-colors" />
-                            {wishlistCount > 0 && (
-                                <span className="absolute top-0 right-0 h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm animate-in zoom-in duration-300">
-                                    {wishlistCount}
-                                </span>
-                            )}
-                        </Link>
-
-                        <Link to="/checkout" id="header-cart-icon" className="relative flex items-center justify-center p-2 hover:bg-slate-50 rounded-full transition-colors group">
-                            <ShoppingCart className="h-6 w-6 text-slate-600 group-hover:text-[var(--primary)] transition-colors" />
-                            {cartCount > 0 && (
-                                <span className="absolute top-0 right-0 h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm animate-in zoom-in duration-300">
-                                    {cartCount}
-                                </span>
-                            )}
-                        </Link>
-                        */}
-
                         <Link to="/profile" className="flex items-center justify-center p-2 hover:bg-slate-100 rounded-full transition-colors">
                             <User className="h-6 w-6 text-slate-600 hover:text-[var(--primary)] transition-colors" />
                         </Link>

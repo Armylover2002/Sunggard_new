@@ -10,7 +10,6 @@ const getCashPayoutDestination = jest.fn();
 const updateCashPayoutDestination = jest.fn();
 
 jest.unstable_mockModule("../app/models/parcel.js", () => ({ default: {} }));
-jest.unstable_mockModule("../app/models/cityParcel.js", () => ({ default: {} }));
 jest.unstable_mockModule("../app/services/riderCashService.js", () => ({
   getRiderCodSummary: jest.fn(),
   createCashDeposit: jest.fn(),

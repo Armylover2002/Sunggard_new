@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import handleResponse from "../utils/helper.js";
 import getPagination from "../utils/pagination.js";
 import Parcel from "../models/parcel.js";
-import CityParcel from "../models/cityParcel.js";
 import {
   getRiderCodSummary,
   createCashDeposit,
@@ -44,7 +43,6 @@ import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.const
  */
 const PRE_PICKUP_STATUSES = {
   parcel: new Set(["ACCEPTED", "RIDER_ASSIGNED", "PICKUP_REACHED"]),
-  city_parcel: new Set(["REQUESTED", "SEARCHING", "ACCEPTED", "RIDER_ASSIGNED", "PICKUP_REACHED"]),
 };
 
 /* ==========================================================================
@@ -113,13 +111,11 @@ export const riderListCashDeposits = async (req, res) => {
 /** Loads the booking either flow, with the fields this controller needs. */
 async function loadBooking(kind, id) {
   if (!mongoose.Types.ObjectId.isValid(id)) return null;
-  if (kind === "city_parcel") return CityParcel.findById(id);
   if (kind === "parcel") return Parcel.findById(id);
   return null;
 }
 
-const codStateFor = (kind, booking) =>
-  kind === "city_parcel" ? booking.codCollection : booking.codSettlement;
+const codStateFor = (kind, booking) => booking.codSettlement;
 
 /** The rider must own the job before they can collect against it. */
 function assertRiderOwnsBooking(booking, riderId) {
@@ -246,19 +242,11 @@ export const riderCheckCodQr = async (req, res) => {
     booking.codOnlineQr.paidAt = new Date();
     booking.codOnlineQr.paymentId = status.paymentId || null;
 
-    if (kind === "city_parcel") {
-      booking.codCollection = {
-        ...(booking.codCollection?.toObject?.() || booking.codCollection || {}),
-        amount: 0,
-        status: "NOT_APPLICABLE",
-      };
-    } else {
-      booking.codSettlement = {
-        ...(booking.codSettlement?.toObject?.() || booking.codSettlement || {}),
-        collectAmount: 0,
-        status: "NOT_APPLICABLE",
-      };
-    }
+    booking.codSettlement = {
+      ...(booking.codSettlement?.toObject?.() || booking.codSettlement || {}),
+      collectAmount: 0,
+      status: "NOT_APPLICABLE",
+    };
 
     await booking.save();
     await closeCodQr(qrId);

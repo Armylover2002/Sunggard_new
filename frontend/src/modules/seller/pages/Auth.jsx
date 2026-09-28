@@ -25,7 +25,6 @@ import {
   Eye,
   EyeOff,
   Package,
-  ShoppingBag as ShoppingBagIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import Lottie from "lottie-react";
@@ -49,13 +48,9 @@ const REQUIRED_DOCUMENT_CONFIG = [
   { id: "idProof", label: "ID Proof" },
 ];
 
+// Seller is Porter (parcel hub) only — Quick Commerce signup was removed
+// with the backend QC domain.
 const SELLER_SERVICE_TYPES = [
-  {
-    value: "quick-orders",
-    label: "Quick Orders",
-    description: "Sell products & manage store orders",
-    icon: ShoppingBagIcon,
-  },
   {
     value: "parcel",
     label: "Parcel Service",

@@ -1,47 +1,9 @@
 import express from "express";
 import {
-  createPaymentOrder,
-  verifyCheckoutPayment,
-  verifyPaymentStatus,
   handleGatewayWebhook,
 } from "../controller/paymentController.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
-import { paymentRouteRateLimiter } from "../middleware/securityMiddlewares.js";
 
 const paymentRoute = express.Router();
-
-/**
- * Open a gateway order for a CheckoutGroupId or OrderId.
- * Auth: Required (customer paying for their own order)
- */
-paymentRoute.post(
-  "/create-order",
-  verifyToken,
-  paymentRouteRateLimiter,
-  createPaymentOrder,
-);
-
-/**
- * Verify the signed receipt checkout returned to the browser.
- * Auth: Required — the receipt is checked against the caller's own payment.
- */
-paymentRoute.post(
-  "/verify",
-  verifyToken,
-  paymentRouteRateLimiter,
-  verifyCheckoutPayment,
-);
-
-/**
- * Poll the gateway for a payment's real status.
- * Auth: Required
- */
-paymentRoute.get(
-  "/status/:id",
-  verifyToken,
-  paymentRouteRateLimiter,
-  verifyPaymentStatus,
-);
 
 /**
  * Razorpay server-to-server webhook.

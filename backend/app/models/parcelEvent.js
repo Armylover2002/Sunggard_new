@@ -27,9 +27,8 @@ export const PARCEL_EVENT_ACTORS = Object.values(PARCEL_EVENT_ACTOR);
  * The pickup-service parcel model carries only a live `status` field with no
  * memory of what it was before or when it changed — a customer or admin
  * could see "PICKED_UP" but never when it was accepted, when the rider
- * showed up, or who cancelled it. This mirrors `models/cityParcelEvent.js`,
- * the equivalent already built for the local-delivery flow, so both porter
- * products answer "what happened to this booking, and when" the same way.
+ * showed up, or who cancelled it. This gives it an append-only timeline so
+ * the booking can answer "what happened, and when".
  *
  * Written as a side effect of every status change (see
  * services/parcelEventService.js), never updated or deleted afterward.

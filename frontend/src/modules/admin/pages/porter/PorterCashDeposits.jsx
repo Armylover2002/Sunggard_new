@@ -128,7 +128,7 @@ const PorterCashDeposits = () => {
       toast.success(
         review.approve
           ? `Cleared ${rupees(review.deposit.amount)} across ${
-              (result.parcelsRemitted || 0) + (result.cityParcelsRemitted || 0)
+              result.parcelsRemitted || 0
             } bookings`
           : "Deposit rejected",
       );

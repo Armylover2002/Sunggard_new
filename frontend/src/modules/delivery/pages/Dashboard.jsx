@@ -9,15 +9,6 @@ import {
   XCircle,
   IndianRupee,
   AlertCircle,
-  Camera,
-  ShieldCheck,
-  CheckCircle2,
-  Lock,
-  LogOut,
-  RefreshCw,
-  Clock,
-  Store,
-  Phone,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,44 +21,19 @@ import { useAuth } from "@core/context/AuthContext";
 import { deliveryApi } from "../services/deliveryApi";
 import CashLimitBanner from "../components/CashLimitBanner";
 import { parcelApi } from "../../customer/services/parcelApi";
-import { unwrap, unwrapList } from "@core/api/unwrap";
-import {
-  getOrderSocket,
-  onOrderStatusUpdate,
-} from "@core/services/orderSocket";
-import { createSocketTokenReader } from "@core/utils/authStorage";
-import { STORAGE_KEYS } from "@core/utils/storage";
-
-const getDeliveryToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
-
-// LOCAL CITY PARCEL DISABLED — flip to true (and restore fetchCityParcels /
-// the city-parcel socket listeners below) to bring the flow back.
-const LOCAL_CITY_PARCEL_ENABLED = false;
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth();
   const [isOnline, setIsOnline] = useState(user?.isOnline || false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [activeTab, setActiveTab] = useState(
-    user?.isParcelService ? "delivery" : "delivery",
-    // CAR WASH DISABLED — previously: user?.isCarWashService ? "car-wash" : "delivery"
-  ); // 'delivery', 'return', 'parcel'
-  const [availableOrders, setAvailableOrders] = useState([]);
-  const [assignedStoreOrder, setAssignedStoreOrder] = useState(null);
   const [assignedParcel, setAssignedParcel] = useState(null);
-  // LOCAL CITY PARCEL DISABLED — always null/empty now (fetchCityParcels is a
-  // no-op below), kept only so the dead render blocks further down still
-  // type-check; re-enable by restoring the setter from git history.
-  const [assignedCityParcel] = useState(null);
-  const [openCityJobs, setOpenCityJobs] = useState([]);
   const [earnings, setEarnings] = useState({
     today: 0,
     deliveries: 0,
     incentives: 0,
     cashCollected: 0,
   });
-  const assignedOrderRequestRef = useRef({ inFlight: false, lastFetchedAt: 0 });
   const assignedParcelRequestRef = useRef({
     inFlight: false,
     lastFetchedAt: 0,
@@ -83,13 +49,6 @@ const Dashboard = () => {
     [user?._id, user?.id],
   );
 
-  const formatPhone = (phone) => {
-    if (!phone) return "N/A";
-    const digits = String(phone).replace(/\D/g, "");
-    if (digits.length === 10) return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
-    return phone;
-  };
-
   // Sync isOnline with user profile from context
   useEffect(() => {
     if (user) {
@@ -101,7 +60,6 @@ const Dashboard = () => {
     try {
       const response = await deliveryApi.getStats();
       if (response.data.success) {
-        console.log("Stats Fetched:", response.data.result);
         setEarnings((prev) => ({
           ...prev,
           ...response.data.result,
@@ -122,47 +80,6 @@ const Dashboard = () => {
       console.error("Failed to fetch notifications");
     }
   };
-
-  const fetchAvailableOrders = async () => {
-    if (user?.isBusy) {
-      setAvailableOrders([]);
-      return;
-    }
-    try {
-      const response = await deliveryApi.getAvailableOrders(
-        { type: activeTab },
-        { ttl: 20000 },
-      );
-      if (response.data.success) {
-        const orders = response.data.results || response.data.result || [];
-        setAvailableOrders(orders);
-      }
-    } catch (error) {
-      console.error("Failed to fetch available orders:", error);
-    }
-  };
-
-  const fetchAssignedOrder = useCallback(async (force = false) => {
-    const now = Date.now();
-    if (!force && now - assignedOrderRequestRef.current.lastFetchedAt < 30000)
-      return;
-    if (assignedOrderRequestRef.current.inFlight) return;
-    assignedOrderRequestRef.current.inFlight = true;
-    try {
-      const res = await deliveryApi.getAssignedOrder({
-        ttl: 30000,
-        forceRefresh: force,
-      });
-      if (!res.data?.success) return;
-      const order = res.data.result || null;
-      setAssignedStoreOrder(order);
-    } catch {
-      setAssignedStoreOrder(null);
-    } finally {
-      assignedOrderRequestRef.current.inFlight = false;
-      assignedOrderRequestRef.current.lastFetchedAt = Date.now();
-    }
-  }, []);
 
   const fetchAssignedParcel = useCallback(async (force = false) => {
     const now = Date.now();
@@ -189,60 +106,17 @@ const Dashboard = () => {
     }
   }, []);
 
-  // LOCAL CITY PARCEL DISABLED — no-op stub keeps state empty and skips the
-  // network calls entirely (assignedCityParcel/openCityJobs stay at their
-  // initial empty values, so the render blocks below never show).
-  // Re-enable by restoring the body from git history.
-  const fetchCityParcels = useCallback(async () => {}, []);
-
-  /**
-   * LOCAL CITY PARCEL DISABLED — the onCityParcelBroadcast/Retract/Assigned
-   * listeners are removed; only the outstation order-status listener remains.
-   * Re-enable by restoring the three listeners from git history.
-   */
-  useEffect(() => {
-    if (!isOnline) return undefined;
-    const getToken = getDeliveryToken;
-    getOrderSocket(getToken);
-
-    const offOrderStatus = onOrderStatusUpdate(getToken, () => {
-      fetchAssignedOrder(true);
-      refreshUser();
-    });
-
-    return () => {
-      offOrderStatus();
-    };
-  }, [isOnline, fetchAssignedOrder, refreshUser]);
-
   useEffect(() => {
     fetchStats();
     fetchNotifications();
   }, []);
 
   useEffect(() => {
-    if (isOnline && activeTab === "delivery") {
-      fetchAssignedOrder();
+    if (isOnline) {
       fetchAssignedParcel();
-      fetchCityParcels();
     }
-    if (isOnline && !user?.isBusy) {
-      fetchAvailableOrders();
-    } else if (user?.isBusy) {
-      setAvailableOrders([]);
-      setOpenCityJobs([]);
-      fetchAssignedOrder(true);
-    }
-    // Layout already polls available for offer modals; this only fills the dashboard list.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid user-object churn
-  }, [
-    isOnline,
-    activeTab,
-    user?.isBusy,
-    fetchAssignedOrder,
-    fetchAssignedParcel,
-    fetchCityParcels,
-  ]);
+  }, [isOnline, fetchAssignedParcel]);
 
   const handleOnlineToggle = async () => {
     const newStatus = !isOnline;
@@ -251,27 +125,12 @@ const Dashboard = () => {
       await refreshUser(); // Refresh global auth state
       setIsOnline(newStatus);
       if (newStatus) {
-        toast.success("You are now ONLINE. Finding orders...");
+        toast.success("You are now ONLINE. Finding parcel jobs...");
       } else {
-        toast.info("You are now OFFLINE. No new orders.");
+        toast.info("You are now OFFLINE. No new jobs.");
       }
     } catch (error) {
       toast.error("Failed to update status");
-    }
-  };
-
-  const handleAcceptReturn = async (orderId) => {
-    try {
-      const response = await deliveryApi.acceptReturnPickup(orderId);
-      if (response.data.success) {
-        toast.success("Return pickup accepted!");
-        await refreshUser();
-        fetchAvailableOrders();
-        // Option: navigate to details
-        navigate(`/delivery/order-details/${orderId}`);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to accept return");
     }
   };
 
@@ -343,7 +202,7 @@ const Dashboard = () => {
                   "text-[11px] font-bold uppercase tracking-wider",
                   isOnline ? "text-emerald-600" : "text-rose-600",
                 )}>
-                {isOnline ? "Receiving Orders" : "Currently Offline"}
+                {isOnline ? "Receiving Jobs" : "Currently Offline"}
               </span>
             </div>
           </div>
@@ -411,221 +270,11 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="px-6 mb-2">
-        <div className="bg-gray-100 p-1.5 rounded-2xl flex gap-1 border border-gray-200">
-          <button
-            onClick={() => setActiveTab("delivery")}
-            className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-center text-xs font-black transition-all duration-300 uppercase tracking-widest",
-              activeTab === "delivery"
-                ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50",
-            )}>
-            Deliveries
-          </button>
-          <button
-            onClick={() => setActiveTab("return")}
-            className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-center text-xs font-black transition-all duration-300 uppercase tracking-widest",
-              activeTab === "return"
-                ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50",
-            )}>
-            Returns
-          </button>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="px-6 space-y-6">
-        {/* Active Store Order */}
-        {assignedStoreOrder && (
-          <Card className="bg-brand-50/60 border border-brand-200 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-brand-700">
-                    Active Store Order
-                  </span>
-                  <span className="inline-flex rounded-full bg-brand-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-brand-800">
-                    {String(
-                      assignedStoreOrder.workflowStatus ||
-                        assignedStoreOrder.status ||
-                        "Assigned",
-                    ).replace(/_/g, " ")}
-                  </span>
-                </div>
-                <p className="text-sm font-bold text-slate-900 font-mono mt-0.5">
-                  #{assignedStoreOrder.orderId}
-                </p>
-                <div className="mt-2 space-y-1 text-xs text-slate-600">
-                  <div className="flex items-center gap-1.5">
-                    <Store size={12} className="text-slate-400 shrink-0" />
-                    <span className="font-semibold text-slate-800 truncate">
-                      {assignedStoreOrder.seller?.shopName ||
-                        assignedStoreOrder.seller?.name ||
-                        "Store"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MapPin size={12} className="text-slate-400 shrink-0" />
-                    <span className="text-slate-500 truncate">
-                      {assignedStoreOrder.address?.address ||
-                        assignedStoreOrder.address?.city ||
-                        "Delivery Location"}
-                    </span>
-                  </div>
-                </div>
-                {String(
-                  assignedStoreOrder.payment?.method ||
-                    assignedStoreOrder.paymentMode ||
-                    "",
-                ).toUpperCase() === "CASH" ||
-                String(
-                  assignedStoreOrder.payment?.method ||
-                    assignedStoreOrder.paymentMode ||
-                    "",
-                ).toUpperCase() === "COD" ? (
-                  <p className="text-xs font-black text-amber-700 mt-2">
-                    Collect ₹
-                    {Number(
-                      assignedStoreOrder.pricing?.total ||
-                        assignedStoreOrder.paymentBreakdown?.grandTotal ||
-                        0,
-                    ).toFixed(2)}{" "}
-                    on delivery
-                  </p>
-                ) : (
-                  <p className="text-[11px] font-semibold text-emerald-600 mt-2">
-                    Paid Online
-                  </p>
-                )}
-              </div>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() =>
-                  navigate(
-                    `/delivery/order-details/${assignedStoreOrder.orderId || assignedStoreOrder._id}`,
-                  )
-                }
-                className="h-9 px-3 text-[11px] font-black uppercase tracking-wider shrink-0">
-                Open
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {/* LOCAL CITY PARCEL DISABLED — assignedCityParcel/openCityJobs stay
-            empty forever (fetchCityParcels is a no-op above), so these blocks
-            never rendered anyway; kept behind `false` for clarity. Re-enable
-            by restoring the condition from git history. */}
-        {LOCAL_CITY_PARCEL_ENABLED && assignedCityParcel && (
-          <Card className="bg-emerald-50/60 border border-emerald-100 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                  Active City Delivery
-                </p>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                    Active City Delivery
-                  </p>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                    📦 Deliver to Receiver
-                  </span>
-                </div>
-                <p className="text-sm font-bold text-slate-900 font-mono">
-                  {assignedCityParcel.referenceId}
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Status: {String(assignedCityParcel.status).replace(/_/g, " ")}
-                </p>
-                {String(assignedCityParcel.paymentMethod).toUpperCase() ===
-                  "COD" && !assignedCityParcel.pickedUpAt ? (
-                  <p className="text-xs font-black text-amber-700 mt-1.5">
-                    Collect ₹
-                    {Number(
-                      assignedCityParcel.codCollection?.amount || 0,
-                    ).toFixed(2)}{" "}
-                    at pickup
-                  </p>
-                ) : null}
-              </div>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() =>
-                  navigate(`/delivery/city-parcel/${assignedCityParcel._id}`)
-                }
-                className="h-9 px-3 text-[11px] font-black uppercase tracking-wider">
-                Open
-              </Button>
-            </div>
-          </Card>
-        )}
-
         {/* A cash-limit block would otherwise look identical to a quiet
-            afternoon: the feed comes back empty either way. Re-checked
-            whenever the job list changes, so it clears as soon as an
-            approved deposit lets jobs through again. */}
-        {isOnline && (
-          <CashLimitBanner refreshKey={openCityJobs.length} className="mb-3" />
-        )}
-        {LOCAL_CITY_PARCEL_ENABLED && !assignedCityParcel && openCityJobs.length === 0 && isOnline && (
-          <button
-            type="button"
-            onClick={() => navigate("/delivery/city-parcel-jobs")}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-              City Deliveries
-            </p>
-            <p className="text-sm font-bold text-slate-900">Browse open jobs</p>
-          </button>
-        )}
-
-        {LOCAL_CITY_PARCEL_ENABLED && !assignedCityParcel && openCityJobs.length > 0 && (
-          <Card className="bg-white border border-emerald-100 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                City Deliveries Nearby
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate("/delivery/city-parcel-jobs")}
-                className="text-[11px] font-black uppercase tracking-wider text-slate-500 underline underline-offset-2">
-                See all
-              </button>
-            </div>
-            <div className="mt-3 space-y-2">
-              {openCityJobs.slice(0, 3).map((job) => (
-                <div
-                  key={job._id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-slate-900">
-                      {job.pickupAddress?.fullAddress?.split(",")[0] ||
-                        "Pickup"}{" "}
-                      → {job.dropAddress?.fullAddress?.split(",")[0] || "Drop"}
-                    </p>
-                    <p className="text-[11px] text-slate-500 font-mono">
-                      {job.distanceKm} km · earn ₹
-                      {Number(job.riderEarning || 0).toFixed(0)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => navigate(`/delivery/city-parcel/${job._id}`)}
-                    className="h-8 shrink-0 px-3 text-[11px] font-black uppercase tracking-wider">
-                    View
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
+            afternoon: the feed comes back empty either way. */}
+        {isOnline && <CashLimitBanner className="mb-3" />}
 
         {assignedParcel && (
           <Card className="bg-brand-50/50 border border-brand-100 shadow-sm">
@@ -731,7 +380,7 @@ const Dashboard = () => {
               <div className="flex justify-center mb-2 text-brand-600 bg-brand-50 group-hover:bg-brand-100 transition-colors w-10 h-10 rounded-full items-center mx-auto">
                 <Package size={18} />
               </div>
-              <p className="ds-caption mb-0.5">Orders</p>
+              <p className="ds-caption mb-0.5">Deliveries</p>
               <p className="font-bold text-gray-900">{earnings.deliveries}</p>
             </div>
             <div className="text-center border-l border-r border-gray-50 group cursor-pointer">
@@ -745,15 +394,15 @@ const Dashboard = () => {
               className="text-center group cursor-pointer"
               role="button"
               tabIndex={0}
-              onClick={() => navigate("/delivery/cod-cash")}
+              onClick={() => navigate("/delivery/porter-cash")}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ")
-                  navigate("/delivery/cod-cash");
+                  navigate("/delivery/porter-cash");
               }}>
               <div className="flex justify-center mb-2 text-brand-600 bg-brand-50 group-hover:bg-brand-100 transition-colors w-10 h-10 rounded-full items-center mx-auto">
                 <IndianRupee size={18} />
               </div>
-              <p className="ds-caption mb-0.5">COD Cash</p>
+              <p className="ds-caption mb-0.5">Cash in Hand</p>
               <p className="font-bold text-gray-900">
                 ₹{earnings.cashCollected}
               </p>
@@ -761,7 +410,7 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        {/* Active Order / Status */}
+        {/* Job status */}
         <AnimatePresence mode="wait">
           {!isOnline ? (
             <motion.div
@@ -775,180 +424,32 @@ const Dashboard = () => {
               </div>
               <h3 className="ds-h3 mb-2">You are Offline</h3>
               <p className="text-sm text-gray-500 max-w-[250px] mx-auto">
-                Go online to start receiving delivery requests and earning
-                money.
+                Go online to start receiving parcel jobs and earning money.
               </p>
             </motion.div>
-          ) : activeTab === "delivery" ? (
-            assignedStoreOrder ? (
-              <motion.div
-                key="active-store-job"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-6 border-2 border-brand-200 shadow-md shadow-brand-500/5 text-center">
-                <div className="flex justify-center mb-3">
-                  <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center">
-                    <Package className="text-brand-600" size={24} />
-                  </div>
-                </div>
-                <h3 className="ds-h3 text-gray-900 mb-1">
-                  Active Store Order in Progress
-                </h3>
-                <p className="text-xs text-gray-500 font-mono mb-2">
-                  #{assignedStoreOrder.orderId}
-                </p>
-                <p className="text-sm text-gray-600 leading-relaxed px-2 mb-4">
-                  You have an active store order delivery in progress. Complete
-                  or continue this order to receive new assignments.
-                </p>
-                <Button
-                  variant="primary"
-                  className="w-full h-11 font-black text-xs uppercase tracking-wider shadow-md shadow-primary/20"
-                  onClick={() =>
-                    navigate(
-                      `/delivery/order-details/${assignedStoreOrder.orderId || assignedStoreOrder._id}`,
-                    )
-                  }>
-                  Continue Delivery
-                </Button>
-              </motion.div>
-            ) : availableOrders.length > 0 ? (
-              <motion.div
-                key="waiting"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-6 border-2 border-primary/25 shadow-md shadow-primary/5 text-center">
-                <div className="flex justify-center mb-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Package className="text-primary" size={24} />
-                  </div>
-                </div>
-                <h3 className="ds-h3 text-gray-900 mb-1">
-                  {availableOrders.length === 1
-                    ? "1 order waiting"
-                    : `${availableOrders.length} orders waiting`}
-                </h3>
-                <p className="text-sm text-gray-600 leading-relaxed px-1">
-                  A fullscreen alert will open with <strong>Accept</strong> and{" "}
-                  <strong>Reject</strong>. Use that to respond before the timer
-                  ends.
-                </p>
-                <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                  <span className="w-2 h-2 bg-brand-500 rounded-full animate-pulse" />
-                  Listening for assignments
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="searching"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="bg-white rounded-2xl p-8 text-center border-2 border-dashed border-gray-200 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-tr from-brand-50/50 to-purple-50/50 opacity-50"></div>
-                <div className="relative z-10">
-                  <div className="relative w-24 h-24 mx-auto mb-6">
-                    <div className="absolute inset-0 bg-brand-100 rounded-full animate-ping opacity-20"></div>
-                    <div className="absolute inset-2 bg-brand-100 rounded-full animate-ping opacity-40 delay-150"></div>
-                    <div className="relative w-full h-full bg-brand-50 rounded-full flex items-center justify-center border border-brand-100 shadow-sm">
-                      <MapPin size={36} className="text-brand-600" />
-                    </div>
-                  </div>
-                  <h3 className="ds-h3 mb-2 text-gray-800">
-                    Finding Orders Nearby...
-                  </h3>
-                  <p className="text-sm text-gray-500 max-w-[220px] mx-auto mb-6">
-                    We're looking for delivery requests in your area. Stay
-                    online!
-                  </p>
-                </div>
-              </motion.div>
-            )
-          ) : activeTab === "return" ? (
+          ) : !assignedParcel ? (
             <motion.div
-              key="returns-list"
+              key="searching"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-4">
-              <div className="flex justify-between items-center mb-1">
-                <h3 className="text-sm font-bold text-gray-800 tracking-tight">
-                  Available Return Pickups
-                </h3>
-                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase italic">
-                  Open for Acceptance
-                </span>
-              </div>
-              {availableOrders.length > 0 ? (
-                availableOrders.map((order) => (
-                  <Card
-                    key={order._id}
-                    className="p-4 border-2 border-primary/5 hover:border-primary/20 transition-all shadow-sm">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-1 block">
-                          Return Task
-                        </span>
-                        <h4 className="font-bold text-gray-900">
-                          #{order.orderId}
-                        </h4>
-                      </div>
-                      <div className="text-right">
-                        <span className="block font-black text-brand-600 text-lg">
-                          ₹{order.returnDeliveryCommission || 0}
-                        </span>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                          Commission
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 mb-5">
-                      <div className="flex items-center text-xs text-gray-600">
-                        <MapPin size={12} className="mr-2 text-gray-400" />
-                        <span className="truncate">
-                          {order.seller?.shopName || "Store"}
-                        </span>
-                      </div>
-                      <div className="flex items-center text-[11px] text-gray-500 font-medium">
-                        <Package size={12} className="mr-2 text-gray-400" />
-                        <span>Pickup from Customer & Return to Store</span>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        className="flex-1 font-black text-[10px] tracking-widest uppercase h-10 shadow-lg shadow-primary/20"
-                        onClick={() => handleAcceptReturn(order.orderId)}>
-                        Accept Pickup
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:bg-gray-100 h-10"
-                        onClick={() =>
-                          navigate(`/delivery/order-details/${order.orderId}`)
-                        }>
-                        View
-                      </Button>
-                    </div>
-                  </Card>
-                ))
-              ) : (
-                <div className="bg-white rounded-2xl p-10 text-center border-2 border-dashed border-gray-100 flex flex-col items-center">
-                  <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100 opacity-60">
-                    <Package size={20} className="text-gray-400" />
+              className="bg-white rounded-2xl p-8 text-center border-2 border-dashed border-gray-200 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-tr from-brand-50/50 to-purple-50/50 opacity-50"></div>
+              <div className="relative z-10">
+                <div className="relative w-24 h-24 mx-auto mb-6">
+                  <div className="absolute inset-0 bg-brand-100 rounded-full animate-ping opacity-20"></div>
+                  <div className="absolute inset-2 bg-brand-100 rounded-full animate-ping opacity-40 delay-150"></div>
+                  <div className="relative w-full h-full bg-brand-50 rounded-full flex items-center justify-center border border-brand-100 shadow-sm">
+                    <MapPin size={36} className="text-brand-600" />
                   </div>
-                  <h4 className="text-sm font-bold text-gray-800 mb-1">
-                    No returns nearby
-                  </h4>
-                  <p className="text-[11px] text-gray-400">
-                    Keep checking back for new return tasks.
-                  </p>
                 </div>
-              )}
+                <h3 className="ds-h3 mb-2 text-gray-800">
+                  Searching for Parcel Jobs...
+                </h3>
+                <p className="text-sm text-gray-500 max-w-[220px] mx-auto mb-6">
+                  We're looking for parcel jobs in your area. Stay online!
+                </p>
+              </div>
             </motion.div>
           ) : null}
         </AnimatePresence>

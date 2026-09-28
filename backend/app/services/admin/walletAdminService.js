@@ -1,13 +1,13 @@
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
-import { getAdminFinanceSummary, getOrCreateWallet } from "../finance/walletService.js";
+import { getOrCreateWallet } from "../finance/walletService.js";
 import { getLedgerEntries } from "../finance/ledgerService.js";
 import { OWNER_TYPE } from "../../constants/finance.js";
 import { addMoney, roundCurrency } from "../../utils/money.js";
 import { buildKey, invalidate } from "../cacheService.js";
 
 export async function getAdminWalletOverview({ page, limit }) {
-  const stats = await getAdminFinanceSummary();
+  const adminWallet = await getOrCreateWallet(OWNER_TYPE.ADMIN, null);
   const ledger = await getLedgerEntries({ page, limit });
   const transactionItems = ledger.items.map((entry) => ({
     id: entry.transactionId || entry.reference || String(entry._id),
@@ -30,12 +30,10 @@ export async function getAdminWalletOverview({ page, limit }) {
 
   return {
     stats: {
-      totalPlatformEarning: stats.totalPlatformEarning,
-      totalAdminEarning: stats.totalAdminEarning,
-      availableBalance: stats.availableBalance,
-      sellerPendingPayouts: stats.sellerPendingPayouts,
-      deliveryPendingPayouts: stats.deliveryPendingPayouts,
-      systemFloat: stats.systemFloatCOD,
+      availableBalance: roundCurrency(adminWallet.availableBalance || 0),
+      totalCredited: roundCurrency(adminWallet.totalCredited || 0),
+      totalDebited: roundCurrency(adminWallet.totalDebited || 0),
+      systemFloat: roundCurrency(adminWallet.cashInHand || 0),
     },
     transactions: {
       items: transactionItems,
@@ -93,14 +91,6 @@ export async function getSellerTransactionsData({ page, limit, skip }) {
   const query = { userModel: "Seller" };
   const transactions = await Transaction.find(query)
     .populate("user", "name shopName phone bankDetails")
-    .populate({
-      path: "order",
-      select: "orderId pricing",
-      populate: {
-        path: "items.product",
-        select: "name",
-      },
-    })
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)

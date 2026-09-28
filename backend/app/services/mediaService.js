@@ -187,7 +187,7 @@ function buildObjectKey({ entityType, resourceType, userId, extension }) {
   const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 20);
   const resourceFolder = resourceType === "document" ? "docs" : "images";
-  return `quick-commerce/${folder}/${resourceFolder}/${day}/${userId}-${suffix}.${extension}`;
+  return `uploads/${folder}/${resourceFolder}/${day}/${userId}-${suffix}.${extension}`;
 }
 
 function buildIntentId() {
@@ -196,7 +196,7 @@ function buildIntentId() {
 
 function buildUploadFolderFromObjectKey(objectKey) {
   const parts = String(objectKey || "").split("/");
-  if (parts.length <= 1) return "quick-commerce/uploads";
+  if (parts.length <= 1) return "uploads";
   return parts.slice(0, -1).join("/");
 }
 

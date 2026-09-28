@@ -15,7 +15,6 @@
  */
 
 import mongoose from "mongoose";
-import Order from "../../models/order.js";
 import Transaction from "../../models/transaction.js";
 import Wallet from "../../models/wallet.js";
 import Parcel from "../../models/parcel.js";
@@ -70,21 +69,13 @@ export async function getDeliveryStats(rawId) {
 }
 
 async function computeDeliveryStats(deliveryBoyId) {
-  const [orders, parcelDeliveries] = await Promise.all([
-    Order.find({
-      deliveryBoy: deliveryBoyId,
-      status: "delivered",
-    })
-      .select("_id")
-      .lean(),
-    Parcel.find({
-      deliveryPartnerId: deliveryBoyId,
-      status: "DELIVERED",
-    })
-      .select("_id")
-      .lean(),
-  ]);
-  const totalDeliveries = orders.length + parcelDeliveries.length;
+  const parcelDeliveries = await Parcel.find({
+    deliveryPartnerId: deliveryBoyId,
+    status: "DELIVERED",
+  })
+    .select("_id")
+    .lean();
+  const totalDeliveries = parcelDeliveries.length;
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
@@ -163,10 +154,7 @@ async function computeDeliveryEarnings(deliveryBoyId) {
     userModel: "Delivery",
   })
     .sort({ createdAt: -1 })
-    .limit(200)
-    // Narrow projection on populated order keeps the response small and
-    // avoids accidental N+1 over un-needed fields.
-    .populate("order", "orderId pricing paymentBreakdown");
+    .limit(200);
 
   const wallet = await Wallet.findOne({
     ownerType: "DELIVERY_PARTNER",
@@ -187,17 +175,7 @@ async function computeDeliveryEarnings(deliveryBoyId) {
 
   const tipsReceived = transactions
     .filter((t) => t.type === "Delivery Earning" && t.status === "Settled")
-    .reduce(
-      (acc, t) =>
-        acc +
-        Number(
-          t?.meta?.tipAmount ??
-            t?.order?.paymentBreakdown?.riderTipAmount ??
-            t?.order?.pricing?.tip ??
-            0,
-        ),
-      0,
-    );
+    .reduce((acc, t) => acc + Number(t?.meta?.tipAmount ?? 0), 0);
 
   const onlinePay = transactions
     .filter((t) => t.type === "Delivery Earning" && t.status === "Settled")
@@ -277,103 +255,11 @@ async function computeDeliveryEarnings(deliveryBoyId) {
   };
 }
 
-/**
- * COD cash summary: system float, cash in hand, per-order toRemit/toCollect.
- * Cached for ~30s (`deliveryCodSummary` TTL).
- */
-export async function getDeliveryCodCashSummary(rawId) {
-  const deliveryBoyId = toDeliveryBoyId(rawId);
-  const cacheKey = buildKey("delivery", "codSummary", String(deliveryBoyId));
-  return getOrSet(
-    cacheKey,
-    () => computeDeliveryCodCashSummary(deliveryBoyId),
-    getTTL("deliveryCodSummary"),
-  );
-}
-
-async function computeDeliveryCodCashSummary(deliveryBoyId) {
-  const wallet = await Wallet.findOne({
-    ownerType: "DELIVERY_PARTNER",
-    ownerId: deliveryBoyId,
-  })
-    .select("cashInHand")
-    .lean();
-
-  const orders = await Order.find({
-    deliveryBoy: deliveryBoyId,
-    paymentMode: "COD",
-    status: { $ne: "cancelled" },
-    orderStatus: { $ne: "cancelled" },
-  })
-    .select(
-      "orderId status orderStatus deliveredAt createdAt financeFlags paymentBreakdown pricing",
-    )
-    .sort({ createdAt: -1 })
-    .limit(200)
-    .lean();
-
-  const normalized = orders.map((order) => {
-    const codMarkedCollected = Boolean(
-      order.financeFlags?.codMarkedCollected,
-    );
-    const gross = roundCurrency(
-      order.paymentBreakdown?.grandTotal ?? order.pricing?.total ?? 0,
-    );
-    const riderCommission = roundCurrency(
-      order.paymentBreakdown?.riderPayoutTotal ?? 0,
-    );
-
-    const estimatedNet = roundCurrency(Math.max(gross - riderCommission, 0));
-    const pendingNet = roundCurrency(
-      order.paymentBreakdown?.codPendingAmount ?? 0,
-    );
-    const contribution = codMarkedCollected ? pendingNet : estimatedNet;
-
-    return {
-      orderId: order.orderId,
-      status: order.status,
-      orderStatus: order.orderStatus,
-      deliveredAt: order.deliveredAt || null,
-      createdAt: order.createdAt || null,
-      codMarkedCollected,
-      amountGross: gross,
-      riderCommission,
-      amountNetExpected: estimatedNet,
-      amountNetPending: pendingNet,
-      systemFloatContribution: contribution,
-    };
-  });
-
-  const systemFloatCOD = roundCurrency(
-    normalized.reduce(
-      (sum, row) => sum + Number(row.systemFloatContribution || 0),
-      0,
-    ),
-  );
-
-  const toRemit = normalized
-    .filter(
-      (row) => row.codMarkedCollected && Number(row.amountNetPending || 0) > 0,
-    )
-    .slice(0, 50);
-
-  const toCollect = normalized
-    .filter(
-      (row) =>
-        !row.codMarkedCollected && Number(row.amountNetExpected || 0) > 0,
-    )
-    .slice(0, 50);
-
-  return {
-    systemFloatCOD,
-    cashInHand: roundCurrency(wallet?.cashInHand || 0),
-    toRemit,
-    toCollect,
-  };
-}
+// getDeliveryCodCashSummary/computeDeliveryCodCashSummary (Order/COD-based)
+// removed with QC. Porter's rider COD cash flow (Parcel `codSettlement` +
+// `CashDeposit` review) is served by `services/riderCashService.js` instead.
 
 export default {
   getDeliveryStats,
   getDeliveryEarnings,
-  getDeliveryCodCashSummary,
 };

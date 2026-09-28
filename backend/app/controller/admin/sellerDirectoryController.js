@@ -14,7 +14,7 @@ export const getSellerLocations = async (req, res) => {
       city = "all",
       lifecycle = "all",
       mapLimit: rawMapLimit = "500",
-      sort = "orders_desc",
+      sort = "recent",
     } = req.query;
 
     const { page, limit, skip } = getPagination(req, {

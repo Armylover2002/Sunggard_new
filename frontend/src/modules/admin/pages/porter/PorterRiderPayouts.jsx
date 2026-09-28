@@ -29,8 +29,6 @@ import { cn } from "@/lib/utils";
 const FILTERS = [
     { key: "", label: "All" },
     { key: "parcel", label: "Outstation" },
-    { key: "city_parcel", label: "Local" },
-    { key: "city_parcel_return", label: "Returns" },
 ];
 
 const rupees = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
@@ -220,15 +218,7 @@ const PorterRiderPayouts = () => {
                                             </p>
                                         </td>
                                         <td className="px-5 py-3.5">
-                                            <Badge
-                                                variant={
-                                                    row.kind === "parcel"
-                                                        ? "info"
-                                                        : row.kind === "city_parcel_return"
-                                                          ? "warning"
-                                                          : "success"
-                                                }
-                                            >
+                                            <Badge variant="info">
                                                 {row.kindLabel}
                                             </Badge>
                                         </td>
