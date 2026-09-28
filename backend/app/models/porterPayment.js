@@ -150,10 +150,18 @@ const porterPaymentSchema = new mongoose.Schema(
      * written the instant we decide to charge, a hair before the gateway
      * answers, so a failure to open the order leaves a truthful row with no
      * id rather than no row at all.
+     *
+     * No `default: null` on purpose: a sparse index only skips a document
+     * where the field is genuinely ABSENT, not one that explicitly stores
+     * `null` — `default: null` made Mongoose write that literal null into
+     * every row created before the gateway answers, so a second attempt in
+     * that same window collided on the unique index
+     * ("dup key: { gatewayOrderId: null }"). Leaving the field unset until
+     * it is actually assigned keeps it genuinely absent, which is what the
+     * sparse index needs to allow any number of in-flight rows.
      */
     gatewayOrderId: {
       type: String,
-      default: null,
       unique: true,
       sparse: true,
       index: true,
