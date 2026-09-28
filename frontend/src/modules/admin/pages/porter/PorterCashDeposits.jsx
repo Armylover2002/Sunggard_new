@@ -172,7 +172,7 @@ const PorterCashDeposits = () => {
     <div className="space-y-6 pb-20">
       <PageHeader
         title="Rider Cash Deposits"
-        description="COD cash riders collected at pickup. Approving a deposit is what clears those bookings."
+        description="COD cash riders collected at pickup. Online deposits clear automatically the moment payment is verified."
         badge={<Badge variant="info">Porter Ops</Badge>}
         actions={
           <button
@@ -217,13 +217,14 @@ const PorterCashDeposits = () => {
           </span>
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              Deposits arrive online
+              Deposits arrive online — and settle automatically
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
               A rider taps Deposit and pays the full amount they are holding through the
-              gateway, into the company account. Every deposit below is backed by a
-              captured payment with a reference you can look up — approve it to clear the
-              rider&apos;s bookings and let them take jobs again.
+              gateway, into the company account. The moment that payment is verified, the
+              rider&apos;s bookings clear and they can take jobs again — no review needed.
+              Only a legacy cash/UPI/bank-transfer deposit (no automatic proof of a real
+              handover) still waits here for you to approve or reject.
             </p>
           </div>
         </div>
@@ -324,7 +325,15 @@ const PorterCashDeposits = () => {
                       </span>
                     )}
 
-                    {row.status === "PENDING" && (
+                    {/*
+                      An ONLINE deposit auto-settles the moment its payment is
+                      verified (see riderCashService.autoSettleOnlineDeposit) —
+                      it is never left PENDING for a human to approve, so it
+                      shows a plain status badge above instead. Only the
+                      legacy CASH/UPI/BANK_TRANSFER/OTHER methods, which have
+                      no automatic proof of a real handover, still need this.
+                    */}
+                    {row.status === "PENDING" && row.method !== "ONLINE" && (
                       <>
                         <button
                           onClick={() => {

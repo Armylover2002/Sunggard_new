@@ -79,6 +79,5 @@ export const parcelApi = {
     ),
   riderRejectParcel: (parcelId) => axiosInstance.post(`/parcel/rider/reject/${parcelId}`),
   riderUpdateStatus: (data) => axiosInstance.put("/parcel/rider/status", data),
-  riderCompleteDelivery: (data) => axiosInstance.put("/parcel/rider/complete", data),
   riderGetEarnings: () => axiosInstance.get("/parcel/rider/earnings"),
 };

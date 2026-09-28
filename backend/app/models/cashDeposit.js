@@ -10,8 +10,12 @@ import mongoose from "mongoose";
  * sat on the rider's ledger permanently.
  *
  * This is the missing half: the rider declares what they paid back, how, and
- * attaches proof; an admin checks the proof and approves. Only on approval do
- * the covered bookings move to REMITTED_TO_ADMIN. Nothing clears itself.
+ * attaches proof. An ONLINE deposit settles itself the moment its Razorpay
+ * payment is verified — the captured payment is proof enough. A legacy
+ * CASH/UPI/BANK_TRANSFER/OTHER deposit still needs an admin to check the
+ * screenshot and approve, since nothing there proves a real handover on its
+ * own. Only on settlement (auto or admin-approved) do the covered bookings
+ * move to REMITTED_TO_ADMIN.
  *
  * `items` is resolved when the request is raised, oldest booking first, so an
  * approval maps to specific bookings rather than a floating balance — the
@@ -66,9 +70,8 @@ const cashDepositSchema = new mongoose.Schema(
      *
      * ONLINE is the current flow: the rider pays through the gateway into the
      * platform's own account, and `porterPaymentId` points at the captured
-     * PorterPayment that proves it. The admin still approves — approval is
-     * what moves the covered bookings to REMITTED_TO_ADMIN — but they are now
-     * approving against a real payment rather than a screenshot.
+     * PorterPayment that proves it. No admin step — the payment being
+     * captured IS what moves the covered bookings to REMITTED_TO_ADMIN.
      *
      * UPI / BANK_TRANSFER / CASH / OTHER are the legacy out-of-band methods,
      * kept so historical deposits still load and so an operation can fall

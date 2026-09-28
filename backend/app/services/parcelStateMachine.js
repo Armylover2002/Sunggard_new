@@ -29,11 +29,10 @@ const TRANSITIONS = {
   RIDER_ASSIGNED: new Set(["PICKUP_REACHED", "CANCELLED"]),
   PICKUP_REACHED: new Set(["PICKED_UP", "CANCELLED"]),
 
-  // Once the rider holds the parcel there is nothing left to cancel — it has
-  // to be carried somewhere, and the only place it goes is the courier
-  // company counter. There is no live tracking after pickup and no separate
-  // "out for delivery" beat to call: the rider drives straight there and
-  // confirms the drop with a photo proof (see riderCompleteDelivery).
+  // Once the rider holds the parcel there is nothing left to cancel, and
+  // there is no separate courier-hub visit to wait for either: pickup from
+  // the customer (OTP + photo proof) is the delivery, so riderUpdateStatus
+  // moves PICKED_UP straight to DELIVERED within the same request.
   // OUT_FOR_DELIVERY stays a valid enum value on the Parcel model for any
   // historical rows that used it, but the transition path no longer goes
   // through it.

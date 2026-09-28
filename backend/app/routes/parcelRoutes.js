@@ -41,7 +41,6 @@ import {
   riderAcceptParcel,
   riderRejectParcel,
   riderUpdateStatus,
-  riderCompleteDelivery,
   riderGetEarnings,
   sellerGetParcels,
   sellerConfirmCodReceived,
@@ -222,7 +221,6 @@ router.get("/rider/available", verifyToken, allowRoles("delivery"), riderGetAvai
 router.post("/rider/accept/:parcelId", verifyToken, allowRoles("delivery"), riderAcceptParcel);
 router.post("/rider/reject/:parcelId", verifyToken, allowRoles("delivery"), riderRejectParcel);
 router.put("/rider/status", verifyToken, allowRoles("delivery"), riderUpdateStatus);
-router.put("/rider/complete", verifyToken, allowRoles("delivery"), riderCompleteDelivery);
 router.get("/rider/earnings", verifyToken, allowRoles("delivery"), riderGetEarnings);
 
 /* ==========================================================================

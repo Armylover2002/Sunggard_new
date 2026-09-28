@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import PorterPayment from "../../models/porterPayment.js";
 import CashDeposit from "../../models/cashDeposit.js";
 import Delivery from "../../models/delivery.js";
-import Notification from "../../models/notification.js";
 import {
   PORTER_PAYER_TYPE,
   PORTER_PAYMENT_PURPOSE,
@@ -12,7 +11,7 @@ import {
   PORTER_OPEN_STATUSES,
 } from "../../constants/porterPayment.js";
 import { getActivePaymentProvider } from "../payment/providerRegistry.js";
-import { getRiderCodSummary } from "../riderCashService.js";
+import { getRiderCodSummary, autoSettleOnlineDeposit } from "../riderCashService.js";
 import { applyPorterStatus, absorbGatewayEntity } from "./porterPaymentService.js";
 import { emitToDelivery, emitToAdmins } from "../orderSocketEmitter.js";
 import logger from "../logger.js";
@@ -261,7 +260,7 @@ export async function openRiderDepositPayment({ riderId, correlationId = null })
 }
 
 /**
- * Turn a captured deposit payment into a CashDeposit awaiting admin review.
+ * Turn a captured deposit payment into a settled CashDeposit.
  *
  * Called from both the verify path and the webhook path, and idempotent
  * across them: `cashDepositId` on the payment is the guard, so a webhook
@@ -272,6 +271,12 @@ export async function openRiderDepositPayment({ riderId, correlationId = null })
  * Between opening the sheet and the money landing, one of those bookings may
  * have been settled another way — claiming it a second time would double-count
  * it against the rider's balance.
+ *
+ * No admin review step: the payment reaching here already passed the two-step
+ * verify (signature + gateway status read, see verifyRiderDepositReceipt), so
+ * the money is provably captured and the deposit is remitted immediately via
+ * autoSettleOnlineDeposit rather than sitting PENDING for a human to
+ * rubber-stamp a payment the platform itself already confirmed.
  */
 export async function applyRiderDepositSideEffects(payment) {
   if (payment.purpose !== PORTER_PAYMENT_PURPOSE.RIDER_CASH_DEPOSIT) return null;
@@ -314,27 +319,24 @@ export async function applyRiderDepositSideEffects(payment) {
   payment.cashDepositId = deposit._id;
   await payment.save();
 
-  await Notification.create({
-    recipient: payment.riderId,
-    recipientModel: "Delivery",
-    title: "Deposit received",
-    message: `Your ₹${rupees} online deposit has reached the admin and is waiting for approval. New jobs resume once it is approved.`,
-    type: "payment",
-    data: { depositId: String(deposit._id) },
-  }).catch(() => {
-    /* a notification failure must not undo a captured deposit */
-  });
+  // Settle immediately — see the note above. finalizeCashDeposit (via
+  // autoSettleOnlineDeposit) remits the covered bookings, mirrors the ledger,
+  // flips the deposit to APPROVED, and sends the rider their own
+  // "verified and cleared" notification, so no separate "waiting for
+  // approval" message is sent here.
+  const { deposit: settled } = await autoSettleOnlineDeposit(deposit);
 
   emitToDelivery(String(payment.riderId), "porter:cash:deposit:created", {
     depositId: String(deposit._id),
     amount: rupees,
-    status: "PENDING",
+    status: settled.status,
   });
   emitToAdmins("porter:cash:deposit:new", {
     depositId: String(deposit._id),
     riderId: String(payment.riderId),
     amount: rupees,
     method: "ONLINE",
+    status: settled.status,
   });
 
   logger.info("porter_rider_deposit_captured", {
@@ -343,9 +345,10 @@ export async function applyRiderDepositSideEffects(payment) {
     riderId: String(payment.riderId),
     amount: rupees,
     jobCount: items.length,
+    status: settled.status,
   });
 
-  return deposit;
+  return settled;
 }
 
 /**

@@ -167,7 +167,7 @@ const PorterCash = () => {
       }
 
       await deliveryApi.verifyOnlineDeposit(receipt);
-      toast.success("Deposit received — waiting for admin approval");
+      toast.success("Deposit verified and cleared");
       await load();
     } catch (error) {
       toast.error(
@@ -290,7 +290,7 @@ const PorterCash = () => {
             </div>
           ) : (
             <p className="mt-3 text-xs leading-relaxed text-gray-500">
-              Collected from customers on COD jobs. Deposit it and an admin will verify.
+              Collected from customers on COD jobs. Deposit it online — it clears instantly.
             </p>
           )}
 
@@ -328,8 +328,8 @@ const PorterCash = () => {
         <Card className="p-5">
           <h3 className="font-bold text-gray-900">Deposit your cash</h3>
           <p className="mt-1 text-xs leading-relaxed text-gray-500">
-            You pay the full amount you are holding, straight to the company. The admin
-            approves it and your balance clears.
+            You pay the full amount you are holding, straight to the company. Your
+            balance clears the moment the payment goes through.
           </p>
 
           {items.length > 0 ? (
@@ -386,8 +386,8 @@ const PorterCash = () => {
               </button>
 
               <p className="mt-2 text-center text-[11px] text-gray-400">
-                Pay by UPI, card or net banking. Your deposit goes to the admin for
-                approval.
+                Pay by UPI, card or net banking. Your balance clears the moment the
+                payment is verified.
               </p>
             </>
           ) : (

@@ -55,7 +55,6 @@ const ParcelTaskPage = () => {
   const [saving, setSaving] = useState(false);
   const [otp, setOtp] = useState("");
   const [pickupProofUrl, setPickupProofUrl] = useState("");
-  const [deliveryProofUrl, setDeliveryProofUrl] = useState("");
   const [parcel, setParcel] = useState(null);
   const [routeData, setRouteData] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -444,55 +443,15 @@ const ParcelTaskPage = () => {
         pickupProofImage: pickupProofUrl,
       });
       if (res.data?.success) {
-        const next = res.data.result || parcel;
-        const prevSeller = parcel.sellerId;
-        const nextSeller = next.sellerId;
-        const sellerLostPopulate =
-          prevSeller &&
-          typeof prevSeller === "object" &&
-          prevSeller.location &&
-          (!nextSeller ||
-            typeof nextSeller !== "object" ||
-            !nextSeller.location);
-        setParcel(
-          sellerLostPopulate ? { ...next, sellerId: prevSeller } : next,
-        );
-        lastRouteKeyRef.current = "";
-        lastRouteAtRef.current = 0;
-        setRouteData(null);
         setOtp("");
         setPickupProofUrl("");
-        toast.success("Pickup confirmed. Proceed to seller hub.");
+        toast.success("Pickup confirmed — parcel delivered");
+        navigate("/delivery/dashboard");
       } else {
         toast.error(res.data?.message || "Invalid OTP");
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Invalid pickup OTP");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCourierDrop = async () => {
-    if (!parcel || saving) return;
-    if (!deliveryProofUrl) {
-      toast.error("Upload a photo proof at the courier company before confirming");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await parcelApi.riderCompleteDelivery({
-        parcelId: parcel._id,
-        deliveryProofImage: deliveryProofUrl,
-      });
-      if (res.data?.success) {
-        toast.success("Parcel dropped at courier company");
-        navigate("/delivery/dashboard");
-      } else {
-        toast.error(res.data?.message || "Failed to confirm courier drop");
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to confirm courier drop");
     } finally {
       setSaving(false);
     }
@@ -835,75 +794,10 @@ const ParcelTaskPage = () => {
             </div>
           )}
 
-          {parcel.status === "PICKED_UP" && !completed && !cancelled && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2.5 space-y-3">
-              <p className="text-xs font-bold text-slate-800">
-                Drop at {courierName || "the courier company"}
-              </p>
-              <p className="text-[11px] text-slate-600 leading-snug">
-                No OTP needed here. Take the parcel (and COD cash if any) to the
-                courier company shown below, hand it over, upload a photo proof,
-                then confirm.
-              </p>
-              <div className="rounded-xl border border-slate-200 bg-white px-2.5 py-2">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide">
-                  Courier company
-                </p>
-                <p className="text-[12px] font-bold text-slate-800 mt-0.5">
-                  {courierName || "—"}
-                </p>
-                {courierPhone ? (
-                  <a
-                    href={`tel:${courierPhone}`}
-                    className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-2.5 py-1 text-[11px] font-black text-brand-700"
-                  >
-                    <Phone className="h-3 w-3" />
-                    {courierPhone}
-                  </a>
-                ) : null}
-                {courierCity ? (
-                  <p className="text-[11px] text-slate-500 mt-1">{courierCity}</p>
-                ) : null}
-              </div>
-              {parcel.receiverAddress && (
-                <div className="rounded-xl border border-slate-200 bg-white px-2.5 py-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide">
-                    Final receiver (for the courier's label)
-                  </p>
-                  <p className="text-[12px] font-bold text-slate-800 mt-0.5">
-                    {parcel.receiverAddress.name} · {parcel.receiverAddress.phone}
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    {parcel.receiverAddress.fullAddress}
-                    {parcel.receiverAddress.city ? `, ${parcel.receiverAddress.city}` : ""}
-                    {parcel.receiverAddress.pincode ? ` - ${parcel.receiverAddress.pincode}` : ""}
-                  </p>
-                </div>
-              )}
-              <ParcelProofCapture
-                label="Courier drop photo proof"
-                hint="Photo of parcel handed over at the courier company"
-                value={deliveryProofUrl}
-                onChange={setDeliveryProofUrl}
-                disabled={saving}
-              />
-              <button
-                type="button"
-                onClick={handleCourierDrop}
-                disabled={saving || !deliveryProofUrl}
-                className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-black flex items-center justify-center gap-2 disabled:opacity-70"
-              >
-                <CheckCircle2 size={16} />
-                {saving ? "Confirming..." : "Mark as Delivered"}
-              </button>
-            </div>
-          )}
-
           {!completed &&
             !cancelled &&
             statusStep &&
-            parcel.status !== "PICKUP_REACHED" &&
-            parcel.status !== "PICKED_UP" && (
+            parcel.status !== "PICKUP_REACHED" && (
             <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"

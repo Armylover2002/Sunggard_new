@@ -1191,7 +1191,9 @@ export const getParcelHistory = async (req, res) => {
      */
     const parcels = await Parcel.find(visibleParcels({ customerId: req.user.id }))
       .populate("deliveryPartnerId", "name phone vehicleType")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean();
 
     return handleResponse(res, 200, "Parcel history retrieved successfully", parcels);
   } catch (error) {
@@ -1421,7 +1423,9 @@ export const adminGetParcels = async (req, res) => {
       .populate("customerId", "name phone email")
       .populate("deliveryPartnerId", "name phone vehicleType")
       .populate("courierCompanyId", "name phone")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(2000)
+      .lean();
 
     const settings = await ParcelConfig.getSearchSettings();
     const settledByParcelId = await getSettledParcelEarnings(
@@ -1974,7 +1978,8 @@ export const adminGetActiveDeliveries = async (req, res) => {
       }),
     )
       .populate("customerId", "name phone")
-      .populate("deliveryPartnerId", "name phone");
+      .populate("deliveryPartnerId", "name phone")
+      .lean();
 
     return handleResponse(res, 200, "Active deliveries retrieved successfully", activeParcels);
   } catch (error) {
@@ -2002,8 +2007,8 @@ export const adminResetAllParcelData = async (req, res) => {
 
 export const adminGetRiders = async (req, res) => {
   try {
-    const riders = await Delivery.find({ isVerified: true });
-    
+    const riders = await Delivery.find({ isVerified: true }).lean();
+
     // Sort riders:
     // 1. Available (online, free, parcel-ready) first
     // 2. Others next
@@ -2036,7 +2041,8 @@ export const riderGetAssignedParcels = async (req, res) => {
       .populate("customerId", "name phone")
       .populate("sellerId", "name shopName phone address location")
       .populate("courierCompanyId", "name phone")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     const settings = await ParcelConfig.getSearchSettings();
     const withEarnings = parcels.map((p) => withRiderEarningBreakdown(p, settings));
@@ -2212,21 +2218,130 @@ export const riderUpdateStatus = async (req, res) => {
     }
 
     const previousStatus = parcel.status;
-    parcel.status = status;
 
-    // COD: rider collects full fare cash from customer at pickup.
-    let recordedCodCollection = null;
-    if (status === "PICKED_UP" && isParcelCod(parcel)) {
-      if (!parcel.codSettlement) parcel.codSettlement = {};
-      parcel.codSettlement.collectAmount = getParcelCollectAmount(parcel);
-      if (parcel.codSettlement.status === "COLLECT_PENDING" || !parcel.codSettlement.status) {
-        parcel.codSettlement.status = "RIDER_HOLDING";
+    /**
+     * Pickup from the customer IS the delivery now — there is no courier-hub
+     * visit to wait for, so a rider confirming PICKED_UP (OTP + photo) closes
+     * the parcel out as DELIVERED in the same request. This absorbs what
+     * riderCompleteDelivery used to do as a second call/screen; the pickup
+     * photo doubles as the delivery proof since there is no second stop to
+     * photograph anymore.
+     */
+    if (status === "PICKED_UP") {
+      parcel.status = "DELIVERED";
+      parcel.deliveryProofImage = parcel.pickupProofImage;
+
+      let recordedCodCollection = null;
+      if (isParcelCod(parcel)) {
+        if (!parcel.codSettlement) parcel.codSettlement = {};
+        const collectAmount = getParcelCollectAmount(parcel);
+        parcel.codSettlement.collectAmount = collectAmount;
         parcel.codSettlement.riderCollectedAt = new Date();
-        recordedCodCollection = parcel.codSettlement.collectAmount;
+        recordedCodCollection = collectAmount;
+
+        // Outstation parcels have no seller hub (rider drops at a courier
+        // counter, nobody logs in as one) — cash stays with the rider until
+        // admin approves the deposit. A parcel actually routed to a seller
+        // hub keeps that hop.
+        if (parcel.sellerId) {
+          parcel.codSettlement.status = "WITH_SELLER";
+          parcel.codSettlement.handedToSellerAt = new Date();
+        } else {
+          parcel.codSettlement.status = "RIDER_HOLDING";
+        }
+        if (parcel.paymentStatus !== "PAID") {
+          parcel.paymentStatus = "PENDING";
+        }
+      } else {
+        parcel.paymentStatus = "PAID";
       }
+
+      await parcel.save();
+
+      await recordParcelEvent({
+        parcelId: parcel._id,
+        status: "DELIVERED",
+        previousStatus,
+        actor: PARCEL_EVENT_ACTOR.DELIVERY,
+        actorId: parcel.deliveryPartnerId,
+        note: "Picked up from customer, OTP verified — delivered",
+      });
+
+      if (recordedCodCollection) {
+        await Promise.all([
+          recordCodCollection({
+            riderId: parcel.deliveryPartnerId,
+            kind: "parcel",
+            refId: parcel._id,
+            amount: recordedCodCollection,
+          }),
+          recordPorterCodCollected({
+            customerId: parcel.customerId,
+            bookingKind: PORTER_BOOKING_KIND.PARCEL,
+            bookingId: parcel._id,
+            referenceId: `PCL-${String(parcel._id).slice(-6).toUpperCase()}`,
+            amount: recordedCodCollection,
+            gstAmount: parcel.fareBreakdown?.gstAmount || 0,
+          }),
+        ]);
+      }
+
+      try {
+        await applyParcelDeliveredRiderEarning(parcel);
+      } catch (earnErr) {
+        console.error("[parcel] rider earning credit failed:", earnErr?.message || earnErr);
+      }
+
+      const populated = await Parcel.findById(parcel._id)
+        .populate("deliveryPartnerId", "name phone vehicleType vehicleNumber profileImage location")
+        .populate("sellerId", "name shopName phone address location")
+        .populate("courierCompanyId", "name phone");
+
+      emitToAdmins("parcel:status:update", populated || parcel);
+      emitToCustomer(parcel.customerId, {
+        event: "parcel:status:update",
+        payload: {
+          parcelId: String(parcel._id),
+          status: "DELIVERED",
+          parcel: populated || parcel,
+        },
+      });
+      if (parcel.sellerId) {
+        emitToSeller(String(parcel.sellerId?._id || parcel.sellerId), {
+          event: "parcel:status:update",
+          payload: {
+            parcelId: String(parcel._id),
+            status: "DELIVERED",
+            parcel: populated || parcel,
+            codPending:
+              isParcelCod(parcel) && parcel.codSettlement?.status === "WITH_SELLER",
+          },
+        });
+      }
+
+      await syncDeliveryPartnerBusyFlag(req.user.id);
+
+      await sendParcelNotification(
+        parcel.customerId,
+        "customer",
+        "Parcel delivered",
+        isParcelCod(parcel)
+          ? `Your parcel was picked up and delivered. COD ₹${getParcelCollectAmount(parcel)} was collected at pickup.`
+          : "Your parcel was picked up and delivered successfully.",
+        NOTIFICATION_EVENTS.PARCEL_DELIVERED,
+        parcel._id
+      );
+
+      const resultDoc = populated || parcel;
+      const resultPayload = resultDoc.toObject ? resultDoc.toObject() : { ...resultDoc };
+      delete resultPayload.otp;
+
+      return handleResponse(res, 200, "Parcel picked up and delivered successfully", resultPayload);
     }
 
-    // OTP is only verified at customer pickup. Hub drop needs no OTP/SMS.
+    parcel.status = status;
+
+    // OTP is only verified at customer pickup.
     await parcel.save();
 
     await recordParcelEvent({
@@ -2235,36 +2350,8 @@ export const riderUpdateStatus = async (req, res) => {
       previousStatus,
       actor: PARCEL_EVENT_ACTOR.DELIVERY,
       actorId: parcel.deliveryPartnerId,
-      note: status === "PICKED_UP" ? "Picked up from customer, OTP verified" : "",
+      note: "",
     });
-
-    // Put the cash on the rider's ledger so the admin cash screens see it.
-    // Upserted on a deterministic reference, so a repeated status call
-    // cannot count the same pickup twice.
-    if (recordedCodCollection) {
-      await Promise.all([
-        recordCodCollection({
-          riderId: parcel.deliveryPartnerId,
-          kind: "parcel",
-          refId: parcel._id,
-          amount: recordedCodCollection,
-        }),
-        /**
-         * And onto the customer's own money trail. Cash is still a payment:
-         * without this a COD booking left nothing on the customer's history,
-         * so "what have I paid you" could only be answered for the people
-         * who happened to pay online.
-         */
-        recordPorterCodCollected({
-          customerId: parcel.customerId,
-          bookingKind: PORTER_BOOKING_KIND.PARCEL,
-          bookingId: parcel._id,
-          referenceId: `PCL-${String(parcel._id).slice(-6).toUpperCase()}`,
-          amount: recordedCodCollection,
-          gstAmount: parcel.fareBreakdown?.gstAmount || 0,
-        }),
-      ]);
-    }
 
     const populated = await Parcel.findById(parcel._id)
       .populate("deliveryPartnerId", "name phone vehicleType vehicleNumber profileImage location")
@@ -2299,7 +2386,6 @@ export const riderUpdateStatus = async (req, res) => {
     else if (status === "PICKUP_REACHED") {
       msg = `Rider has reached your pickup location. Share pickup OTP ${parcel.otp} with the captain.`;
     }
-    else if (status === "PICKED_UP") msg = "Rider has picked up your parcel. Live tracking has ended.";
     else if (status === "OUT_FOR_DELIVERY") msg = "Your parcel has been collected and is on its way to our hub.";
     else if (status === "CANCELLED") msg = "Your parcel delivery was cancelled by the rider.";
 
@@ -2326,157 +2412,12 @@ export const riderUpdateStatus = async (req, res) => {
   }
 };
 
-export const riderCompleteDelivery = async (req, res) => {
-  try {
-    const { parcelId, deliveryProofImage } = req.body;
-
-    if (!parcelId) {
-      return handleResponse(res, 400, "Parcel ID is required");
-    }
-
-    const parcel = await Parcel.findById(parcelId);
-    if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
-    }
-
-    if (String(parcel.deliveryPartnerId) !== String(req.user.id)) {
-      return handleResponse(res, 403, "You are not authorized for this parcel");
-    }
-
-    // Courier drop: no OTP. Customer OTP already verified at pickup.
-    if (!["PICKED_UP", "OUT_FOR_DELIVERY"].includes(parcel.status)) {
-      return handleResponse(
-        res,
-        409,
-        "Parcel can only be dropped at the courier company after customer pickup is confirmed",
-      );
-    }
-
-    const dropProofUrl = String(deliveryProofImage || "").trim();
-    if (
-      !dropProofUrl ||
-      !(
-        /^https?:\/\//i.test(dropProofUrl) ||
-        /^data:image\//i.test(dropProofUrl)
-      )
-    ) {
-      return handleResponse(
-        res,
-        400,
-        "Upload a photo proof when dropping the parcel at the courier company",
-      );
-    }
-
-    const previousStatus = parcel.status;
-    parcel.status = "DELIVERED";
-    parcel.deliveryProofImage = dropProofUrl;
-
-    /**
-     * COD: the cash stays with the rider until they deposit it and an admin
-     * approves that deposit.
-     *
-     * This used to stamp WITH_SELLER on every COD parcel. Outstation parcels
-     * carry `sellerId: null` (the rider drops at a courier company counter,
-     * and nobody logs in as one), so the only endpoint that could clear
-     * WITH_SELLER — the
-     * seller's Razorpay remit — was unreachable, and the cash was stranded
-     * permanently. Only a parcel genuinely routed to a seller hub keeps that
-     * hop; everything else goes through the rider deposit flow.
-     *
-     * UPI/online is already PAID at booking.
-     */
-    if (isParcelCod(parcel)) {
-      if (!parcel.codSettlement) parcel.codSettlement = {};
-      parcel.codSettlement.collectAmount = getParcelCollectAmount(parcel);
-      if (!parcel.codSettlement.riderCollectedAt) {
-        parcel.codSettlement.riderCollectedAt = new Date();
-      }
-
-      if (parcel.sellerId) {
-        parcel.codSettlement.status = "WITH_SELLER";
-        parcel.codSettlement.handedToSellerAt = new Date();
-      } else if (parcel.codSettlement.status !== "REMITTED_TO_ADMIN") {
-        parcel.codSettlement.status = "RIDER_HOLDING";
-      }
-
-      // Stays PENDING until the cash actually reaches admin.
-      if (parcel.paymentStatus !== "PAID") {
-        parcel.paymentStatus = "PENDING";
-      }
-    } else {
-      parcel.paymentStatus = "PAID";
-    }
-
-    await parcel.save();
-
-    await recordParcelEvent({
-      parcelId: parcel._id,
-      status: "DELIVERED",
-      previousStatus,
-      actor: PARCEL_EVENT_ACTOR.DELIVERY,
-      actorId: parcel.deliveryPartnerId,
-      note: parcel.sellerId ? "Dropped at seller hub" : "Dropped at courier company",
-    });
-
-    try {
-      await applyParcelDeliveredRiderEarning(parcel);
-    } catch (earnErr) {
-      console.error("[parcel] rider earning credit failed:", earnErr?.message || earnErr);
-    }
-
-    const populated = await Parcel.findById(parcel._id)
-      .populate("deliveryPartnerId", "name phone vehicleType vehicleNumber profileImage location")
-      .populate("sellerId", "name shopName phone address location")
-      .populate("courierCompanyId", "name phone");
-
-    emitToAdmins("parcel:status:update", populated || parcel);
-    emitToCustomer(parcel.customerId, {
-      event: "parcel:status:update",
-      payload: {
-        parcelId: String(parcel._id),
-        status: "DELIVERED",
-        parcel: populated || parcel,
-      },
-    });
-
-    if (parcel.sellerId) {
-      emitToSeller(String(parcel.sellerId?._id || parcel.sellerId), {
-        event: "parcel:status:update",
-        payload: {
-          parcelId: String(parcel._id),
-          status: "DELIVERED",
-          parcel: populated || parcel,
-          codPending:
-            isParcelCod(parcel) && parcel.codSettlement?.status === "WITH_SELLER",
-        },
-      });
-    }
-
-    await syncDeliveryPartnerBusyFlag(req.user.id);
-
-    await sendParcelNotification(
-      parcel.customerId,
-      "customer",
-      "Parcel dropped at courier",
-      isParcelCod(parcel)
-        ? `Your parcel was dropped at ${parcel.courierCompany || "the courier"}. COD ₹${getParcelCollectAmount(parcel)} was collected at pickup.`
-        : `Your parcel was dropped at ${parcel.courierCompany || "the courier"} successfully.`,
-      NOTIFICATION_EVENTS.PARCEL_DELIVERED,
-      parcel._id
-    );
-
-    return handleResponse(res, 200, "Parcel dropped at courier company successfully", populated || parcel);
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
-
 export const riderGetEarnings = async (req, res) => {
   try {
     const completedParcels = await Parcel.find({
       deliveryPartnerId: req.user.id,
       status: "DELIVERED"
-    });
+    }).lean();
     const settings = await ParcelConfig.getSearchSettings();
     const settledByParcelId = await getSettledParcelEarnings(
       completedParcels.map((p) => p._id),

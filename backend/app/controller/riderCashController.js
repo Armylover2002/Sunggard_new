@@ -384,11 +384,10 @@ export const riderStartOnlineDeposit = async (req, res) => {
 };
 
 /**
- * Confirm the deposit and raise it for admin approval.
- *
- * Approval is still required — that step is what moves the covered bookings
- * to REMITTED_TO_ADMIN and un-blocks the rider — but the admin is now
- * approving against a captured gateway payment rather than a screenshot.
+ * Confirm the deposit. No admin approval step for an online deposit — the
+ * signature check plus the gateway status read above already prove the
+ * money was captured, so the covered bookings are remitted and the rider's
+ * cash-limit block is lifted in the same request.
  */
 export const riderVerifyOnlineDeposit = async (req, res) => {
   try {
@@ -409,7 +408,7 @@ export const riderVerifyOnlineDeposit = async (req, res) => {
     return handleResponse(
       res,
       duplicate ? 200 : 201,
-      "Deposit received — waiting for admin approval",
+      "Deposit verified and cleared",
       { deposit },
     );
   } catch (error) {

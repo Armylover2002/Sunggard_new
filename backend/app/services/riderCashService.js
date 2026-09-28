@@ -193,21 +193,14 @@ async function markItemsRemitted(items) {
 }
 
 /**
- * Admin decision on a deposit. Approving is what actually clears the cash;
- * rejecting leaves every booking held so the rider can raise a new request.
+ * Settle a deposit: remit the bookings it names, mirror the legacy ledger,
+ * flip its status, and notify the rider. Shared by the admin's manual
+ * approve (legacy CASH/UPI/BANK_TRANSFER deposits, which have no automatic
+ * proof of a real handover) and the automatic settle for ONLINE deposits
+ * (where a verified Razorpay capture already IS the proof — see
+ * autoSettleOnlineDeposit in porter/riderDepositService.js).
  */
-export async function reviewCashDeposit({ depositId, adminId, approve, adminNote = "" }) {
-  if (!mongoose.Types.ObjectId.isValid(depositId)) return null;
-
-  const deposit = await CashDeposit.findById(depositId);
-  if (!deposit) return null;
-
-  if (deposit.status !== "PENDING") {
-    const err = new Error(`This deposit is already ${deposit.status.toLowerCase()}`);
-    err.statusCode = 409;
-    throw err;
-  }
-
+async function finalizeCashDeposit(deposit, { approve, adminId = null, adminNote = "" }) {
   let remitted = { parcelsRemitted: 0 };
   if (approve) {
     remitted = await markItemsRemitted(deposit.items || []);
@@ -283,6 +276,53 @@ export async function reviewCashDeposit({ depositId, adminId, approve, adminNote
   });
 
   return { deposit: deposit.toObject(), cashStatus, ...remitted };
+}
+
+/**
+ * Admin decision on a deposit. Approving is what actually clears the cash;
+ * rejecting leaves every booking held so the rider can raise a new request.
+ *
+ * Only reached for legacy CASH/UPI/BANK_TRANSFER/OTHER deposits now — an
+ * ONLINE deposit settles itself the moment its Razorpay payment is verified
+ * (see autoSettleOnlineDeposit) and is never left PENDING for admin review.
+ */
+export async function reviewCashDeposit({ depositId, adminId, approve, adminNote = "" }) {
+  if (!mongoose.Types.ObjectId.isValid(depositId)) return null;
+
+  const deposit = await CashDeposit.findById(depositId);
+  if (!deposit) return null;
+
+  // An ONLINE deposit auto-settles on payment verify and should never reach
+  // here PENDING; if one somehow does, refuse rather than let an admin
+  // double-remit bookings that verification already settled.
+  if (deposit.method === "ONLINE") {
+    const err = new Error("Online deposits settle automatically and do not need admin review");
+    err.statusCode = 409;
+    throw err;
+  }
+
+  if (deposit.status !== "PENDING") {
+    const err = new Error(`This deposit is already ${deposit.status.toLowerCase()}`);
+    err.statusCode = 409;
+    throw err;
+  }
+
+  return finalizeCashDeposit(deposit, { approve, adminId, adminNote });
+}
+
+/**
+ * Auto-settle an ONLINE deposit right after its Razorpay payment is
+ * verified. No admin step: the cryptographic signature check plus the
+ * server-to-gateway status read (see verifyRiderDepositReceipt) already
+ * prove the money was captured, so a manual "approve" here would just be
+ * re-confirming something the platform itself already confirmed.
+ */
+export async function autoSettleOnlineDeposit(deposit) {
+  return finalizeCashDeposit(deposit, {
+    approve: true,
+    adminId: null,
+    adminNote: "Auto-settled — verified online payment",
+  });
 }
 
 /** Deposit list for both the admin queue and the rider's own history. */
