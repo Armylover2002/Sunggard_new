@@ -18,6 +18,9 @@ const generateToken = (delivery) =>
 const parseBool = (value) =>
     value === true || value === "true" || value === "1";
 
+const otpExpiryMs = () =>
+    parseInt(process.env.OTP_EXPIRY_MINUTES || "5", 10) * 60 * 1000;
+
 const pickBodyString = (body, keys, fallback = "") => {
     for (const key of keys) {
         const value = body?.[key];
@@ -340,7 +343,7 @@ export const signupDelivery = async (req, res) => {
                 drivingLicense: dlUrl,
             },
             otp,
-            otpExpiry: Date.now() + 5 * 60 * 1000,
+            otpExpiry: Date.now() + otpExpiryMs(),
         };
 
         if (resolvedAadharNumber) {
@@ -413,7 +416,7 @@ export const loginDelivery = async (req, res) => {
         let otp = generateOTP();
 
         delivery.otp = otp;
-        delivery.otpExpiry = Date.now() + 5 * 60 * 1000;
+        delivery.otpExpiry = Date.now() + otpExpiryMs();
         await delivery.save();
 
         const delivery_sms = await deliverOtpSms(phone, otp);
