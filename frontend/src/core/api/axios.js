@@ -132,6 +132,19 @@ axiosInstance.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
+
+        // Render/Heroku-style free hosting puts the backend to sleep when idle;
+        // the first request after a gap either gets no response at all or a
+        // 502/503/504 while the instance cold-starts. One retry after a short
+        // wait covers that without masking real outages (still fails after).
+        const isColdStartError =
+            !error.response || [502, 503, 504].includes(error.response.status);
+        if (isColdStartError && originalRequest && !originalRequest._coldStartRetry) {
+            originalRequest._coldStartRetry = true;
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            return axiosInstance(originalRequest);
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             const hasStoredRoleToken = ROLE_STORAGE_KEYS.some((key) => Boolean(rawGet(key)));
