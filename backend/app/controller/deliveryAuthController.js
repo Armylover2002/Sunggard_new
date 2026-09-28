@@ -21,6 +21,12 @@ const parseBool = (value) =>
 const otpExpiryMs = () =>
     parseInt(process.env.OTP_EXPIRY_MINUTES || "5", 10) * 60 * 1000;
 
+// uploadImageWithFallback returns a host-relative "/uploads/..." path when
+// Cloudinary is unavailable; make it absolute the same way mediaRoutes.js
+// does, so a relative URL doesn't get saved to the Delivery document.
+const absolutizeUpload = (req, url) =>
+    url && url.startsWith("/uploads/") ? `${req.protocol}://${req.get("host")}${url}` : url;
+
 const pickBodyString = (body, keys, fallback = "") => {
     for (const key of keys) {
         const value = body?.[key];
@@ -278,17 +284,17 @@ export const signupDelivery = async (req, res) => {
             for (const file of getUploadedFiles(req)) {
                 const opts = { mimeType: file.mimetype };
                 if (file.fieldname === "profileImage") {
-                    profileImageUrl = await uploadImageWithFallback(file.buffer, "delivery/profiles", opts);
+                    profileImageUrl = absolutizeUpload(req, await uploadImageWithFallback(file.buffer, "delivery/profiles", opts));
                 } else if (file.fieldname === "aadhar") {
-                    aadharUrl = await uploadImageWithFallback(file.buffer, "delivery/documents", opts);
+                    aadharUrl = absolutizeUpload(req, await uploadImageWithFallback(file.buffer, "delivery/documents", opts));
                 } else if (file.fieldname === "aadharFront") {
-                    aadharFrontUrl = await uploadImageWithFallback(file.buffer, "delivery/documents", opts);
+                    aadharFrontUrl = absolutizeUpload(req, await uploadImageWithFallback(file.buffer, "delivery/documents", opts));
                 } else if (file.fieldname === "aadharBack") {
-                    aadharBackUrl = await uploadImageWithFallback(file.buffer, "delivery/documents", opts);
+                    aadharBackUrl = absolutizeUpload(req, await uploadImageWithFallback(file.buffer, "delivery/documents", opts));
                 } else if (file.fieldname === "pan") {
-                    panUrl = await uploadImageWithFallback(file.buffer, "delivery/documents", opts);
+                    panUrl = absolutizeUpload(req, await uploadImageWithFallback(file.buffer, "delivery/documents", opts));
                 } else if (file.fieldname === "dl") {
-                    dlUrl = await uploadImageWithFallback(file.buffer, "delivery/documents", opts);
+                    dlUrl = absolutizeUpload(req, await uploadImageWithFallback(file.buffer, "delivery/documents", opts));
                 }
             }
         } catch (uploadError) {
