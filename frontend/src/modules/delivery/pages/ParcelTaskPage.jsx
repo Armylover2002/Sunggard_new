@@ -4,6 +4,7 @@ import { GoogleMap, Marker, OverlayView } from "@react-google-maps/api";
 import { MapPin, CheckCircle2, QrCode, Phone, Package } from "lucide-react";
 import { toast } from "sonner";
 import { parcelApi } from "../../customer/services/parcelApi";
+import { invalidateCache } from "@core/api/dedupe";
 import ParcelProofCapture from "../components/ParcelProofCapture";
 import CodOnlineQrSheet from "../components/CodOnlineQrSheet";
 import {
@@ -412,6 +413,11 @@ const ParcelTaskPage = () => {
         lastRouteAtRef.current = 0;
         setRouteData(null);
         setOtp("");
+        // The dashboard's "active task" card reads this same list through a
+        // 30s module-level cache (getWithDedupe) — without this, returning
+        // to the dashboard right after a status change could still show the
+        // parcel at its previous status until that cache naturally expired.
+        invalidateCache("/parcel/rider/assigned");
         toast.success("Parcel status updated");
       } else {
         toast.error(res.data?.message || "Failed to update status");
@@ -445,6 +451,11 @@ const ParcelTaskPage = () => {
       if (res.data?.success) {
         setOtp("");
         setPickupProofUrl("");
+        // Same cache-invalidation reason as handleAdvance above — this is
+        // the call that actually completes the parcel (pickup === delivery
+        // now), so the dashboard's active-task card must not still find it
+        // through a stale cached list.
+        invalidateCache("/parcel/rider/assigned");
         toast.success("Pickup confirmed — parcel delivered");
         navigate("/delivery/dashboard");
       } else {
