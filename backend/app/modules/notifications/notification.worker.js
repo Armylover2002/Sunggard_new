@@ -10,6 +10,7 @@ import { sendFCM } from "./firebase.service.js";
 import {
   INVALID_FCM_TOKEN_CODES,
   isDataOnlyEvent,
+  NOTIFICATION_QUEUE_ATTEMPTS,
   NOTIFICATION_QUEUE_CONCURRENCY,
   NOTIFICATION_QUEUE_JOB_TIMEOUT_MS,
 } from "./notification.constants.js";
@@ -84,7 +85,7 @@ async function deactivateInvalidTokens(tokens = [], responses = []) {
   return invalidTokenIds.length;
 }
 
-export async function deliverNotificationById(notificationId) {
+export async function deliverNotificationById(notificationId, job) {
   if (!notificationId) {
     return;
   }
@@ -103,6 +104,18 @@ export async function deliverNotificationById(notificationId) {
     .lean();
 
   if (!tokens.length) {
+    // A rider's PushToken may not exist yet right after login/app-start
+    // (POST /push/register hasn't landed). Let Bull's own retry/backoff
+    // (see defaultJobOptions in notification.queue.js) give it a chance
+    // before marking the notification permanently failed.
+    const attemptsMade = Number(job?.attemptsMade || 0);
+    const maxAttempts = Number(job?.opts?.attempts || NOTIFICATION_QUEUE_ATTEMPTS());
+    const isFinalAttempt = !job || attemptsMade + 1 >= maxAttempts;
+
+    if (!isFinalAttempt) {
+      throw new Error("No active push tokens for user - retrying");
+    }
+
     await Notification.updateOne(
       { _id: notification._id },
       {
@@ -198,7 +211,7 @@ export async function deliverNotificationById(notificationId) {
 
 export async function processNotificationJob(job) {
   const { notificationId } = job.data || {};
-  await deliverNotificationById(notificationId);
+  await deliverNotificationById(notificationId, job);
 }
 
 export function registerNotificationQueueProcessors() {
