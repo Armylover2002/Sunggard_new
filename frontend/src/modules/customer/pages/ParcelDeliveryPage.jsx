@@ -796,6 +796,48 @@ const ParcelDeliveryPage = () => {
   // "ind"... must not each fire a request; only the finished value should.
   const [cityCheckTick, setCityCheckTick] = useState(0);
 
+  // Receiver's city is a dropdown, not free text — restricted to whatever
+  // destination cities the admin has actually priced for this pickup city +
+  // courier (see backend ParcelCityRate), so the customer can never pick a
+  // combo the booking would later reject as "service not available".
+  const [destinationCityOptions, setDestinationCityOptions] = useState([]);
+  const [destinationCityLoading, setDestinationCityLoading] = useState(false);
+
+  // Re-fetch the receiver-city dropdown options whenever the pickup city or
+  // chosen courier changes. cityCheckTick (bumped on the pickup-city input's
+  // blur) stands in for pickupDetails.city here for the same reason it does
+  // in the fare-recalc effect below — it's free-typed text.
+  useEffect(() => {
+    const originCity = pickupDetails.city?.trim();
+    if (!originCity || !courierCompanyId) {
+      setDestinationCityOptions([]);
+      return undefined;
+    }
+    let cancelled = false;
+    setDestinationCityLoading(true);
+    parcelApi
+      .getCityRateDestinations(originCity, courierCompanyId)
+      .then((res) => {
+        if (cancelled || !res.data?.success) return;
+        const raw = res.data.results || res.data.result || [];
+        const list = Array.isArray(raw) ? raw : [];
+        setDestinationCityOptions(list);
+        if (list.length && receiverDetails.city && !list.includes(receiverDetails.city)) {
+          updateReceiverField("city", "");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setDestinationCityOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDestinationCityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cityCheckTick, courierCompanyId]);
+
   // Coupon
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [couponCode, setCouponCode] = useState("");
@@ -1874,15 +1916,43 @@ const ParcelDeliveryPage = () => {
                           <div className="grid grid-cols-2 gap-3">
                             <Field
                               label="City"
+                              hint={
+                                !pickupDetails.city?.trim() || !courierCompanyId
+                                  ? "Enter pickup city & pick a courier first"
+                                  : undefined
+                              }
                               filled={Boolean(receiverDetails.city?.trim())}>
-                              <input
-                                type="text"
-                                placeholder="City"
+                              <select
                                 value={receiverDetails.city}
-                                onChange={(e) => updateReceiverField("city", e.target.value)}
-                                onBlur={() => setCityCheckTick((t) => t + 1)}
-                                className={inputClass(Boolean(receiverDetails.city?.trim()))}
-                              />
+                                onChange={(e) => {
+                                  updateReceiverField("city", e.target.value);
+                                  setCityCheckTick((t) => t + 1);
+                                }}
+                                disabled={
+                                  destinationCityLoading ||
+                                  !pickupDetails.city?.trim() ||
+                                  !courierCompanyId
+                                }
+                                className={inputClass(Boolean(receiverDetails.city?.trim()))}>
+                                <option value="">
+                                  {destinationCityLoading
+                                    ? "Loading cities…"
+                                    : destinationCityOptions.length === 0
+                                      ? "No priced cities yet"
+                                      : "Select city"}
+                                </option>
+                                {receiverDetails.city &&
+                                  !destinationCityOptions.includes(receiverDetails.city) && (
+                                    <option value={receiverDetails.city}>
+                                      {receiverDetails.city}
+                                    </option>
+                                  )}
+                                {destinationCityOptions.map((c) => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                  </option>
+                                ))}
+                              </select>
                             </Field>
                             <Field
                               label="State"

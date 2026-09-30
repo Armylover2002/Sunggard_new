@@ -58,6 +58,12 @@ export const parcelApi = {
   getCouriersForLocation: (lat, lng) =>
     axiosInstance.get("/parcel/couriers/for-location", { params: { lat, lng } }),
 
+  // Destination cities admin has priced for this pickup city + courier
+  getCityRateDestinations: (originCity, courierCompanyId) =>
+    axiosInstance.get("/parcel/city-rates/destinations", {
+      params: { originCity, courierCompanyId },
+    }),
+
   // Rider/Delivery Partner APIs
   riderGetAssigned: (options = {}) =>
     getWithDedupe("/parcel/rider/assigned", {}, {

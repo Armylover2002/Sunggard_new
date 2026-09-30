@@ -127,6 +127,7 @@ function offerPushData(payload = {}) {
     type: preview.type || payload.type,
     pickupAddress: preview.pickup,
     dropAddress: preview.drop,
+    weight: preview.weight,
     distanceKm: preview.distance ?? preview.distanceKm,
     earnings: preview.earnings,
     riderEarnings: preview.earnings,

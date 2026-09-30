@@ -120,6 +120,50 @@ export const adminUploadCityRates = async (req, res) => {
   }
 };
 
+/**
+ * Customer-facing: which destination cities are actually bookable from a
+ * given origin city with a given courier, so the receiver-city field can be
+ * a dropdown instead of free text the booking later rejects.
+ *
+ * Rates are bidirectional (see ParcelCityRate.findRate) — a row priced as
+ * B -> A also makes A -> B bookable — so both directions are matched here.
+ */
+export const listCityRateDestinations = async (req, res) => {
+  try {
+    const originCity = String(req.query?.originCity || "").trim();
+    const courierCompanyId = String(req.query?.courierCompanyId || "").trim();
+    if (!originCity || !courierCompanyId) {
+      return handleResponse(res, 400, "Origin city and courier company are required");
+    }
+    if (!mongoose.Types.ObjectId.isValid(courierCompanyId)) {
+      return handleResponse(res, 400, "Invalid courier company");
+    }
+
+    const originKey = ParcelCityRate.normalizeCityKey(originCity);
+    const rows = await ParcelCityRate.find({
+      courierCompanyId,
+      $or: [{ originCityKey: originKey }, { destinationCityKey: originKey }],
+    })
+      .select("originCity originCityKey destinationCity destinationCityKey")
+      .lean();
+
+    const byKey = new Map();
+    for (const row of rows) {
+      if (row.originCityKey === originKey && row.destinationCityKey !== originKey) {
+        byKey.set(row.destinationCityKey, row.destinationCity);
+      }
+      if (row.destinationCityKey === originKey && row.originCityKey !== originKey) {
+        byKey.set(row.originCityKey, row.originCity);
+      }
+    }
+
+    const destinations = [...byKey.values()].sort((a, b) => a.localeCompare(b));
+    return handleResponse(res, 200, "Destination cities retrieved", destinations);
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
 /** Flat list, courier populated — admin groups by route client-side. */
 export const adminListCityRates = async (req, res) => {
   try {

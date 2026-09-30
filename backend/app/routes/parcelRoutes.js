@@ -61,6 +61,7 @@ import {
   adminUpsertCityRate,
   adminDeleteCityRate,
   adminDownloadCityRateTemplate,
+  listCityRateDestinations,
 } from "../controller/parcelCityRateController.js";
 import {
   submitParcelReview,
@@ -111,6 +112,7 @@ router.get("/reviews", verifyToken, listPublicParcelReviews);
 router.get("/review/:parcelId", verifyToken, getMyParcelReview);
 router.post("/review", verifyToken, submitParcelReview);
 router.get("/couriers/for-location", verifyToken, listCouriersForLocation);
+router.get("/city-rates/destinations", verifyToken, listCityRateDestinations);
 
 /* ==========================================================================
    ADMIN API ROUTES
