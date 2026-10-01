@@ -129,11 +129,10 @@ function drawHeader(doc, layout, invoice) {
   doc.text(invoice.invoiceNo, PAGE_W - MARGIN, layout.y + 10, { align: "right" });
   doc.setTextColor(107, 114, 128);
   doc.setFontSize(8);
-  doc.text(invoice.serviceName, PAGE_W - MARGIN, layout.y + 15, { align: "right" });
   doc.text(
     `Issued ${formatDateOnly(invoice.issuedAt)}`,
     PAGE_W - MARGIN,
-    layout.y + 20,
+    layout.y + 15,
     { align: "right" },
   );
 
