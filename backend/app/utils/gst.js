@@ -207,9 +207,10 @@ export function rebaseGstAfterDiscount(fareBreakdown = {}, payableFare = 0) {
  */
 export function gstFromBreakdown(fareBreakdown = {}) {
   const gstAmount = Number(fareBreakdown?.gstAmount) || 0;
+  const roundOff = Number(fareBreakdown?.roundOff) || 0;
   const taxableAmount =
     Number(fareBreakdown?.taxableAmount) ||
-    Math.max(0, roundCurrency((Number(fareBreakdown?.fare) || 0) - gstAmount));
+    Math.max(0, roundCurrency((Number(fareBreakdown?.fare) || 0) - gstAmount - roundOff));
 
   return {
     gstEnabled: gstAmount > 0,
@@ -220,9 +221,35 @@ export function gstFromBreakdown(fareBreakdown = {}) {
     sgst: Number(fareBreakdown?.sgst) || 0,
     igst: Number(fareBreakdown?.igst) || 0,
     gstAmount,
-    totalAmount: roundCurrency(taxableAmount + gstAmount),
+    roundOff,
+    totalAmount: roundCurrency(taxableAmount + gstAmount + roundOff),
     inclusive: Boolean(fareBreakdown?.gstInclusive),
   };
+}
+
+/**
+ * Round a GST result's customer-facing total up to the next whole rupee
+ * (₹113.40 → ₹114), the way the fare is actually meant to be collected.
+ *
+ * `taxableAmount`/`gstAmount`/`cgst`/`sgst` are left exactly as computed —
+ * re-deriving them from the rounded total would decouple `taxableAmount`
+ * from the real sum of the rate-card's charge lines (base + distance +
+ * weight + ...), which is the number the invoice prints as the subtotal and
+ * the GST report totals as the tax base. Moving it to chase a rounding
+ * convenience would mean paying (or remitting) tax on a few paise that were
+ * never actually charged for anything.
+ *
+ * Instead the gap becomes its own `roundOff` field — the same "Round off"
+ * line any retail invoice shows — so `taxableAmount + gstAmount + roundOff
+ * === totalAmount` exactly, and every existing reader of taxableAmount/
+ * gstAmount keeps seeing the real, untouched tax math.
+ */
+export function ceilGstTotal(gst) {
+  const originalTotal = Number(gst.totalAmount) || 0;
+  const ceiledTotal = Math.ceil(originalTotal);
+  const roundOff = fromPaise(toPaise(ceiledTotal) - toPaise(originalTotal));
+
+  return { ...gst, totalAmount: ceiledTotal, roundOff };
 }
 
 /** The fare-breakdown fields a GST result contributes. Merged into both configs' breakdowns. */
@@ -236,5 +263,9 @@ export function gstBreakdownFields(gst) {
     taxableAmount: gst.taxableAmount,
     gstInclusive: gst.inclusive,
     gstin: gst.gstin,
+    // Only ceilGstTotal sets this (rounding the final fare up to a whole
+    // rupee); everything else leaves it at 0, so it's always a safe field
+    // to add onto taxableAmount + gstAmount and get the total.
+    roundOff: gst.roundOff || 0,
   };
 }

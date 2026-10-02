@@ -110,11 +110,14 @@ describe("outstation multi-day fare with GST", () => {
   it("taxes the multi-day total once, not each day", () => {
     const priced = applyBillableDaysToFare(daily, 7, { enabled: true, percent: 18 });
 
-    // 75 × 7 = 525 taxable; 18% of 525 = 94.50. Taxing each day and summing
-    // would round seven separate times and not reconcile against 525 × 0.18.
+    // 75 × 7 = 525 taxable; 18% of 525 = 94.50, gross 619.50 — then rounded
+    // up to the next whole rupee for collection (620). Tax itself is
+    // untouched by the rounding: it's still computed on the real 525, and
+    // the 0.50 gap shows up as its own `roundOff`, not as extra tax.
     expect(priced.taxableAmount).toBe(525);
     expect(priced.gstAmount).toBe(94.5);
-    expect(priced.fare).toBe(619.5);
+    expect(priced.roundOff).toBe(0.5);
+    expect(priced.fare).toBe(620);
   });
 
   it("keeps the daily line items pre-tax so rider payout is unaffected", () => {

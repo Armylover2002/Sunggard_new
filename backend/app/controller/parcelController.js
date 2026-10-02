@@ -367,6 +367,7 @@ export const calculateFare = async (req, res) => {
       cgst: priced.cgst,
       sgst: priced.sgst,
       gstInclusive: priced.gstInclusive,
+      roundOff: priced.roundOff,
       fare: priced.fare,
     });
   } catch (error) {
@@ -943,6 +944,14 @@ export const createParcel = async (req, res) => {
         taxableAmount: priced.taxableAmount,
         gstInclusive: priced.gstInclusive,
         gstin: priced.gstin,
+        // The whole-rupee-up gap (₹113.40 → ₹114). Zeroed out rather than
+        // carried over when a coupon applies: `rebaseGstAfterDiscount` below
+        // re-derives taxableAmount/gstAmount from `discount.payableFare`
+        // directly (itself only cent-rounded, not rupee-ceiled — that's a
+        // separate concern this fix doesn't reach), so the pre-discount
+        // rounding gap would no longer reconcile against the post-discount
+        // total if kept.
+        roundOff: discount ? 0 : priced.roundOff,
         // A coupon moves the tax onto what the customer actually pays.
         ...(discount ? rebaseGstAfterDiscount(priced, discount.payableFare) : {}),
       },

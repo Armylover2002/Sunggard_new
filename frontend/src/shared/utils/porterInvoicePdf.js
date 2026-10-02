@@ -369,6 +369,10 @@ function drawCharges(doc, layout, invoice) {
     }
   }
 
+  if (invoice.roundOff) {
+    totalLine("Round off", invoice.roundOff);
+  }
+
   layout.advance(1);
   doc.setDrawColor(17, 24, 39);
   doc.setLineWidth(0.5);

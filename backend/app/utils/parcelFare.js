@@ -1,5 +1,5 @@
 import { multiplyMoney, roundCurrency } from "./money.js";
-import { applyGst, gstBreakdownFields } from "./gst.js";
+import { applyGst, ceilGstTotal, gstBreakdownFields } from "./gst.js";
 
 /**
  * Customer parcel fare (single day, before multi-day multiplier).
@@ -109,7 +109,16 @@ export function applyBillableDaysToFare(
    * a single line of `total × rate`. One rounding, at the end, is both
    * correct and what an auditor expects to be able to reproduce.
    */
-  const gst = applyGst(preTaxTotal, gstConfig || {});
+  /**
+   * The customer never sees a paisa — the final payable amount is rounded up
+   * to the next whole rupee (₹113.40 → ₹114), then the GST split is
+   * re-derived from that rounded number so the invoice's
+   * taxableAmount + gstAmount still reconciles to the total exactly. This is
+   * the one place every screen (customer payment, driver/rider display,
+   * admin reports) eventually reads `fare`/`payableFare` from, so rounding
+   * it here — once — is what keeps all three in agreement.
+   */
+  const gst = ceilGstTotal(applyGst(preTaxTotal, gstConfig || {}));
 
   return {
     billableDays: days,

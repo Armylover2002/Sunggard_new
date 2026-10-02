@@ -56,8 +56,8 @@ describe("outstation breakdown carries the tax it charged", () => {
     const daily = computeParcelDailyFare({ config: PARCEL });
     const priced = applyBillableDaysToFare(daily, 1, GST_ON);
 
-    // 80 taxable, 14.40 tax, 94.40 charged to the customer.
-    expect(priced.fare).toBe(94.4);
+    // 80 taxable, 14.40 tax, 94.40 gross -- rounded up to the next whole
+    // rupee (95) for collection; the 0.60 gap is `roundOff`, not tax.
     expect(priced.taxableAmount).toBe(80);
     expect(priced.gstAmount).toBe(14.4);
     expect(priced.cgst).toBe(7.2);
@@ -65,6 +65,8 @@ describe("outstation breakdown carries the tax it charged", () => {
     expect(priced.gstPercent).toBe(18);
     expect(priced.gstin).toBe("27AAAAA0000A1Z5");
     expect(priced.gstInclusive).toBe(false);
+    expect(priced.roundOff).toBe(0.6);
+    expect(priced.fare).toBe(95);
 
     // The controller copies these onto `fareBreakdown`; a zero here is what
     // made outstation tax invisible to the invoice and the GST report.
@@ -102,30 +104,30 @@ describe("coupon x GST: does the invoice reconcile with the tax actually due?", 
     const d = await computeBookingDiscount({
       couponCode: "SAVE10",
       bookingKind: "porter_outstation",
-      fareAmount: priced.fare, // 94.40 — the TAX-INCLUSIVE gross
+      fareAmount: priced.fare, // 95 — the whole-rupee, tax-inclusive gross
     });
 
-    // The coupon is applied to the tax-inclusive gross, so "10% off" takes
-    // 9.44 rather than 10% of the pre-tax 80 (= 8.00).
-    expect(d.discountAmount).toBe(9.44);
-    expect(d.payableFare).toBe(84.96);
+    // The coupon is applied to the whole-rupee gross, so "10% off" takes
+    // 9.50 rather than 10% of the pre-tax 80 (= 8.00).
+    expect(d.discountAmount).toBe(9.5);
+    expect(d.payableFare).toBe(85.5);
 
     // What gets persisted on the booking as the tax record:
     const storedTaxable = priced.taxableAmount; // 80
     const storedGst = priced.gstAmount; // 14.40
 
     // INVARIANT UNDER AUDIT: the tax recorded as charged should be the tax on
-    // the consideration actually received. Customer paid 84.96; at 18% that
-    // implies taxable 72.00 and GST 12.96.
-    const impliedTaxable = money(d.payableFare / 1.18); // 72.00
-    const impliedGst = money(d.payableFare - impliedTaxable); // 12.96
+    // the consideration actually received. Customer paid 85.50; at 18% that
+    // implies taxable 72.46 and GST 13.04.
+    const impliedTaxable = money(d.payableFare / 1.18); // 72.46
+    const impliedGst = money(d.payableFare - impliedTaxable); // 13.04
 
-    expect(impliedTaxable).toBe(72);
-    expect(impliedGst).toBe(12.96);
+    expect(impliedTaxable).toBe(72.46);
+    expect(impliedGst).toBe(13.04);
 
     // The gap the platform over-declares, per booking:
     const overDeclared = money(storedGst - impliedGst);
-    expect(overDeclared).toBe(1.44); // == 18% of the 8.00 pre-tax discount
+    expect(overDeclared).toBe(1.36);
 
     // Documents the raw rate-card output before re-attribution.
     expect(storedTaxable).toBe(80);
@@ -133,9 +135,9 @@ describe("coupon x GST: does the invoice reconcile with the tax actually due?", 
 
     // ...and the fix puts the tax back onto the money that changed hands.
     const rebased = rebaseGstAfterDiscount(priced, d.payableFare);
-    expect(rebased.taxableAmount).toBe(72);
-    expect(rebased.gstAmount).toBe(12.96);
-    expect(money(rebased.cgst + rebased.sgst)).toBe(12.96);
+    expect(rebased.taxableAmount).toBe(72.46);
+    expect(rebased.gstAmount).toBe(13.04);
+    expect(money(rebased.cgst + rebased.sgst)).toBe(13.04);
     expect(rebased.preDiscountTaxableAmount).toBe(80);
     // The invoice now closes: taxable + tax == what the customer paid.
     expect(money(rebased.taxableAmount + rebased.gstAmount)).toBe(d.payableFare);
@@ -150,14 +152,14 @@ describe("coupon x GST: does the invoice reconcile with the tax actually due?", 
       bookingKind: "porter_outstation",
       fareAmount: priced.fare,
     });
-    // 94.40 - 20 = 74.40 paid. The customer total is unchanged by the fix.
-    expect(d.payableFare).toBe(74.4);
+    // 95 - 20 = 75 paid.
+    expect(d.payableFare).toBe(75);
 
     const rebased = rebaseGstAfterDiscount(priced, d.payableFare);
-    // 74.40 / 1.18 = 63.05 taxable, tax 11.35.
-    expect(rebased.taxableAmount).toBe(63.05);
-    expect(rebased.gstAmount).toBe(11.35);
-    expect(money(rebased.taxableAmount + rebased.gstAmount)).toBe(74.4);
+    // 75 / 1.18 = 63.56 taxable, tax 11.44.
+    expect(rebased.taxableAmount).toBe(63.56);
+    expect(rebased.gstAmount).toBe(11.44);
+    expect(money(rebased.taxableAmount + rebased.gstAmount)).toBe(75);
   });
 
   it("with GST off, the taxable value is the discounted amount, not the list fare", async () => {
@@ -261,9 +263,13 @@ describe("invoice reconciles end to end", () => {
       stored.baseFare + stored.distanceFare + stored.weightFare + stored.platformCharge;
     expect(money(chargeLines)).toBe(80);
 
-    // The discount the invoice puts against those lines.
+    // The discount the invoice puts against those lines. quote.fare (95) is
+    // the real whole-rupee gross — 10% off it is 9.50, which backs out to
+    // 7.54 off the taxable value (not the pre-rounding 8.00: the coupon is
+    // entitled to 10% of what the customer would actually have paid,
+    // rounding included).
     const taxableDiscount = money(stored.preDiscountTaxableAmount - stored.taxableAmount);
-    expect(taxableDiscount).toBe(8);
+    expect(taxableDiscount).toBe(7.54);
 
     // Invoice subtotal is the taxable value, and the lines resolve to it.
     expect(money(chargeLines - taxableDiscount)).toBe(stored.taxableAmount);
@@ -271,10 +277,7 @@ describe("invoice reconciles end to end", () => {
     // Subtotal + tax == total == what payment/COD will actually collect.
     expect(money(stored.taxableAmount + stored.gstAmount)).toBe(d.payableFare);
 
-    // And the customer's headline saving is still the full 9.44.
-    expect(d.discountAmount).toBe(9.44);
-    expect(money(taxableDiscount + (stored.preDiscountTaxableAmount * 0.18 - stored.gstAmount)))
-      .toBe(9.44);
+    expect(d.discountAmount).toBe(9.5);
   });
 });
 
@@ -289,10 +292,12 @@ describe("outstation fare with billable days", () => {
     expect(daily.fare).toBe(80);
 
     const priced = applyBillableDaysToFare(daily, 7, GST_ON);
-    // 80 x 7 = 560 taxable; 18% = 100.80; gross 660.80
+    // 80 x 7 = 560 taxable; 18% = 100.80; gross 660.80, rounded up for
+    // collection to 661 — the 0.20 gap is `roundOff`, not extra tax.
     expect(priced.taxableAmount).toBe(560);
     expect(priced.gstAmount).toBe(100.8);
-    expect(priced.fare).toBe(660.8);
+    expect(priced.roundOff).toBe(0.2);
+    expect(priced.fare).toBe(661);
   });
 });
 
@@ -314,7 +319,7 @@ describe("coupon clamps", () => {
       bookingKind: "porter_outstation",
       fareAmount: priced.fare,
     });
-    expect(d.discountAmount).toBe(94.4);
+    expect(d.discountAmount).toBe(95);
     expect(d.payableFare).toBe(0);
   });
 
@@ -327,9 +332,9 @@ describe("coupon clamps", () => {
       bookingKind: "porter_outstation",
       fareAmount: priced.fare,
     });
-    // 50% of 94.40 = 47.20, clamped to 20
+    // 50% of 95 = 47.50, clamped to 20
     expect(d.discountAmount).toBe(20);
-    expect(d.payableFare).toBe(74.4);
+    expect(d.payableFare).toBe(75);
   });
 
   it("rejects a coupon that does not apply to this booking kind", async () => {

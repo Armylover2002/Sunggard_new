@@ -64,4 +64,12 @@ export const gstBreakdownFields = {
   gstInclusive: { type: Boolean, default: false },
   /** The registration number in force when this was sold. */
   gstin: { type: String, default: "" },
+  /**
+   * The gap between `taxableAmount + gstAmount` and the whole-rupee `fare`
+   * actually charged (₹113.40 → ₹114 collects an extra ₹0.60 here, not as
+   * tax). Kept separate from `gstAmount` on purpose — rounding the fare up
+   * for collection convenience is not taxable value, and folding it into the
+   * tax fields would mean remitting GST on money that was never a sale.
+   */
+  roundOff: { type: Number, default: 0 },
 };

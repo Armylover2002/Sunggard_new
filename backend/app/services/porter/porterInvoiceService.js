@@ -366,6 +366,10 @@ export async function buildPorterInvoice({ kind, bookingId, requesterId, isAdmin
     charges,
     subtotal,
     tax,
+    // The whole-rupee-up adjustment (₹113.40 collected as ₹114) — never
+    // folded into `tax`, since it isn't taxable value; printed as its own
+    // line only when there actually is one, same as `discount` below.
+    roundOff: round2(breakdown.roundOff || 0) || null,
     discount:
       discountAmount > 0
         ? {
