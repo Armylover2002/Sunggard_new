@@ -133,12 +133,21 @@ export function getRedisClient() {
 /**
  * Bull passes (type, config) where config is merged from options.redis.
  * Mirrors bull/lib/queue.js defaults and attaches the same error handler.
+ *
+ * `lazyConnect` is deliberately NOT set here. Bull's "bclient" polls jobs via
+ * a blocking BRPOPLPUSH loop that starts once the client reaches "ready" —
+ * with lazyConnect, ioredis never opens the socket until a command is sent,
+ * and Bull never sends that first command until it sees "ready". The two
+ * wait on each other forever: the client connects (TCP + CLIENT SETNAME
+ * still happen because Bull does send *that* command), but the actual job
+ * loop never starts, so every job piles up in "wait" with no error anywhere.
+ * Confirmed directly: the same queue/Redis drains immediately the moment
+ * lazyConnect is removed.
  */
 export function createBullRedisClient(type, config) {
   let client;
   if (typeof config === "string") {
     client = new Redis(config, {
-      lazyConnect: true,
       maxRetriesPerRequest: null,
       retryStrategy(times) {
         if (times > 20) return null;
@@ -148,13 +157,11 @@ export function createBullRedisClient(type, config) {
   } else if (["bclient", "subscriber"].includes(type)) {
     client = new Redis({
       ...config,
-      lazyConnect: true,
       maxRetriesPerRequest: null,
     });
   } else {
     client = new Redis({
       ...config,
-      lazyConnect: true,
       maxRetriesPerRequest: null,
     });
   }
