@@ -43,8 +43,6 @@ import {
 import {
     exportAdminFinanceStatementController,
     getAdminFinanceLedgerController,
-    getDeliverySettingsController,
-    updateDeliverySettingsController,
 } from "../controller/adminFinanceController.js";
 
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
@@ -125,18 +123,6 @@ router.get(
     verifyToken,
     allowRoles("admin"),
     getPlatformSettings
-);
-router.get(
-    "/settings/delivery",
-    verifyToken,
-    allowRoles("admin"),
-    getDeliverySettingsController,
-);
-router.put(
-    "/settings/delivery",
-    verifyToken,
-    allowRoles("admin"),
-    updateDeliverySettingsController,
 );
 router.put(
     "/settings/platform",

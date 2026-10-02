@@ -102,35 +102,3 @@ export const payoutProcessSchema = Joi.object({
   limit: Joi.number().integer().min(1).max(200).default(50),
   remarks: Joi.string().allow("", null).optional(),
 });
-
-export const updateDeliverySettingsSchema = Joi.object({
-  deliveryPricingMode: Joi.string().valid("fixed_price", "distance_based").optional(),
-  pricingMode: Joi.string().valid("fixed_price", "distance_based").optional(),
-  customerBaseDeliveryFee: Joi.number().min(0).optional(),
-  riderBasePayout: Joi.number().min(0).optional(),
-  baseDeliveryCharge: Joi.number().min(0).optional(),
-  baseDistanceCapacityKm: Joi.number().min(0).optional(),
-  incrementalKmSurcharge: Joi.number().min(0).optional(),
-  deliveryPartnerRatePerKm: Joi.number().min(0).optional(),
-  fleetCommissionRatePerKm: Joi.number().min(0).optional(),
-  fixedDeliveryFee: Joi.number().min(0).optional(),
-  handlingFeeStrategy: Joi.string()
-    .valid("highest_category_fee", "sum_of_category_fees", "max_single_fee", "per_item_fee")
-    .optional(),
-  codEnabled: Joi.boolean().optional(),
-  onlineEnabled: Joi.boolean().optional(),
-}).or(
-  "deliveryPricingMode",
-  "pricingMode",
-  "customerBaseDeliveryFee",
-  "riderBasePayout",
-  "baseDeliveryCharge",
-  "baseDistanceCapacityKm",
-  "incrementalKmSurcharge",
-  "deliveryPartnerRatePerKm",
-  "fleetCommissionRatePerKm",
-  "fixedDeliveryFee",
-  "handlingFeeStrategy",
-  "codEnabled",
-  "onlineEnabled",
-);

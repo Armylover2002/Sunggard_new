@@ -2,19 +2,7 @@ import Wallet from "../models/wallet.js";
 import handleResponse from "../utils/helper.js";
 import { getLedgerEntries } from "../services/finance/ledgerService.js";
 import { exportFinanceStatement } from "../services/finance/statementService.js";
-import {
-  FINANCE_AUDIT_ACTION,
-  OWNER_TYPE,
-} from "../constants/finance.js";
-import {
-  getOrCreateFinanceSettings,
-  updateDeliveryFinanceSettings,
-} from "../services/finance/financeSettingsService.js";
-import { createFinanceAuditLog } from "../services/finance/auditLogService.js";
-import {
-  financeLedgerQuerySchema,
-  updateDeliverySettingsSchema,
-} from "../validation/financeValidation.js";
+import { financeLedgerQuerySchema } from "../validation/financeValidation.js";
 import { validateBodySafe as validateWithJoi } from "../middleware/validate.js";
 
 export const getAdminFinanceLedgerController = async (req, res) => {
@@ -39,36 +27,6 @@ export const exportAdminFinanceStatementController = async (req, res) => {
       `attachment; filename="${statement.fileName}"`,
     );
     return res.status(200).send(statement.csv);
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
-
-export const getDeliverySettingsController = async (req, res) => {
-  try {
-    const settings = await getOrCreateFinanceSettings();
-    return handleResponse(res, 200, "Delivery finance settings fetched", settings);
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
-
-export const updateDeliverySettingsController = async (req, res) => {
-  try {
-    const validated = validateWithJoi(updateDeliverySettingsSchema, req.body || {});
-    if (!validated.isValid) {
-      return handleResponse(res, 400, validated.message);
-    }
-    const updated = await updateDeliveryFinanceSettings(validated.value);
-    await createFinanceAuditLog({
-      action: FINANCE_AUDIT_ACTION.DELIVERY_SETTINGS_UPDATED,
-      actorType: OWNER_TYPE.ADMIN,
-      actorId: req.user?.id || null,
-      metadata: {
-        updatedFields: Object.keys(validated.value || {}),
-      },
-    });
-    return handleResponse(res, 200, "Delivery finance settings updated", updated);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

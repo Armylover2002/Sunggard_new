@@ -30,20 +30,6 @@ const ALLOWED_KEYS = [
   "metaDescription",
   "metaKeywords",
   "keywords",
-  "returnDeliveryCommission",
-  "deliveryPricingMode",
-  "pricingMode",
-  "customerBaseDeliveryFee",
-  "riderBasePayout",
-  "baseDeliveryCharge",
-  "baseDistanceCapacityKm",
-  "incrementalKmSurcharge",
-  "deliveryPartnerRatePerKm",
-  "fleetCommissionRatePerKm",
-  "fixedDeliveryFee",
-  "handlingFeeStrategy",
-  "codEnabled",
-  "onlineEnabled",
   "legalContent",
 ];
 
@@ -98,25 +84,6 @@ const updateSettingsSchema = Joi.object({
   metaDescription: Joi.string().allow("").max(500),
   metaKeywords: Joi.string().allow("").max(1000),
   keywords: Joi.array().items(Joi.string().max(200)),
-  returnDeliveryCommission: Joi.number().min(0),
-  deliveryPricingMode: Joi.string().valid("fixed_price", "distance_based"),
-  pricingMode: Joi.string().valid("fixed_price", "distance_based"),
-  customerBaseDeliveryFee: Joi.number().min(0),
-  riderBasePayout: Joi.number().min(0),
-  baseDeliveryCharge: Joi.number().min(0),
-  baseDistanceCapacityKm: Joi.number().min(0),
-  incrementalKmSurcharge: Joi.number().min(0),
-  deliveryPartnerRatePerKm: Joi.number().min(0),
-  fleetCommissionRatePerKm: Joi.number().min(0),
-  fixedDeliveryFee: Joi.number().min(0),
-  handlingFeeStrategy: Joi.string().valid(
-    "highest_category_fee",
-    "sum_of_category_fees",
-    "max_single_fee",
-    "per_item_fee",
-  ),
-  codEnabled: Joi.boolean(),
-  onlineEnabled: Joi.boolean(),
   legalContent: Joi.object({
     customerPrivacyPolicy: Joi.string().allow("").max(100000),
     customerTerms:         Joi.string().allow("").max(100000),
@@ -145,7 +112,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled legalContent createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor legalContent createdAt",
           )
           .lean();
         return existing || null;

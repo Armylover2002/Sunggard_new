@@ -9,11 +9,6 @@ export const adminSettingsApi = {
     updatePlatformSettings: (data) =>
         axiosInstance.put('/admin/settings/platform', data),
 
-    getDeliveryFinanceSettings: () =>
-        axiosInstance.get('/admin/settings/delivery'),
-    updateDeliveryFinanceSettings: (data) =>
-        axiosInstance.put('/admin/settings/delivery', data),
-
     // Centralized settings (public GET, admin PUT)
     getSettings: () => axiosInstance.get('/settings'),
     updateSettings: (data) => axiosInstance.put('/settings', data),

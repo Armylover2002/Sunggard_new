@@ -14,7 +14,6 @@ import {
   CircleDollarSign,
   Users,
   HelpCircle,
-  RotateCcw,
   Settings,
   Terminal,
   Sparkles,
@@ -223,12 +222,6 @@ const navItems = [
   },
   { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
   {
-    label: "Fees & Charges",
-    path: "/admin/billing",
-    icon: RotateCcw,
-    color: "red",
-  },
-  {
     label: "Settings",
     path: "/admin/settings",
     icon: Settings,
@@ -241,8 +234,6 @@ const navItems = [
   { label: "My Profile", path: "/admin/profile", icon: User, color: "indigo" },
   { label: "System Settings", path: "/admin/env", icon: Terminal, color: "dark" },
 ];
-
-const BillingCharges = React.lazy(() => import("../pages/BillingCharges"));
 
 const AdminRoutes = () => {
   useEffect(() => {
@@ -304,7 +295,6 @@ const AdminRoutes = () => {
         <Route path="/seller-transactions" element={<SellerTransactions />} />
         <Route path="/cash-collection" element={<CashCollection />} />
         <Route path="/faqs" element={<FAQManagement />} />
-        <Route path="/billing" element={<BillingCharges />} />
         <Route path="/settings" element={<AdminSettings />} />
         <Route path="/env" element={<EnvSettings />} />
       </Route>
