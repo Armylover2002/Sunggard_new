@@ -1,6 +1,14 @@
 import nodemailer from "nodemailer";
 import logger from "./logger.js";
 
+/**
+ * Single mail transport for every outbound email this app sends — seller
+ * signup verification and the admin "forgot password" OTP. One mailbox
+ * (EMAIL_HOST/EMAIL_PORT/EMAIL_USER/EMAIL_PASS/EMAIL_FROM), one transporter,
+ * reused by both callers instead of each feature carrying its own SMTP
+ * config.
+ */
+
 let cachedTransporter = null;
 
 export function useRealEmailOTP() {
@@ -10,56 +18,43 @@ export function useRealEmailOTP() {
   );
 }
 
-function parseSmtpPort() {
-  return parseInt(process.env.SMTP_PORT || "587", 10);
-}
-
-function parseSmtpSecure(port) {
-  if (process.env.SMTP_SECURE === "true" || process.env.SMTP_SECURE === "1") {
-    return true;
-  }
-
-  if (process.env.SMTP_SECURE === "false" || process.env.SMTP_SECURE === "0") {
-    return false;
-  }
-
-  return port === 465;
+function parseEmailPort() {
+  return parseInt(process.env.EMAIL_PORT || "587", 10);
 }
 
 function getMailFrom() {
-  const fromAddress = String(process.env.MAIL_FROM || "").trim();
-  const fromName = String(process.env.MAIL_FROM_NAME || "").trim();
+  const from = String(process.env.EMAIL_FROM || "").trim();
+  if (from) return from;
 
-  if (!fromAddress) {
-    const error = new Error("MAIL_FROM is required for email OTP delivery");
+  const user = String(process.env.EMAIL_USER || "").trim();
+  if (!user) {
+    const error = new Error("EMAIL_FROM or EMAIL_USER is required for email delivery");
     error.statusCode = 500;
     throw error;
   }
-
-  return fromName ? `${fromName} <${fromAddress}>` : fromAddress;
+  return user;
 }
 
 function getTransportConfig() {
-  const host = String(process.env.SMTP_HOST || "").trim();
-  const port = parseSmtpPort();
-  const secure = parseSmtpSecure(port);
-  const user = String(process.env.SMTP_USER || "").trim();
-  const pass = String(process.env.SMTP_PASS || "").trim();
+  const host = String(process.env.EMAIL_HOST || "").trim();
+  const port = parseEmailPort();
+  const user = String(process.env.EMAIL_USER || "").trim();
+  const pass = String(process.env.EMAIL_PASS || "").trim();
 
   if (!host) {
-    const error = new Error("SMTP_HOST is required for email OTP delivery");
+    const error = new Error("EMAIL_HOST is required for email delivery");
     error.statusCode = 500;
     throw error;
   }
 
   if (!Number.isFinite(port) || port <= 0) {
-    const error = new Error("SMTP_PORT must be a valid number");
+    const error = new Error("EMAIL_PORT must be a valid number");
     error.statusCode = 500;
     throw error;
   }
 
   if ((user && !pass) || (!user && pass)) {
-    const error = new Error("SMTP_USER and SMTP_PASS must be provided together");
+    const error = new Error("EMAIL_USER and EMAIL_PASS must be provided together");
     error.statusCode = 500;
     throw error;
   }
@@ -67,15 +62,8 @@ function getTransportConfig() {
   return {
     host,
     port,
-    secure,
-    ...(user && pass
-      ? {
-          auth: {
-            user,
-            pass,
-          },
-        }
-      : {}),
+    secure: port === 465,
+    ...(user && pass ? { auth: { user, pass } } : {}),
   };
 }
 
@@ -123,6 +111,25 @@ export async function sendSellerVerificationOtpEmail({
     delivered: true,
     mode: "real",
   };
+}
+
+export async function sendAdminPasswordResetOtpEmail({ to, otp, expiresInMinutes }) {
+  const transporter = getTransporter();
+
+  await transporter.sendMail({
+    from: getMailFrom(),
+    to,
+    subject: "Your admin password reset code",
+    text: `Your password reset code is ${otp}. This code expires in ${expiresInMinutes} minutes. If you didn't request this, you can ignore this email.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #0f172a;">
+        <p>Your admin password reset code is:</p>
+        <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${otp}</p>
+        <p>This code expires in ${expiresInMinutes} minutes.</p>
+        <p style="color: #64748b; font-size: 13px;">If you didn't request this, you can ignore this email.</p>
+      </div>
+    `,
+  });
 }
 
 export function __resetEmailTransportForTests() {

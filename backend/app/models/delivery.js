@@ -235,6 +235,17 @@ const deliverySchema = new mongoose.Schema(
             select: false,
         },
 
+        otpFailedAttempts: {
+            type: Number,
+            default: 0,
+            select: false,
+        },
+
+        otpLockedUntil: {
+            type: Date,
+            select: false,
+        },
+
         lastLogin: Date,
 
         /** Last GPS fix from POST /delivery/location (for radius matching). */

@@ -40,6 +40,18 @@ const adminSchema = new mongoose.Schema(
     },
 
     lastLogin: Date,
+
+    // Forgot-password OTP (email). Hashed, same as the customer OTP flow —
+    // the raw code is never stored.
+    otpHash: { type: String, select: false },
+    otpExpiresAt: { type: Date, select: false },
+    otpFailedAttempts: { type: Number, default: 0, select: false },
+    otpLockedUntil: { type: Date, select: false },
+
+    // Short-lived token issued once the OTP above is verified, so the
+    // "set new password" step doesn't need the OTP re-entered.
+    resetTokenHash: { type: String, select: false },
+    resetTokenExpiresAt: { type: Date, select: false },
   },
   { timestamps: true },
 );

@@ -1,8 +1,10 @@
 import express from "express";
 import {
     bootstrapAdmin,
-    signupAdmin,
     loginAdmin,
+    forgotPasswordSendOtp,
+    forgotPasswordVerifyOtp,
+    resetAdminPasswordController,
 } from "../controller/adminAuthController.js";
 import {
     getAdminProfile,
@@ -61,8 +63,28 @@ const smallAdminPayload = createContentLengthGuard(
     "Admin auth payload too large",
 );
 router.post("/bootstrap", adminBootstrapRateLimiter, smallAdminPayload, bootstrapAdmin);
-router.post("/signup", adminBootstrapRateLimiter, smallAdminPayload, signupAdmin);
 router.post("/login", authRouteRateLimiter, smallAdminPayload, loginAdmin);
+
+// Forgot password — no auth required by definition. Rate-limited the same
+// as bootstrap since both are unauthenticated, account-sensitive endpoints.
+router.post(
+    "/forgot-password/send-otp",
+    adminBootstrapRateLimiter,
+    smallAdminPayload,
+    forgotPasswordSendOtp,
+);
+router.post(
+    "/forgot-password/verify-otp",
+    adminBootstrapRateLimiter,
+    smallAdminPayload,
+    forgotPasswordVerifyOtp,
+);
+router.post(
+    "/forgot-password/reset",
+    adminBootstrapRateLimiter,
+    smallAdminPayload,
+    resetAdminPasswordController,
+);
 
 // Profile routes
 router.get(

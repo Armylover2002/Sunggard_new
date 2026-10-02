@@ -172,7 +172,7 @@ function logStartupInfo() {
     console.warn('!'.repeat(60));
     console.warn('⚠  MOCK OTP IS ACTIVE IN PRODUCTION.');
     console.warn('⚠  Any phone number can sign in with the code 1234.');
-    console.warn('⚠  Set USE_REAL_SMS=true before real users arrive.');
+    console.warn('⚠  Set USE_DEFAULT_OTP=false (with SMS_INDIA_HUB_* filled in) before real users arrive.');
     console.warn('!'.repeat(60));
   }
   console.log('='.repeat(60));

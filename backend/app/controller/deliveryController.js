@@ -18,6 +18,7 @@ import {
 import Parcel from "../models/parcel.js";
 import ParcelConfig from "../models/parcelConfig.js";
 import { computeRiderParcelEarnings } from "../services/parcelWorkflowService.js";
+import { emitToOrder } from "../services/orderSocketEmitter.js";
 
 const PARCEL_ACTIVE_STATUSES = new Set([
   "REQUESTED",
@@ -398,6 +399,21 @@ export const updateDeliveryLocation = async (req, res) => {
         writeDeliveryLocation(deliveryId, activeOrderId, snapshot).catch(() => {});
         if (activeOrderId) {
             appendTrailPoint(activeOrderId, { lat, lng, t: Date.now() }).catch(() => {});
+
+            // Real-time map tracking: push the fix straight to whoever has
+            // joined this parcel's socket room (customer + rider screens),
+            // instead of leaving them to poll the parcel doc or Firebase.
+            emitToOrder(activeOrderId, {
+                event: "location:update",
+                payload: {
+                    parcelId: activeOrderId,
+                    lat,
+                    lng,
+                    heading: typeof heading === "number" ? heading : undefined,
+                    speed: typeof speed === "number" ? speed : undefined,
+                    at: new Date().toISOString(),
+                },
+            });
         }
 
         return handleResponse(res, 200, "Location updated", {

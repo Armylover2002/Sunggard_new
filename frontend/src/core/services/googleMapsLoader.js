@@ -44,8 +44,14 @@ export const loadGoogleMaps = (apiKey) => {
       return;
     }
 
-    // Create script element
+    // Create script element.
+    // Same id as useMapsLoader.js's LOADER_ID: @react-google-maps/api's
+    // internal loader checks `document.getElementById(this.id)` before
+    // injecting its own script, so whichever of the two loaders runs first,
+    // the other recognizes this tag and reuses it instead of loading the
+    // Maps JS API a second time on the same page.
     const script = document.createElement('script');
+    script.id = 'google-map-script';
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,places`;
     script.async = true;
     script.defer = true;

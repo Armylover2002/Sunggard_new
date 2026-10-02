@@ -92,13 +92,11 @@ describe("sellerVerificationService", () => {
     process.env.JWT_SECRET = "test-jwt-secret";
     process.env.OTP_HASH_SECRET = "test-otp-secret";
     process.env.USE_REAL_EMAIL_OTP = "true";
-    process.env.SMTP_HOST = "smtp.example.com";
-    process.env.SMTP_PORT = "587";
-    process.env.SMTP_SECURE = "false";
-    process.env.SMTP_USER = "smtp-user";
-    process.env.SMTP_PASS = "smtp-pass";
-    process.env.MAIL_FROM = "no-reply@example.com";
-    process.env.MAIL_FROM_NAME = "Noyo";
+    process.env.EMAIL_HOST = "smtp.example.com";
+    process.env.EMAIL_PORT = "587";
+    process.env.EMAIL_USER = "email-user";
+    process.env.EMAIL_PASS = "email-pass";
+    process.env.EMAIL_FROM = "Noyo <no-reply@example.com>";
   });
 
   afterEach(() => {
@@ -125,8 +123,8 @@ describe("sellerVerificationService", () => {
         port: 587,
         secure: false,
         auth: {
-          user: "smtp-user",
-          pass: "smtp-pass",
+          user: "email-user",
+          pass: "email-pass",
         },
       }),
     );

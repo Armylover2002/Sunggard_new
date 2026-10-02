@@ -2,7 +2,7 @@ import crypto from "crypto";
 import Customer from "../models/customer.js";
 import { sendSmsIndiaHubOtp } from "./smsIndiaHubService.js";
 import { generateOTP, useRealSMS } from "../utils/otp.js";
-import { getRedisClient } from "../config/redis.js";
+import { incrementWindowCounter } from "../utils/otpRateLimit.js";
 import { isValidE164Phone, maskPhone, normalizePhoneNumber } from "../utils/phone.js";
 
 const OTP_EXPIRY_MINUTES = () => parseInt(process.env.OTP_EXPIRY_MINUTES || "5", 10);
@@ -13,13 +13,22 @@ const OTP_EXPIRY_MINUTES = () => parseInt(process.env.OTP_EXPIRY_MINUTES || "5",
 const OTP_RESEND_COOLDOWN_SECONDS = () =>
   parseInt(process.env.OTP_RESEND_COOLDOWN_SECONDS || "0", 10);
 const OTP_MAX_FAILED_ATTEMPTS = () =>
-  parseInt(process.env.OTP_MAX_FAILED_ATTEMPTS || "5", 10);
+  parseInt(process.env.OTP_MAX_ATTEMPTS || process.env.OTP_MAX_FAILED_ATTEMPTS || "5", 10);
 const OTP_LOCKOUT_MINUTES = () =>
   parseInt(process.env.OTP_LOCKOUT_MINUTES || "15", 10);
+// OTP_RATE_LIMIT / OTP_RATE_WINDOW are the user-facing "how many codes can
+// this phone request" knob; the older *_LIMIT_PER_WINDOW / *_WINDOW_SECONDS
+// names stay as fallbacks for deployments that already set those.
 const OTP_SEND_LIMIT_WINDOW_SECONDS = () =>
-  parseInt(process.env.OTP_SEND_LIMIT_WINDOW_SECONDS || "900", 10);
+  parseInt(
+    process.env.OTP_RATE_WINDOW || process.env.OTP_SEND_LIMIT_WINDOW_SECONDS || "900",
+    10,
+  );
 const OTP_SEND_LIMIT_PER_WINDOW = () =>
-  parseInt(process.env.OTP_SEND_LIMIT_PER_WINDOW || "100", 10);
+  parseInt(
+    process.env.OTP_RATE_LIMIT || process.env.OTP_SEND_LIMIT_PER_WINDOW || "100",
+    10,
+  );
 const OTP_VERIFY_LIMIT_WINDOW_SECONDS = () =>
   parseInt(process.env.OTP_VERIFY_LIMIT_WINDOW_SECONDS || "900", 10);
 const OTP_VERIFY_LIMIT_PER_WINDOW = () =>
@@ -33,38 +42,6 @@ function hashOtp(phone, otp) {
     .createHmac("sha256", otpHashSecret())
     .update(`${phone}:${otp}`)
     .digest("hex");
-}
-
-async function incrementWindowCounter(redisKey, { limit, windowSeconds }) {
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      const [count] = await Promise.all([
-        redis.incr(redisKey),
-        redis.expire(redisKey, windowSeconds),
-      ]);
-      return Number(count) <= limit;
-    } catch {
-      // fallback below
-    }
-  }
-
-  if (!globalThis.__OTP_WINDOW_COUNTER__) {
-    globalThis.__OTP_WINDOW_COUNTER__ = new Map();
-  }
-  const now = Date.now();
-  const map = globalThis.__OTP_WINDOW_COUNTER__;
-  const entry = map.get(redisKey);
-  if (!entry || entry.expiresAt <= now) {
-    map.set(redisKey, {
-      count: 1,
-      expiresAt: now + windowSeconds * 1000,
-    });
-    return true;
-  }
-  entry.count += 1;
-  map.set(redisKey, entry);
-  return entry.count <= limit;
 }
 
 function otpAuditLog(event, meta) {

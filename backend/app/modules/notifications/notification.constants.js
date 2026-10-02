@@ -5,6 +5,10 @@ export const NOTIFICATION_EVENTS = Object.freeze({
   PARCEL_ASSIGNED: "PARCEL_ASSIGNED",
   PARCEL_STATUS_UPDATE: "PARCEL_STATUS_UPDATE",
   PARCEL_DELIVERED: "PARCEL_DELIVERED",
+  // Value is the literal string the driver app's native dismiss-handler
+  // already listens for (order_cancelled) — this isn't a cosmetic name,
+  // changing it would silently stop the dismiss from firing on the app side.
+  PARCEL_SEARCH_CANCELLED: "order_cancelled",
 });
 
 export const NOTIFICATION_ROLES = Object.freeze({
@@ -54,6 +58,7 @@ export const NOTIFICATIONS_ENABLED = () =>
  */
 export const DATA_ONLY_EVENT_TYPES = new Set([
   NOTIFICATION_EVENTS.NEW_PARCEL_BROADCAST,
+  NOTIFICATION_EVENTS.PARCEL_SEARCH_CANCELLED,
 ]);
 
 export const isDataOnlyEvent = (eventType) =>
@@ -90,6 +95,7 @@ export function roleFromEvent(eventType) {
       return NOTIFICATION_ROLES.ADMIN;
     case NOTIFICATION_EVENTS.NEW_PARCEL_BROADCAST:
     case NOTIFICATION_EVENTS.PARCEL_ASSIGNED:
+    case NOTIFICATION_EVENTS.PARCEL_SEARCH_CANCELLED:
       return NOTIFICATION_ROLES.DELIVERY;
     default:
       return NOTIFICATION_ROLES.CUSTOMER;

@@ -141,6 +141,13 @@ function eventDefinition(eventType) {
         title: () => "New Parcel Assigned",
         body: (payload) => payload.body || "You have been assigned a new parcel delivery.",
       };
+    case NOTIFICATION_EVENTS.PARCEL_SEARCH_CANCELLED:
+      return {
+        role: NOTIFICATION_ROLES.DELIVERY,
+        recipientIds: (payload) => normalizeIdList(payload.deliveryIds),
+        title: () => "Parcel request no longer available",
+        body: () => "This parcel request was cancelled or taken by another rider.",
+      };
     case NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE:
       return {
         role: NOTIFICATION_ROLES.CUSTOMER,
@@ -186,6 +193,7 @@ function eventData(eventType, payload = {}, role) {
     // IncomingParcelService looks for parcelId/outstationParcelId in the push
     // data to build the accept/reject dialog, so the offer just never appeared.
     NOTIFICATION_EVENTS.NEW_PARCEL_BROADCAST,
+    NOTIFICATION_EVENTS.PARCEL_SEARCH_CANCELLED,
   ].includes(eventType)) {
     const parcelId = String(payload.parcelId || "").trim() || undefined;
     const link =

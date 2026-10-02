@@ -431,6 +431,11 @@ export async function processParcelSearchTimeout(parcelId, attempt) {
 
     if (!updated) return;
 
+    // The previous round's riders are still holding a stale offer with no
+    // server-side guarantee their own countdown matches this timeout — tell
+    // them explicitly to dismiss it before the next round goes out.
+    await retractParcelBroadcast(String(parcelId), null);
+
     await emitParcelBroadcastForPickup(updated, {
       retryAttempt: currentAttempt + 1,
     });
@@ -438,6 +443,10 @@ export async function processParcelSearchTimeout(parcelId, attempt) {
     scheduleParcelSearchTimeout(parcelId, currentAttempt + 1);
     return;
   }
+
+  // Falling back to manual admin assignment — same stale-offer cleanup as
+  // the retry branch above.
+  await retractParcelBroadcast(String(parcelId), null);
 
   await Parcel.findOneAndUpdate(
     { _id: parcelId, status: "SEARCHING" },
@@ -683,9 +692,12 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
     throw err;
   }
 
+  // Flipped immediately after the atomic claim succeeds, before anything else
+  // async runs — closes the window where a concurrent broadcast query for a
+  // *different* parcel could still read this rider as free.
+  await markDeliveryPartnerBusy(deliveryOid);
   clearParcelSearchTimeout(parcelId);
   await retractParcelBroadcast(String(parcelId), deliveryOid);
-  await markDeliveryPartnerBusy(deliveryOid);
 
   await recordParcelEvent({
     parcelId: updated._id,

@@ -282,6 +282,15 @@ export async function retractParcelBroadcast(parcelId, winnerDeliveryId) {
       }
     }
 
+    // Socket event above only reaches a rider whose app is open/foreground.
+    // A push covers backgrounded/killed devices too, so the stale offer
+    // dialog/overlay gets dismissed there as well (customer cancel, another
+    // rider winning the job, or a server-side search timeout all land here).
+    emitNotificationEvent(NOTIFICATION_EVENTS.PARCEL_SEARCH_CANCELLED, {
+      deliveryIds: recipientIds,
+      parcelId: String(parcelId),
+    });
+
     await Notification.deleteMany({
       recipientModel: "Delivery",
       type: "parcel",

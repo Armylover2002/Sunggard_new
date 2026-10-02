@@ -3,10 +3,23 @@ import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
 import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
 import { generateOTP, useRealSMS } from "../utils/otp.js";
+import { incrementWindowCounter } from "../utils/otpRateLimit.js";
 import { uploadImageWithFallback } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
 import { syncDeliveryPartnerBusyFlag } from "../services/deliveryBusyService.js";
 import { getActiveZoneById, isZoneGatingActive } from "../services/deliveryZoneService.js";
+
+// Same OTP_RATE_LIMIT / OTP_RATE_WINDOW knob the customer OTP flow uses —
+// how many OTP sends a single phone number may request per window, so a
+// script can't rack up SMS charges hammering /send-login-otp.
+const OTP_SEND_LIMIT_PER_WINDOW = () =>
+    parseInt(process.env.OTP_RATE_LIMIT || "100", 10);
+const OTP_SEND_LIMIT_WINDOW_SECONDS = () =>
+    parseInt(process.env.OTP_RATE_WINDOW || "900", 10);
+const OTP_MAX_FAILED_ATTEMPTS = () =>
+    parseInt(process.env.OTP_MAX_ATTEMPTS || "5", 10);
+const OTP_LOCKOUT_MINUTES = () =>
+    parseInt(process.env.OTP_LOCKOUT_MINUTES || "15", 10);
 
 const generateToken = (delivery) =>
     jwt.sign(
@@ -192,6 +205,14 @@ export const signupDelivery = async (req, res) => {
 
         if (!name || !phone) {
             return handleResponse(res, 400, "Name and phone are required");
+        }
+
+        const sendAllowed = await incrementWindowCounter(`otp:send:phone:delivery:${phone}`, {
+            limit: OTP_SEND_LIMIT_PER_WINDOW(),
+            windowSeconds: OTP_SEND_LIMIT_WINDOW_SECONDS(),
+        });
+        if (!sendAllowed) {
+            return handleResponse(res, 429, "Too many OTP requests. Try again later.");
         }
 
         const serviceFlags = resolveServiceFlags(body);
@@ -400,6 +421,14 @@ export const loginDelivery = async (req, res) => {
             return handleResponse(res, 400, "Phone number is required");
         }
 
+        const sendAllowed = await incrementWindowCounter(`otp:send:phone:delivery:${phone}`, {
+            limit: OTP_SEND_LIMIT_PER_WINDOW(),
+            windowSeconds: OTP_SEND_LIMIT_WINDOW_SECONDS(),
+        });
+        if (!sendAllowed) {
+            return handleResponse(res, 429, "Too many OTP requests. Try again later.");
+        }
+
         const delivery = await Delivery.findOne({ phone });
 
         if (!delivery) {
@@ -423,6 +452,8 @@ export const loginDelivery = async (req, res) => {
 
         delivery.otp = otp;
         delivery.otpExpiry = Date.now() + otpExpiryMs();
+        delivery.otpFailedAttempts = 0;
+        delivery.otpLockedUntil = undefined;
         await delivery.save();
 
         const delivery_sms = await deliverOtpSms(phone, otp);
@@ -452,14 +483,43 @@ export const verifyDeliveryOTP = async (req, res) => {
             return handleResponse(res, 400, "Phone and OTP are required");
         }
 
-        const delivery = await Delivery.findOne({
-            phone,
-            otp,
-            otpExpiry: { $gt: Date.now() },
-        });
+        const delivery = await Delivery.findOne({ phone }).select(
+            "+otp +otpExpiry +otpFailedAttempts +otpLockedUntil",
+        );
 
         if (!delivery) {
             return handleResponse(res, 400, "Invalid or expired OTP");
+        }
+
+        const now = new Date();
+        if (delivery.otpLockedUntil && delivery.otpLockedUntil > now) {
+            return handleResponse(
+                res,
+                423,
+                "Too many failed attempts. Please try again later.",
+            );
+        }
+
+        const isValid =
+            delivery.otp === String(otp) &&
+            delivery.otpExpiry &&
+            delivery.otpExpiry > Date.now();
+
+        if (!isValid) {
+            delivery.otpFailedAttempts = (delivery.otpFailedAttempts || 0) + 1;
+            if (delivery.otpFailedAttempts >= OTP_MAX_FAILED_ATTEMPTS()) {
+                delivery.otpLockedUntil = new Date(
+                    now.getTime() + OTP_LOCKOUT_MINUTES() * 60 * 1000,
+                );
+            }
+            await delivery.save();
+            return handleResponse(
+                res,
+                delivery.otpLockedUntil ? 423 : 400,
+                delivery.otpLockedUntil
+                    ? "Too many failed attempts. Please try again later."
+                    : "Invalid or expired OTP",
+            );
         }
 
         // Covers the gap between an OTP being sent and admin deactivating the
@@ -482,6 +542,8 @@ export const verifyDeliveryOTP = async (req, res) => {
         }
         delivery.otp = undefined;
         delivery.otpExpiry = undefined;
+        delivery.otpFailedAttempts = 0;
+        delivery.otpLockedUntil = undefined;
         delivery.lastLogin = new Date();
 
         await delivery.save();

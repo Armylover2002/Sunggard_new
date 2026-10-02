@@ -2,6 +2,16 @@ import crypto from "crypto";
 import { getRedisClient } from "../config/redis.js";
 import * as logger from "./logger.js";
 
+function requireRedis() {
+  const redis = getRedisClient();
+  if (!redis) {
+    throw new Error(
+      "Idempotency requires Redis. Set REDIS_ENABLED=true and REDIS_URL."
+    );
+  }
+  return redis;
+}
+
 /**
  * Idempotency Service
  * 
@@ -68,7 +78,7 @@ export async function checkIdempotency(key, payload = null) {
     throw new Error("Invalid idempotency key format");
   }
   
-  const redis = getRedisClient();
+  const redis = requireRedis();
   const resultKey = RESULT_KEY_PREFIX + key;
   const lockKey = LOCK_KEY_PREFIX + key;
   const errorKey = ERROR_KEY_PREFIX + key;
@@ -169,7 +179,7 @@ export async function acquireIdempotencyLock(key, ttlSeconds = LOCK_TTL_SECONDS)
     throw new Error("Invalid idempotency key format");
   }
   
-  const redis = getRedisClient();
+  const redis = requireRedis();
   const lockKey = LOCK_KEY_PREFIX + key;
   const lockValue = `${Date.now()}`; // Timestamp as lock value
   
@@ -204,7 +214,7 @@ export async function storeIdempotencyResult(key, result, payload = null, ttlSec
     throw new Error("Invalid idempotency key format");
   }
   
-  const redis = getRedisClient();
+  const redis = requireRedis();
   const resultKey = RESULT_KEY_PREFIX + key;
   const lockKey = LOCK_KEY_PREFIX + key;
   
@@ -245,7 +255,7 @@ export async function storeIdempotencyError(key, error, payload = null, ttlSecon
     throw new Error("Invalid idempotency key format");
   }
   
-  const redis = getRedisClient();
+  const redis = requireRedis();
   const errorKey = ERROR_KEY_PREFIX + key;
   const lockKey = LOCK_KEY_PREFIX + key;
   
@@ -287,7 +297,7 @@ export async function releaseIdempotencyLock(key) {
     throw new Error("Invalid idempotency key format");
   }
   
-  const redis = getRedisClient();
+  const redis = requireRedis();
   const lockKey = LOCK_KEY_PREFIX + key;
   
   try {

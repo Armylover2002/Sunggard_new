@@ -4,11 +4,16 @@ import handleResponse from "../utils/helper.js";
 import {
   bootstrapAdminSchema,
   loginAdminSchema,
+  forgotPasswordSendOtpSchema,
+  forgotPasswordVerifyOtpSchema,
+  resetAdminPasswordSchema,
   validateSchema,
 } from "../validation/adminAuthValidation.js";
-
-const PUBLIC_ADMIN_SIGNUP_ENABLED = () =>
-  process.env.ENABLE_PUBLIC_ADMIN_SIGNUP === "true";
+import {
+  issueAdminPasswordResetOtp,
+  verifyAdminPasswordResetOtp,
+  resetAdminPassword,
+} from "../services/adminPasswordResetService.js";
 
 function sanitizeAdmin(adminDoc) {
   const admin = adminDoc?.toObject ? adminDoc.toObject() : { ...(adminDoc || {}) };
@@ -73,40 +78,6 @@ export const bootstrapAdmin = async (req, res) => {
   }
 };
 
-export const signupAdmin = async (req, res) => {
-  try {
-    if (!PUBLIC_ADMIN_SIGNUP_ENABLED()) {
-      return handleResponse(
-        res,
-        403,
-        "Public admin signup is disabled. Use secure bootstrap flow.",
-      );
-    }
-
-    const existingCount = await Admin.countDocuments({});
-    if (existingCount > 0) {
-      return handleResponse(res, 403, "Public admin signup is disabled after bootstrap");
-    }
-
-    const payload = validateSchema(bootstrapAdminSchema, req.body || {});
-    const admin = await Admin.create({
-      name: payload.name,
-      email: payload.email,
-      password: payload.password,
-      role: "admin",
-      isVerified: true,
-    });
-
-    const token = generateToken(admin);
-    return handleResponse(res, 201, "Admin registered successfully", {
-      token,
-      admin: sanitizeAdmin(admin),
-    });
-  } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
-  }
-};
-
 export const loginAdmin = async (req, res) => {
   try {
     const payload = validateSchema(loginAdminSchema, req.body || {});
@@ -131,5 +102,60 @@ export const loginAdmin = async (req, res) => {
     });
   } catch (error) {
     return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+/* ===============================
+   FORGOT PASSWORD — 3-step flow
+   1) email -> OTP sent to that email (only if it belongs to an admin)
+   2) email + otp -> short-lived resetToken
+   3) email + resetToken + newPassword -> password changed
+================================ */
+
+export const forgotPasswordSendOtp = async (req, res) => {
+  try {
+    const payload = validateSchema(forgotPasswordSendOtpSchema, req.body || {});
+    const result = await issueAdminPasswordResetOtp({
+      email: payload.email,
+      ipAddress: req.ip,
+    });
+    return handleResponse(res, 200, "Reset code sent to your email", result);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message, {
+      code: error.code,
+    });
+  }
+};
+
+export const forgotPasswordVerifyOtp = async (req, res) => {
+  try {
+    const payload = validateSchema(forgotPasswordVerifyOtpSchema, req.body || {});
+    const result = await verifyAdminPasswordResetOtp({
+      email: payload.email,
+      otp: payload.otp,
+      ipAddress: req.ip,
+    });
+    return handleResponse(res, 200, "Code verified", result);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message, {
+      code: error.code,
+    });
+  }
+};
+
+export const resetAdminPasswordController = async (req, res) => {
+  try {
+    const payload = validateSchema(resetAdminPasswordSchema, req.body || {});
+    const result = await resetAdminPassword({
+      email: payload.email,
+      resetToken: payload.resetToken,
+      newPassword: payload.newPassword,
+      ipAddress: req.ip,
+    });
+    return handleResponse(res, 200, "Password changed successfully", result);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message, {
+      code: error.code,
+    });
   }
 };
