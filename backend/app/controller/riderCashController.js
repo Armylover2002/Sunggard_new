@@ -152,9 +152,17 @@ export const riderCreateCodQr = async (req, res) => {
     }
 
     // Reuse a link that is still live rather than minting one per tap — a
-    // second link for the same booking would be a second way to charge twice.
+    // second link for the same booking would be a second way to charge
+    // twice. Only trusted when its QR actually looks like a rendered image:
+    // a record from an older shape of this flow (this project has already
+    // been through a Razorpay-hosted QR, then a QR+link pair, then this) can
+    // have a stale `imageUrl` that is empty or just a short URL string, not
+    // a picture — reusing that blindly is exactly what showed a blank QR
+    // panel on a booking that was first opened before the latest fix.
     const existing = booking.codOnlineQr || {};
-    if (existing.paymentLinkId && !existing.paidAt) {
+    const existingImageLooksRendered =
+      typeof existing.imageUrl === "string" && existing.imageUrl.startsWith("data:image");
+    if (existing.paymentLinkId && !existing.paidAt && existingImageLooksRendered) {
       return handleResponse(res, 200, "Scan to pay", {
         imageUrl: existing.imageUrl,
         // Stored in paise (matches what Razorpay was asked to collect);
@@ -163,6 +171,13 @@ export const riderCreateCodQr = async (req, res) => {
         amount: Number(existing.amount || 0) / 100,
         paymentLinkUrl: existing.paymentLinkUrl || null,
       });
+    }
+
+    // Either there's nothing live yet, or what's stored can't be trusted to
+    // render — cancel it (a no-op if there was never a real link) so there's
+    // only ever one chargeable link open per booking, then mint a fresh one.
+    if (existing.paymentLinkId && !existing.paidAt) {
+      await cancelCodPaymentLink(existing.paymentLinkId);
     }
 
     const codState = codStateFor(kind, booking) || {};

@@ -169,7 +169,7 @@ const CodOnlineQrSheet = ({ open, kind, bookingId, amount, onClose, onPaid }) =>
               ₹{Number(amount || 0).toFixed(2)}
             </p>
             <p className="text-center text-[12px] font-semibold text-slate-500">
-              Ask the customer to scan this with any UPI app. It updates here on its own.
+              Ask the customer to scan this with their phone's camera. It updates here on its own.
             </p>
 
             {qr?.paymentLinkUrl && (
