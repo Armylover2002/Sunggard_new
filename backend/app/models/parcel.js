@@ -281,23 +281,21 @@ const parcelSchema = new mongoose.Schema(
      * lands with admin directly and never enters the rider deposit pipeline.
      */
     codOnlineQr: {
-      qrId: { type: String, default: null },
+      /**
+       * A Razorpay Payment Link, switching this COD booking to pay online.
+       * `imageUrl` is a QR we render ourselves of the link's own URL (so any
+       * camera/scanner reads it as a tappable https:// link, not a raw UPI
+       * deep-link string) — scanning it and tapping `paymentLinkUrl` land on
+       * the exact same Razorpay checkout page.
+       */
+      paymentLinkId: { type: String, default: null },
+      paymentLinkUrl: { type: String, default: null },
       imageUrl: { type: String, default: null },
       /** Paise, matching what Razorpay was asked to collect. */
       amount: { type: Number, default: 0 },
       createdAt: { type: Date, default: null },
       paidAt: { type: Date, default: null },
       paymentId: { type: String, default: null },
-      /**
-       * A Razorpay Payment Link for the same amount, created alongside the
-       * QR. Lets the rider send/tap a link that opens Razorpay's hosted
-       * checkout directly — useful whenever scanning a UPI QR isn't the
-       * easiest path (testing without a UPI app installed, a customer who'd
-       * rather pay by card/netbanking). Paying through either one settles
-       * the booking; they are two doors to the same captured payment.
-       */
-      paymentLinkId: { type: String, default: null },
-      paymentLinkUrl: { type: String, default: null },
     },
     /** Razorpay order id for UPI/online parcel payments. */
     razorpayOrderId: {

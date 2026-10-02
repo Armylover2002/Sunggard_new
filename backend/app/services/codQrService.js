@@ -1,21 +1,29 @@
 import Razorpay from "razorpay";
+import QRCode from "qrcode";
 
 /**
- * On-the-spot UPI QR for a booking that was placed as COD.
+ * On-the-spot online payment for a booking that was placed as COD.
  *
  * The customer books cash-on-pickup, then at the door decides to pay
  * digitally instead. Rather than the rider taking cash and later depositing
  * it, this puts the money straight into the platform's Razorpay account: the
- * rider shows a QR, the customer scans it with their own UPI app, and the
- * booking stops being COD altogether.
+ * rider shows a QR, the customer scans it, and the booking stops being COD
+ * altogether.
  *
- * Razorpay's QR Codes API is used rather than a payment link because it hands
- * back a hosted `image_url` — no QR rendering library is needed in the rider
- * app, and the customer never has to touch the rider's phone.
+ * Built on a Razorpay Payment Link rather than Razorpay's own UPI QR Code
+ * entity: a Payment Link's `short_url` is a plain https:// address, so
+ * *any* camera or QR scanner (Google Lens included) reads it as a tappable
+ * link that opens Razorpay's hosted checkout — cards, netbanking and UPI are
+ * all offered there. Razorpay's `upi_qr` type encodes a `upi://pay?...` deep
+ * link instead, which only a UPI app's own scanner resolves; a generic
+ * camera just shows the raw intent string as text, which is exactly what
+ * looked broken to a rider scanning it with Lens. The QR image shown here is
+ * one we render ourselves (`qrcode` package) from the link's own URL, so
+ * scanning it always lands on the same page tapping it would.
  *
  * There is no Razorpay webhook configured in this project, so payment is
- * confirmed by reading the QR back (`fetchCodQrStatus`). Callers should poll
- * gently and stop as soon as it reports paid.
+ * confirmed by reading the link back (`fetchCodPaymentLinkStatus`). Callers
+ * should poll gently and stop as soon as it reports paid.
  */
 
 function requireRazorpayConfig() {
@@ -57,7 +65,7 @@ function formatRazorpayError(err) {
     err?.error?.reason ||
     err?.description ||
     err?.message ||
-    "Could not create the payment QR";
+    "Could not create the payment link";
   const rawStatus =
     Number(err?.statusCode || err?.status || err?.error?.http_status_code) || 500;
 
@@ -83,106 +91,26 @@ function formatRazorpayError(err) {
   return out;
 }
 
-/** How long a QR stays scannable. Long enough for a doorstep, not all day. */
-const QR_TTL_MINUTES = 30;
-
 /**
- * Single-use, fixed-amount UPI QR for exactly this booking's fare.
- *
- * @returns {{ qrId, imageUrl, amount, closeBy }}
+ * A scannable PNG (data URI) of a URL — rendered locally, not fetched from
+ * Razorpay, so it's just a picture of the same link the "pay by link" button
+ * already uses. Failure here is never fatal: the link itself still works.
  */
-export async function createCodQr({ amount, label, notes = {} }) {
-  const client = getClient();
-  const paise = toPaise(amount);
-  const closeBy = Math.floor(Date.now() / 1000) + QR_TTL_MINUTES * 60;
-
+async function renderLinkQrImage(url) {
   try {
-    const qr = await client.qrCode.create({
-      type: "upi_qr",
-      name: String(label || "Delivery payment").slice(0, 60),
-      usage: "single_use",
-      fixed_amount: true,
-      payment_amount: paise,
-      description: String(label || "Delivery payment").slice(0, 120),
-      close_by: closeBy,
-      notes,
-    });
-
-    return {
-      qrId: qr.id,
-      imageUrl: qr.image_url,
-      amount: paise,
-      closeBy: new Date(closeBy * 1000),
-    };
-  } catch (err) {
-    throw formatRazorpayError(err);
-  }
-}
-
-/**
- * Has this QR been paid?
- *
- * Razorpay reports `payments_amount_received` in paise on the QR itself, so
- * one read answers it without listing payments.
- *
- * @returns {{ paid, amountReceived, status, paymentId }}
- */
-export async function fetchCodQrStatus(qrId, expectedPaise) {
-  if (!qrId) {
-    const err = new Error("No payment QR to check");
-    err.statusCode = 400;
-    throw err;
-  }
-
-  const client = getClient();
-  try {
-    const qr = await client.qrCode.fetch(qrId);
-    const received = Number(qr?.payments_amount_received || 0);
-    const paid = expectedPaise ? received >= Number(expectedPaise) : received > 0;
-
-    let paymentId = null;
-    if (paid) {
-      // Only reached once, at the moment it flips to paid — the id is stored
-      // on the booking so this never has to run again.
-      try {
-        const payments = await client.qrCode.fetchAllPayments(qrId, { count: 1 });
-        paymentId = payments?.items?.[0]?.id || null;
-      } catch {
-        /* the payment is confirmed either way; the id is a nicety */
-      }
-    }
-
-    return {
-      paid,
-      amountReceived: received,
-      status: qr?.status || "active",
-      paymentId,
-    };
-  } catch (err) {
-    throw formatRazorpayError(err);
-  }
-}
-
-/** Closes a QR so it cannot be scanned again. Failure here is not fatal. */
-export async function closeCodQr(qrId) {
-  if (!qrId) return null;
-  try {
-    return await getClient().qrCode.close(qrId);
+    return await QRCode.toDataURL(url, { margin: 1, width: 280 });
   } catch {
     return null;
   }
 }
 
 /**
- * A Razorpay Payment Link for the same amount as the QR.
+ * Razorpay Payment Link + a QR of its own URL, for exactly this booking's
+ * fare. `short_url` opens Razorpay's hosted checkout (UPI, cards,
+ * netbanking); the QR is a picture of that same link, so scanning it with
+ * any camera does the same thing as tapping it.
  *
- * `short_url` opens Razorpay's own hosted checkout page in a browser — no
- * UPI app needed, so it's the easy way to pay (or test paying) with a card,
- * netbanking, or Razorpay's test-mode UPI simulator. Created alongside the
- * QR rather than instead of it: some riders/customers find a tap-to-pay link
- * easier than scanning, others the reverse.
- *
- * @returns {{ paymentLinkId, paymentLinkUrl, status }}
+ * @returns {{ paymentLinkId, paymentLinkUrl, imageUrl, amount }}
  */
 export async function createCodPaymentLink({ amount, label, notes = {} }) {
   const client = getClient();
@@ -201,6 +129,8 @@ export async function createCodPaymentLink({ amount, label, notes = {} }) {
     return {
       paymentLinkId: link.id,
       paymentLinkUrl: link.short_url,
+      imageUrl: await renderLinkQrImage(link.short_url),
+      amount: paise,
       status: link.status,
     };
   } catch (err) {
@@ -211,16 +141,13 @@ export async function createCodPaymentLink({ amount, label, notes = {} }) {
 /**
  * Has this payment link been paid?
  *
- * A payment made through the link is a separate Razorpay entity from the QR
- * — it never shows up in `qrCode.fetch`'s `payments_amount_received` — so a
- * flow offering both has to poll both and treat either one reporting paid as
- * the booking being paid.
- *
  * @returns {{ paid, status, paymentId }}
  */
 export async function fetchCodPaymentLinkStatus(paymentLinkId) {
   if (!paymentLinkId) {
-    return { paid: false, status: "created", paymentId: null };
+    const err = new Error("No payment link to check");
+    err.statusCode = 400;
+    throw err;
   }
 
   const client = getClient();

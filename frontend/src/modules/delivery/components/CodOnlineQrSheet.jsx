@@ -68,7 +68,7 @@ const CodOnlineQrSheet = ({ open, kind, bookingId, amount, onClose, onPaid }) =>
 
   /** Poll only while a QR is on screen and unpaid. */
   useEffect(() => {
-    if (!open || !qr?.qrId || paid) return undefined;
+    if (!open || !qr?.paymentLinkUrl || paid) return undefined;
 
     let cancelled = false;
     const timer = setInterval(async () => {
@@ -90,7 +90,7 @@ const CodOnlineQrSheet = ({ open, kind, bookingId, amount, onClose, onPaid }) =>
       cancelled = true;
       clearInterval(timer);
     };
-  }, [open, qr?.qrId, paid, kind, bookingId]);
+  }, [open, qr?.paymentLinkUrl, paid, kind, bookingId]);
 
   if (!open) return null;
 
