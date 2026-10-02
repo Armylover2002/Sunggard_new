@@ -35,9 +35,19 @@ function formatRazorpayError(err) {
     err?.description ||
     err?.message ||
     "Failed to start Razorpay payment";
-  const statusCode = Number(err?.statusCode || err?.status || err?.error?.http_status_code) || 500;
+  const rawStatus =
+    Number(err?.statusCode || err?.status || err?.error?.http_status_code) || 500;
+  // A 401/403 from Razorpay means our own key/secret was rejected, not the
+  // caller's session — never forward that as our own 401/403, or a bad
+  // gateway key looks like the customer's login failing and logs them out.
+  const statusCode =
+    rawStatus === 401 || rawStatus === 403
+      ? 502
+      : rawStatus >= 400 && rawStatus < 600
+        ? rawStatus
+        : 500;
   const out = new Error(description);
-  out.statusCode = statusCode >= 400 && statusCode < 600 ? statusCode : 500;
+  out.statusCode = statusCode;
   return out;
 }
 

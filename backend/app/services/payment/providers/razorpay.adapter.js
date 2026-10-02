@@ -77,12 +77,22 @@ function mapPaymentState(state) {
   return PAYMENT_STATUS.PENDING;
 }
 
-/** Turns an SDK rejection into something with a usable status code. */
+/**
+ * Turns an SDK rejection into something with a usable status code.
+ *
+ * A 401/403 from Razorpay means our own API key/secret was rejected, not
+ * anything about the caller's session — but 401/403 are exactly the codes
+ * this app's own clients treat as "your login is invalid, log out." Passing
+ * a gateway credential failure straight through as 401 does that for real,
+ * to a customer or rider who did nothing wrong. Remapped to 502 so a bad or
+ * rotated Razorpay key can never trigger a client-side logout.
+ */
 function toHttpError(err, fallback = "Payment gateway request failed") {
   const description =
     err?.error?.description || err?.description || err?.message || fallback;
-  const status =
+  const rawStatus =
     Number(err?.statusCode || err?.error?.http_status_code || err?.status) || 502;
+  const status = rawStatus === 401 || rawStatus === 403 ? 502 : rawStatus;
   const out = new Error(description);
   out.statusCode = status >= 400 && status < 600 ? status : 502;
   return out;

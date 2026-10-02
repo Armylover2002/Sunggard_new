@@ -58,10 +58,28 @@ function formatRazorpayError(err) {
     err?.description ||
     err?.message ||
     "Could not create the payment QR";
-  const statusCode =
+  const rawStatus =
     Number(err?.statusCode || err?.status || err?.error?.http_status_code) || 500;
+
+  /**
+   * A 401/403 here means Razorpay rejected OUR api key/secret — not anything
+   * about the rider's session. Our own API already uses 401/403 for exactly
+   * "your JWT is missing/invalid/not your role", and app clients treat those
+   * codes as a signal to clear the stored token and log out. Forwarding a
+   * gateway credential failure as a 401 was doing exactly that: a bad/expired
+   * Razorpay key logged every rider out mid-shift, including on calls that
+   * had nothing to do with payment. Remapped to 502 (upstream failure) so a
+   * gateway misconfiguration can never masquerade as the caller's own auth
+   * failing.
+   */
+  const statusCode =
+    rawStatus === 401 || rawStatus === 403
+      ? 502
+      : rawStatus >= 400 && rawStatus < 600
+        ? rawStatus
+        : 500;
   const out = new Error(description);
-  out.statusCode = statusCode >= 400 && statusCode < 600 ? statusCode : 500;
+  out.statusCode = statusCode;
   return out;
 }
 
