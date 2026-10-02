@@ -2,7 +2,6 @@ import React, { useEffect } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
 import NotFoundPage from "@shared/components/NotFoundPage";
-import { useSupportUnread } from "@core/context/SupportUnreadContext";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import {
   Tag,
@@ -53,20 +52,11 @@ const WithdrawalRequests = React.lazy(
 const CashCollection = React.lazy(() => import("../pages/CashCollection"));
 const UserManagement = React.lazy(() => import("../pages/UserManagement"));
 const Profile = React.lazy(() => import("@/pages/Profile"));
-const SupportTickets = React.lazy(() => import("../pages/SupportTickets"));
 const CouponManagement = React.lazy(() => import("../pages/CouponManagement"));
 const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
 const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
 
 const navItems = [
-  {
-    label: "Customer Support",
-    icon: Receipt,
-    color: "emerald",
-    children: [
-      { label: "Help Tickets", path: "/admin/support-tickets" },
-    ],
-  },
   {
     label: "Porter Dashboard",
     path: "/admin/porter",
@@ -202,22 +192,11 @@ const AdminRoutes = () => {
     setActiveRole(ROLES.ADMIN);
   }, []);
 
-  const { totalUnread } = useSupportUnread();
-
-  const navItemsWithBadges = React.useMemo(() => {
-    const count = Number.isFinite(totalUnread) ? totalUnread : 0;
-    if (count <= 0) return navItems;
-    return navItems.map((item) => {
-      if (item?.label !== "Customer Support") return item;
-      return { ...item, badgeCount: count };
-    });
-  }, [totalUnread]);
-
   return (
     <Routes>
       <Route
         element={
-          <DashboardLayout navItems={navItemsWithBadges} title="Admin Center">
+          <DashboardLayout navItems={navItems} title="Admin Center">
             <Outlet />
           </DashboardLayout>
         }
@@ -227,7 +206,6 @@ const AdminRoutes = () => {
         <Route path="/" element={<Navigate to="/admin/porter" replace />} />
         <Route path="/users" element={<UserManagement />} />
         <Route path="/profile" element={<AdminProfile />} />
-        <Route path="/support-tickets" element={<SupportTickets />} />
         <Route path="/coupons" element={<CouponManagement />} />
         <Route path="/delivery-boys/active" element={<ActiveDeliveryBoys />} />
         <Route
