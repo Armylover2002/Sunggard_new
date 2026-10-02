@@ -3,7 +3,7 @@ import Parcel from "../models/parcel.js";
 import ParcelConfig from "../models/parcelConfig.js";
 import Delivery from "../models/delivery.js";
 import { distanceMeters } from "../utils/geoUtils.js";
-import { getParcelRiderIdsNearPickup } from "./deliveryNearbyService.js";
+import { getParcelRidersNearPickupSortedByDistance } from "./deliveryNearbyService.js";
 import { getActiveZoneById, isPointInZoneId } from "./deliveryZoneService.js";
 import {
   emitParcelBroadcast,
@@ -89,10 +89,20 @@ async function assertRiderWithinPickupRadius(deliveryOid, parcelId) {
   }
 }
 
-const DEFAULT_PARCEL_SEARCH_TIMEOUT_MS = () =>
-  parseInt(process.env.PARCEL_SEARCH_TIMEOUT_MS || "60000", 10);
-const PARCEL_SEARCH_MAX_ATTEMPTS = () =>
-  parseInt(process.env.PARCEL_SEARCH_MAX_ATTEMPTS || "3", 10);
+/**
+ * How long one rider holds an offer before it moves to the next-nearest —
+ * the sequential dispatch flow offers riders one at a time within the
+ * admin's configured radius (nearest first), never all of them at once.
+ * Deliberately its own env var rather than reusing the old
+ * PARCEL_SEARCH_TIMEOUT_MS/PARCEL_SEARCH_MAX_ATTEMPTS pair (a broadcast-to-
+ * everyone round timeout): a deployment that had tuned those for "how long
+ * before retrying the whole radius" would get a very different, much longer
+ * total search time if that same number were silently reinterpreted as
+ * "how long before the next rider" and multiplied by however many riders
+ * are in range.
+ */
+const PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS = () =>
+  parseInt(process.env.PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS || "20000", 10);
 
 function money(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
@@ -210,32 +220,137 @@ function clearParcelSearchTimeout(parcelId) {
   }
 }
 
-function scheduleParcelSearchTimeout(parcelId, attempt) {
+function scheduleParcelSearchTimeout(parcelId) {
   clearParcelSearchTimeout(parcelId);
-  const delay = DEFAULT_PARCEL_SEARCH_TIMEOUT_MS();
+  const delay = PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS();
   const timer = setTimeout(() => {
-    processParcelSearchTimeout(parcelId, attempt).catch((err) => {
+    processParcelSearchTimeout(parcelId).catch((err) => {
       console.warn("[parcelWorkflow] timeout failed", parcelId, err.message);
     });
   }, delay);
   timeoutTimers.set(String(parcelId), timer);
 }
 
-async function emitParcelBroadcastForPickup(parcel, extra = {}) {
+/**
+ * No one left to offer within the configured radius (or the ones left can't
+ * take the job right now) — hands off to manual admin assignment. The only
+ * place this parcel falls out of the sequential offer loop short of someone
+ * accepting.
+ */
+async function fallBackToManualAssignment(parcelId, customerId) {
+  await retractParcelBroadcast(String(parcelId), null);
+
+  await Parcel.findOneAndUpdate(
+    { _id: parcelId, status: "SEARCHING" },
+    {
+      $set: { status: "REQUESTED" },
+      $unset: { searchExpiresAt: 1, searchMeta: 1 },
+    },
+  );
+  clearParcelSearchTimeout(parcelId);
+
+  await recordParcelEvent({
+    parcelId,
+    status: "REQUESTED",
+    previousStatus: "SEARCHING",
+    actor: PARCEL_EVENT_ACTOR.SYSTEM,
+    note: "No delivery partner accepted — needs manual assignment",
+  });
+
+  emitToAdmins("parcel:status:update", {
+    _id: String(parcelId),
+    status: "REQUESTED",
+  });
+
+  emitToCustomer(customerId, {
+    event: "parcel:status:update",
+    payload: {
+      parcelId: String(parcelId),
+      status: "REQUESTED",
+      message: "No rider accepted in time. Admin will assign a rider shortly.",
+    },
+  });
+}
+
+/**
+ * The sequential dispatch step: offer this parcel to exactly one rider — the
+ * nearest one inside the admin's configured radius who hasn't already been
+ * tried (rejected or timed out) for it — rather than everyone in range at
+ * once. Called on the parcel's first search, and again every time the
+ * currently-offered rider rejects or times out.
+ *
+ * Re-queries nearest-first each time instead of freezing an order up front,
+ * so a rider going online/offline or moving in the meantime is reflected on
+ * the very next pick, not just the first one.
+ */
+export async function offerParcelToNextRider(parcelId) {
+  const parcel = await Parcel.findById(parcelId);
+  if (!parcel || parcel.status !== "SEARCHING" || parcel.deliveryPartnerId) return;
+
   const lat = Number(parcel.pickupAddress?.lat);
   const lng = Number(parcel.pickupAddress?.lng);
   const settings = await ParcelConfig.getSearchSettings();
   const radiusKm = settings.deliveryRadiusKm;
   // Null for a parcel with no zone (unzoned install, or booked before zones
-  // existed) — emitParcelBroadcast then keeps the old, unzoned reach.
+  // existed) — the lookup below then keeps the old, unzoned reach.
   const zone = await getActiveZoneById(parcel.zoneId);
+
+  const sorted = await getParcelRidersNearPickupSortedByDistance(lat, lng, radiusKm, {
+    zone,
+    excludeIds: parcel.skippedBy || [],
+  });
+
+  // Cash-gate up front, not just inside emitParcelBroadcast: skipping a
+  // rider who can't take the job right now at pick time means the next
+  // nearest one gets offered immediately, instead of burning a full
+  // PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS window on someone who was never
+  // going to be able to accept.
+  const { filterRidersWithCashHeadroom } = await import(
+    "./porter/riderCashLimitService.js"
+  );
+  const eligibleIds = new Set(
+    await filterRidersWithCashHeadroom(sorted.map((r) => r.id)),
+  );
+  const next = sorted.find((r) => eligibleIds.has(r.id));
+
+  if (!next) {
+    await fallBackToManualAssignment(parcelId, parcel.customerId);
+    return;
+  }
+
+  const now = new Date();
+  const searchExpiresAt = new Date(now.getTime() + PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS());
+  const nextAttempt = (parcel.searchMeta?.attempt || 0) + 1;
+
+  const updated = await Parcel.findOneAndUpdate(
+    { _id: parcelId, status: "SEARCHING", deliveryPartnerId: null },
+    {
+      $set: {
+        searchExpiresAt,
+        searchMeta: {
+          radiusKm,
+          attempt: nextAttempt,
+          lastBroadcastAt: now,
+          offeredTo: next.id,
+          offeredAt: now,
+        },
+      },
+    },
+    { new: true },
+  );
+
+  if (!updated) return;
+
   await emitParcelBroadcast(
     lat,
     lng,
     radiusKm,
-    parcelBroadcastPayloadFromDoc(parcel, extra, settings),
-    { zone },
+    parcelBroadcastPayloadFromDoc(updated, {}, settings),
+    { zone, riderIds: [next.id] },
   );
+
+  emitToAdmins("parcel:status:update", updated);
+  scheduleParcelSearchTimeout(parcelId);
 }
 
 /**
@@ -345,25 +460,10 @@ export async function startParcelBroadcast(parcelDoc) {
   }
 
   const parcelId = parcelDoc._id?.toString?.() || String(parcelDoc._id);
-  const now = new Date();
-  const searchMs = DEFAULT_PARCEL_SEARCH_TIMEOUT_MS();
-  const settings = await ParcelConfig.getSearchSettings();
-  const radiusKm = settings.deliveryRadiusKm;
-  const searchExpiresAt = new Date(now.getTime() + searchMs);
 
   const updated = await Parcel.findByIdAndUpdate(
     parcelDoc._id,
-    {
-      $set: {
-        status: "SEARCHING",
-        searchExpiresAt,
-        searchMeta: {
-          radiusKm,
-          attempt: 1,
-          lastBroadcastAt: now,
-        },
-      },
-    },
+    { $set: { status: "SEARCHING" } },
     { new: true },
   );
 
@@ -377,9 +477,6 @@ export async function startParcelBroadcast(parcelDoc) {
     note: "Looking for a delivery partner",
   });
 
-  await emitParcelBroadcastForPickup(updated);
-  scheduleParcelSearchTimeout(parcelId, 1);
-
   emitToAdmins("parcel:status:update", updated);
 
   emitToCustomer(updated.customerId, {
@@ -391,93 +488,40 @@ export async function startParcelBroadcast(parcelDoc) {
     },
   });
 
+  // Offers the nearest rider in radius; falls back to manual assignment
+  // itself if there's nobody to offer it to at all.
+  await offerParcelToNextRider(parcelId);
+
   return updated;
 }
 
-export async function processParcelSearchTimeout(parcelId, attempt) {
+/**
+ * The currently-offered rider didn't respond in time — same path an
+ * explicit reject takes (see parcelRejectAtomic): mark them skipped, dismiss
+ * their now-stale offer, and move to the next-nearest rider.
+ */
+export async function processParcelSearchTimeout(parcelId) {
   const now = new Date();
   const parcel = await Parcel.findById(parcelId);
-  if (!parcel || parcel.status !== "SEARCHING") return;
+  if (!parcel || parcel.status !== "SEARCHING" || parcel.deliveryPartnerId) return;
 
   if (parcel.searchExpiresAt && parcel.searchExpiresAt > now) {
     return;
   }
 
-  const meta = parcel.searchMeta || {};
-  const currentAttempt = meta.attempt || attempt || 1;
-  const maxAttempts = PARCEL_SEARCH_MAX_ATTEMPTS();
-  const settings = await ParcelConfig.getSearchSettings();
-
-  if (currentAttempt < maxAttempts) {
-    // Fixed radius on every retry — admin's configured deliveryRadiusKm is a
-    // hard cap, not an expanding search (see ParcelConfig).
-    const nextRadius = settings.deliveryRadiusKm;
-    const searchExpiresAt = new Date(now.getTime() + DEFAULT_PARCEL_SEARCH_TIMEOUT_MS());
-
-    const updated = await Parcel.findOneAndUpdate(
+  const offeredTo = parcel.searchMeta?.offeredTo;
+  if (offeredTo) {
+    await Parcel.updateOne(
       { _id: parcelId, status: "SEARCHING" },
       {
-        $set: {
-          searchExpiresAt,
-          searchMeta: {
-            radiusKm: nextRadius,
-            attempt: currentAttempt + 1,
-            lastBroadcastAt: now,
-          },
-        },
+        $addToSet: { skippedBy: offeredTo },
+        $set: { "searchMeta.offeredTo": null, "searchMeta.offeredAt": null },
       },
-      { new: true },
     );
-
-    if (!updated) return;
-
-    // The previous round's riders are still holding a stale offer with no
-    // server-side guarantee their own countdown matches this timeout — tell
-    // them explicitly to dismiss it before the next round goes out.
     await retractParcelBroadcast(String(parcelId), null);
-
-    await emitParcelBroadcastForPickup(updated, {
-      retryAttempt: currentAttempt + 1,
-    });
-    emitToAdmins("parcel:status:update", updated);
-    scheduleParcelSearchTimeout(parcelId, currentAttempt + 1);
-    return;
   }
 
-  // Falling back to manual admin assignment — same stale-offer cleanup as
-  // the retry branch above.
-  await retractParcelBroadcast(String(parcelId), null);
-
-  await Parcel.findOneAndUpdate(
-    { _id: parcelId, status: "SEARCHING" },
-    {
-      $set: { status: "REQUESTED" },
-      $unset: { searchExpiresAt: 1, searchMeta: 1 },
-    },
-  );
-  clearParcelSearchTimeout(parcelId);
-
-  await recordParcelEvent({
-    parcelId,
-    status: "REQUESTED",
-    previousStatus: "SEARCHING",
-    actor: PARCEL_EVENT_ACTOR.SYSTEM,
-    note: "No delivery partner accepted — needs manual assignment",
-  });
-
-  emitToAdmins("parcel:status:update", {
-    _id: String(parcelId),
-    status: "REQUESTED",
-  });
-
-  emitToCustomer(parcel.customerId, {
-    event: "parcel:status:update",
-    payload: {
-      parcelId: String(parcelId),
-      status: "REQUESTED",
-      message: "No rider accepted in time. Admin will assign a rider shortly.",
-    },
-  });
+  await offerParcelToNextRider(parcelId);
 }
 
 export async function fetchAvailableParcelsForRider(deliveryId) {
@@ -519,11 +563,18 @@ export async function fetchAvailableParcelsForRider(deliveryId) {
 
   const now = new Date();
   const settings = await ParcelConfig.getSearchSettings();
+  // "searchMeta.offeredTo": this rider — the sequential flow offers one
+  // rider at a time (nearest first, see offerParcelToNextRider); without
+  // this filter, a rider further down the queue could open the "available
+  // jobs" tab and accept a parcel out of turn, before the system ever
+  // offered it to them. Showing it here only once it's genuinely their turn
+  // keeps the pull feed and the push offer in agreement.
   const parcels = await Parcel.find({
     status: "SEARCHING",
     deliveryPartnerId: null,
     searchExpiresAt: { $gt: now },
     skippedBy: { $ne: deliveryOid },
+    "searchMeta.offeredTo": deliveryOid,
   })
     .sort({ createdAt: -1 })
     .limit(30)
@@ -541,7 +592,7 @@ export async function fetchAvailableParcelsForRider(deliveryId) {
     if (distanceMeters(pickupLat, pickupLng, lat, lng) > radiusKm * 1000) continue;
 
     // Same zone rule the broadcast and the claim both enforce (see
-    // emitParcelBroadcastForPickup / assertRiderWithinPickupRadius above) —
+    // offerParcelToNextRider / assertRiderWithinPickupRadius above) —
     // otherwise the pull feed would hand a rider a job the push would never
     // have sent them, and the claim would then refuse.
     if (parcel.zoneId) {
@@ -649,6 +700,11 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
       deliveryPartnerId: null,
       searchExpiresAt: { $gt: now },
       skippedBy: { $nin: [deliveryOid] },
+      // Sequential dispatch offers one rider at a time (nearest first, see
+      // offerParcelToNextRider) — this is the server-side half of that: only
+      // the rider it's currently offered to can actually claim it, even if
+      // someone else somehow still has a stale screen open for it.
+      "searchMeta.offeredTo": deliveryOid,
     },
     {
       $set: {
@@ -686,6 +742,11 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
       msg = "You rejected this parcel earlier.";
     } else if (existing.status !== "SEARCHING") {
       msg = "This parcel is no longer open for acceptance.";
+    } else if (
+      existing.searchMeta?.offeredTo &&
+      String(existing.searchMeta.offeredTo) !== String(deliveryOid)
+    ) {
+      msg = "This parcel is currently offered to another rider.";
     }
     const err = new Error(msg);
     err.statusCode = 409;
@@ -764,10 +825,24 @@ export async function parcelRejectAtomic(deliveryId, parcelId) {
     throw err;
   }
 
-  await Parcel.findOneAndUpdate(
+  const updated = await Parcel.findOneAndUpdate(
     { _id: parcelId, status: "SEARCHING" },
-    { $addToSet: { skippedBy: deliveryOid } },
+    {
+      $addToSet: { skippedBy: deliveryOid },
+      $set: { "searchMeta.offeredTo": null, "searchMeta.offeredAt": null },
+    },
   );
+
+  // Only advance if this rider was actually the one currently holding the
+  // offer — a reject on a parcel already moved on (or already accepted by
+  // someone else) is a no-op, not a reason to re-trigger dispatch.
+  if (updated && String(updated.searchMeta?.offeredTo || "") === String(deliveryOid)) {
+    clearParcelSearchTimeout(parcelId);
+    await retractParcelBroadcast(String(parcelId), null);
+    await offerParcelToNextRider(parcelId).catch((err) => {
+      console.warn("[parcelWorkflow] offer-next after reject failed", parcelId, err.message);
+    });
+  }
 
   return { ok: true };
 }

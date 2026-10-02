@@ -348,8 +348,22 @@ const parcelSchema = new mongoose.Schema(
     },
     searchMeta: {
       radiusKm: { type: Number, default: 5 },
+      /** How many riders have been offered this parcel so far, one at a time. */
       attempt: { type: Number, default: 1 },
       lastBroadcastAt: { type: Date, default: null },
+      /**
+       * The one rider currently holding this offer in the sequential
+       * dispatch flow (nearest-first, one at a time — see
+       * parcelWorkflowService.offerParcelToNextRider). Cleared once they
+       * accept, reject, or time out and the offer moves to the next-nearest
+       * rider.
+       */
+      offeredTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Delivery",
+        default: null,
+      },
+      offeredAt: { type: Date, default: null },
     },
     skippedBy: [{
       type: mongoose.Schema.Types.ObjectId,

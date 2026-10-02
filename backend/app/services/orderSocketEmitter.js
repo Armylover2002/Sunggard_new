@@ -155,18 +155,30 @@ export function emitToCustomer(customerId, { event, payload }) {
 }
 
 /**
- * Broadcast a parcel pickup offer to every eligible parcel/both rider
- * inside the configured search radius (first accept wins).
+ * Send a parcel pickup offer to eligible parcel/both riders inside the
+ * configured search radius.
  *
  * `zone`, when given (outstation bookings with a resolved zone — see
  * parcelWorkflowService.js), additionally confines candidates to riders
  * belonging to that zone, the same rule the local City Parcel broadcast
  * already enforces (see deliveryNearbyService.js).
+ *
+ * `riderIds`, when given, skips the radius lookup entirely and sends to
+ * exactly those ids — this is how the sequential offer flow (one rider at a
+ * time, nearest first, see parcelWorkflowService.offerParcelToNextRider)
+ * reuses this same socket+push+tracking pipeline for a single candidate
+ * instead of broadcasting to everyone in range.
  */
-export async function emitParcelBroadcast(lat, lng, radiusKm, payload, { zone = null } = {}) {
+export async function emitParcelBroadcast(
+  lat,
+  lng,
+  radiusKm,
+  payload,
+  { zone = null, riderIds = null } = {},
+) {
   const s = getIo();
   // Parcel-only + "both" riders (isParcelService: true), online, verified.
-  let ids = await getParcelRiderIdsNearPickup(lat, lng, radiusKm, { zone });
+  let ids = riderIds || (await getParcelRiderIdsNearPickup(lat, lng, radiusKm, { zone }));
 
   if (!ids.length) {
     return { ids: [] };

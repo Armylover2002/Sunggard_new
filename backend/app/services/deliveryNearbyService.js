@@ -28,26 +28,37 @@ function buildParcelDeliveryFilter() {
  * a zone that is not theirs could be buzzed for it, only to be refused the
  * moment they tried to accept.
  */
-function filterByHaversine(candidates, lat, lng, maxDistanceM, zone = null) {
-  return candidates
-    .filter((d) => {
-      const c = d.location?.coordinates;
-      if (!Array.isArray(c) || c.length < 2) return false;
-      const [dlng, dlat] = c;
-      if (!Number.isFinite(dlat) || !Number.isFinite(dlng)) return false;
-      if (Math.abs(dlat) < 1e-5 && Math.abs(dlng) < 1e-5) return false;
-      if (distanceMeters(dlat, dlng, lat, lng) > maxDistanceM) return false;
-      if (zone) {
-        const assignedZoneIds = (d.zoneIds || []).map(String);
-        if (assignedZoneIds.length) {
-          if (!assignedZoneIds.includes(String(zone._id))) return false;
-        } else if (!isPointInPolygon(dlat, dlng, zone.points || [])) {
-          return false;
-        }
+/** Same eligibility + zone rule as `filterByHaversine`, but keeps the
+ * computed distance instead of discarding it, so callers that need a
+ * nearest-first order don't have to look every rider's location back up a
+ * second time. */
+function filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone = null) {
+  const out = [];
+  for (const d of candidates) {
+    const c = d.location?.coordinates;
+    if (!Array.isArray(c) || c.length < 2) continue;
+    const [dlng, dlat] = c;
+    if (!Number.isFinite(dlat) || !Number.isFinite(dlng)) continue;
+    if (Math.abs(dlat) < 1e-5 && Math.abs(dlng) < 1e-5) continue;
+    const distanceM = distanceMeters(dlat, dlng, lat, lng);
+    if (distanceM > maxDistanceM) continue;
+    if (zone) {
+      const assignedZoneIds = (d.zoneIds || []).map(String);
+      if (assignedZoneIds.length) {
+        if (!assignedZoneIds.includes(String(zone._id))) continue;
+      } else if (!isPointInPolygon(dlat, dlng, zone.points || [])) {
+        continue;
       }
-      return true;
-    })
-    .map((d) => d._id.toString());
+    }
+    out.push({ id: d._id.toString(), distanceM });
+  }
+  return out;
+}
+
+function filterByHaversine(candidates, lat, lng, maxDistanceM, zone = null) {
+  return filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone).map(
+    (r) => r.id,
+  );
 }
 
 /**
@@ -86,6 +97,52 @@ export async function getParcelRiderIdsNearPickup(
     return filterByHaversine(candidates, lat, lng, maxDistanceM, zone);
   } catch (e) {
     console.warn("[deliveryNearby] parcel radius scan failed:", e.message);
+    return [];
+  }
+}
+
+/**
+ * Parcel-capable riders near a pickup point, nearest first — the ordering
+ * the sequential offer flow dispatches in (closest rider offered first;
+ * next-closest only once they reject or time out, never all at once).
+ *
+ * `excludeIds` drops riders already tried for this parcel (same purpose as
+ * the `skippedBy` filter in `fetchAvailableParcelsForRider`), so each call
+ * naturally returns the next untried candidate in first position — callers
+ * don't have to track an index, just re-query with the growing exclude list
+ * each time someone is skipped. Re-querying (rather than freezing the order
+ * once) also means a rider who comes online, goes offline, or moves out of
+ * radius between offers is reflected on the very next pick.
+ */
+export async function getParcelRidersNearPickupSortedByDistance(
+  lat,
+  lng,
+  radiusKm = 5,
+  { zone = null, excludeIds = [] } = {},
+) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+
+  const safeRadiusKm = Math.min(Math.max(Number(radiusKm) || 5, 1), 100);
+  const maxDistanceM = safeRadiusKm * 1000;
+  const base = buildParcelDeliveryFilter();
+  const excludeSet = new Set((excludeIds || []).map(String));
+
+  try {
+    const candidates = await Delivery.find({
+      ...base,
+      "location.coordinates.0": { $exists: true },
+      "location.coordinates.1": { $exists: true },
+      ...(excludeSet.size ? { _id: { $nin: [...excludeSet] } } : {}),
+    })
+      .select("_id location zoneIds")
+      .limit(HAVERSINE_FALLBACK_LIMIT())
+      .lean();
+
+    return filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone).sort(
+      (a, b) => a.distanceM - b.distanceM,
+    );
+  } catch (e) {
+    console.warn("[deliveryNearby] parcel nearest-sorted scan failed:", e.message);
     return [];
   }
 }
