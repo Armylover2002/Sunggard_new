@@ -61,10 +61,6 @@ const SellerTransactions = React.lazy(
   () => import("../pages/SellerTransactions"),
 );
 const CashCollection = React.lazy(() => import("../pages/CashCollection"));
-const CustomerManagement = React.lazy(
-  () => import("../pages/CustomerManagement"),
-);
-const CustomerDetail = React.lazy(() => import("../pages/CustomerDetail"));
 const UserManagement = React.lazy(() => import("../pages/UserManagement"));
 const Profile = React.lazy(() => import("@/pages/Profile"));
 const FAQManagement = React.lazy(() => import("../pages/FAQManagement"));
@@ -225,7 +221,6 @@ const navItems = [
     color: "green",
     group: "porter",
   },
-  { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
   { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
   {
     label: "Fees & Charges",
@@ -308,8 +303,6 @@ const AdminRoutes = () => {
         <Route path="/withdrawals" element={<WithdrawalRequests />} />
         <Route path="/seller-transactions" element={<SellerTransactions />} />
         <Route path="/cash-collection" element={<CashCollection />} />
-        <Route path="/customers" element={<CustomerManagement />} />
-        <Route path="/customers/:id" element={<CustomerDetail />} />
         <Route path="/faqs" element={<FAQManagement />} />
         <Route path="/billing" element={<BillingCharges />} />
         <Route path="/settings" element={<AdminSettings />} />
