@@ -34,8 +34,6 @@ export const adminFinanceApi = {
         axiosInstance.get('/admin/seller-withdrawals', { params }),
     getDeliveryWithdrawals: (params) =>
         axiosInstance.get('/admin/delivery-withdrawals', { params }),
-    getSellerTransactions: (params) =>
-        axiosInstance.get('/admin/seller-transactions', { params }),
     updateWithdrawalStatus: (id, data) =>
         axiosInstance.put(`/admin/withdrawals/${id}`, data),
 

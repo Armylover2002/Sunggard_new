@@ -20,23 +20,14 @@ import {
     getDeliveryTransactions,
     settleTransaction,
     bulkSettleDelivery,
-    getActiveSellers,
-    getPendingSellers,
-    approveSellerApplication,
-    rejectSellerApplication,
     getSellerWithdrawals,
     getDeliveryWithdrawals,
     updateWithdrawalStatus,
-    getSellerTransactions,
     getDeliveryCashBalances,
     getRiderCashDetails,
     settleRiderCash,
     getCashSettlementHistory,
-    getUsers,
-    getUserById,
     getLiveFleetLocations,
-    getSellers,
-    getSellerLocations,
     getPlatformSettings,
     updatePlatformSettings
 } from "../controller/adminController.js";
@@ -130,15 +121,6 @@ router.put(
     allowRoles("admin"),
     updatePlatformSettings
 );
-router.get("/users", verifyToken, allowRoles("admin"), getUsers);
-router.get("/users/:id", verifyToken, allowRoles("admin"), getUserById);
-router.get("/sellers", verifyToken, allowRoles("admin"), getSellers);
-router.get("/sellers/locations", verifyToken, allowRoles("admin"), getSellerLocations);
-router.get("/sellers/active", verifyToken, allowRoles("admin"), getActiveSellers);
-router.get("/sellers/pending", verifyToken, allowRoles("admin"), getPendingSellers);
-router.patch("/sellers/approve/:id", verifyToken, allowRoles("admin"), approveSellerApplication);
-router.delete("/sellers/reject/:id", verifyToken, allowRoles("admin"), rejectSellerApplication);
-
 router.get(
     "/delivery-partners",
     verifyToken,
@@ -206,7 +188,6 @@ router.get("/cash-history", verifyToken, allowRoles("admin"), getCashSettlementH
 // Seller Withdrawal Management
 router.get("/seller-withdrawals", verifyToken, allowRoles("admin"), getSellerWithdrawals);
 router.get("/delivery-withdrawals", verifyToken, allowRoles("admin"), getDeliveryWithdrawals);
-router.get("/seller-transactions", verifyToken, allowRoles("admin"), getSellerTransactions);
 router.put("/withdrawals/:id", verifyToken, allowRoles("admin"), updateWithdrawalStatus);
 
 // Protected admin route example

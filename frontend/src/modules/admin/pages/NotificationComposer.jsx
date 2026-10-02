@@ -48,8 +48,6 @@ const NotificationComposer = () => {
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState('');
     const [isSending, setIsSending] = useState(false);
-    const [location, setLocation] = useState('all');
-    const [lastOrder, setLastOrder] = useState('any');
     const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
     const [emojiTarget, setEmojiTarget] = useState('title'); // 'title' | 'message'
     const [emojiPickerPos, setEmojiPickerPos] = useState({ top: 0, left: 0 });
@@ -309,7 +307,7 @@ const NotificationComposer = () => {
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
                                         onFocus={() => setEmojiTarget('title')}
-                                        placeholder="E.g. Hot Deals are back! 🔥"
+                                        placeholder="E.g. Parcel delivered! 📦"
                                         className="ds-input w-full pr-12"
                                         maxLength={50}
                                     />
@@ -360,7 +358,7 @@ const NotificationComposer = () => {
                                                 value={deepLink}
                                                 onChange={(e) => setDeepLink(e.target.value)}
                                                 className="ds-input w-full pl-9"
-                                                placeholder="/deals/category"
+                                                placeholder="/parcel/home"
                                             />
                                         </div>
                                     </div>
@@ -508,7 +506,7 @@ const NotificationComposer = () => {
                                     </div>
                                     <div>
                                         <h4 className="text-sm font-bold text-white mb-1.5 truncate">
-                                            {title || 'Hot Deals are back! 🔥'}
+                                            {title || 'Parcel delivered! 📦'}
                                         </h4>
                                         {imagePreview ? (
                                             <img

@@ -13,7 +13,6 @@
  */
 
 import { adminAuthApi } from './authApi';
-import { adminUsersApi } from './usersApi';
 import { adminSettingsApi } from './settingsApi';
 import { adminFinanceApi } from './financeApi';
 import { adminSupportApi } from './supportApi';
@@ -23,7 +22,6 @@ import { adminPorterApi } from './porterApi';
 
 export {
     adminAuthApi,
-    adminUsersApi,
     adminSettingsApi,
     adminFinanceApi,
     adminSupportApi,
@@ -38,7 +36,6 @@ export {
  */
 export const adminApi = {
     ...adminAuthApi,
-    ...adminUsersApi,
     ...adminSettingsApi,
     ...adminFinanceApi,
     ...adminSupportApi,

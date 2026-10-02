@@ -5,7 +5,6 @@ import {
   getAdminWalletOverview,
   getDeliveryTransactionsData,
   getDeliveryWithdrawalsData,
-  getSellerTransactionsData,
   getSellerWithdrawalsData,
   settleDeliveryTransactionById,
   updateWithdrawalStatusById,
@@ -51,20 +50,6 @@ export const getSellerWithdrawals = async (req, res) => {
 
     const data = await getSellerWithdrawalsData({ page, limit, skip });
     return handleResponse(res, 200, "Seller withdrawals fetched", data);
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
-
-export const getSellerTransactions = async (req, res) => {
-  try {
-    const { page, limit, skip } = getPagination(req, {
-      defaultLimit: 25,
-      maxLimit: 200,
-    });
-
-    const data = await getSellerTransactionsData({ page, limit, skip });
-    return handleResponse(res, 200, "Seller transactions fetched", data);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

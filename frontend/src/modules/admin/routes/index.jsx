@@ -6,7 +6,6 @@ import { useSupportUnread } from "@core/context/SupportUnreadContext";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import {
   Tag,
-  Building2,
   Truck,
   Wallet,
   Banknote,
@@ -24,9 +23,6 @@ import {
   LifeBuoy,
 } from "lucide-react";
 
-const ActiveSellers = React.lazy(() => import("../pages/ActiveSellers"));
-const PendingSellers = React.lazy(() => import("../pages/PendingSellers"));
-const SellerLocations = React.lazy(() => import("../pages/SellerLocations"));
 const ActiveDeliveryBoys = React.lazy(
   () => import("../pages/ActiveDeliveryBoys"),
 );
@@ -56,9 +52,6 @@ const AdminWallet = React.lazy(() => import("../pages/AdminWallet"));
 const WithdrawalRequests = React.lazy(
   () => import("../pages/WithdrawalRequests"),
 );
-const SellerTransactions = React.lazy(
-  () => import("../pages/SellerTransactions"),
-);
 const CashCollection = React.lazy(() => import("../pages/CashCollection"));
 const UserManagement = React.lazy(() => import("../pages/UserManagement"));
 const Profile = React.lazy(() => import("@/pages/Profile"));
@@ -85,16 +78,6 @@ const navItems = [
     color: "emerald",
     children: [
       { label: "Help Tickets", path: "/admin/support-tickets" },
-    ],
-  },
-  {
-    label: "Sellers",
-    icon: Building2,
-    color: "blue",
-    children: [
-      { label: "Active Sellers", path: "/admin/sellers/active" },
-      { label: "Waiting for Review", path: "/admin/sellers/pending" },
-      { label: "Seller Locations", path: "/admin/seller-locations" },
     ],
   },
   {
@@ -208,12 +191,6 @@ const navItems = [
     color: "cyan",
   },
   {
-    label: "Seller Payments",
-    path: "/admin/seller-transactions",
-    icon: Receipt,
-    color: "orange",
-  },
-  {
     label: "Collect Cash",
     path: "/admin/cash-collection",
     icon: CircleDollarSign,
@@ -265,12 +242,9 @@ const AdminRoutes = () => {
         <Route path="/" element={<Navigate to="/admin/porter" replace />} />
         <Route path="/users" element={<UserManagement />} />
         <Route path="/profile" element={<AdminProfile />} />
-        <Route path="/sellers/active" element={<ActiveSellers />} />
         <Route path="/support-tickets" element={<SupportTickets />} />
         <Route path="/notifications" element={<NotificationComposer />} />
         <Route path="/coupons" element={<CouponManagement />} />
-        <Route path="/sellers/pending" element={<PendingSellers />} />
-        <Route path="/seller-locations" element={<SellerLocations />} />
         <Route path="/delivery-boys/active" element={<ActiveDeliveryBoys />} />
         <Route
           path="/delivery-boys/pending"
@@ -292,7 +266,6 @@ const AdminRoutes = () => {
         <Route path="/delivery-funds" element={<DeliveryFunds />} />
         <Route path="/wallet" element={<AdminWallet />} />
         <Route path="/withdrawals" element={<WithdrawalRequests />} />
-        <Route path="/seller-transactions" element={<SellerTransactions />} />
         <Route path="/cash-collection" element={<CashCollection />} />
         <Route path="/faqs" element={<FAQManagement />} />
         <Route path="/settings" element={<AdminSettings />} />

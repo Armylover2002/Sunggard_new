@@ -87,25 +87,6 @@ export async function getSellerWithdrawalsData({ page, limit, skip }) {
   };
 }
 
-export async function getSellerTransactionsData({ page, limit, skip }) {
-  const query = { userModel: "Seller" };
-  const transactions = await Transaction.find(query)
-    .populate("user", "name shopName phone bankDetails")
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean();
-
-  const total = await Transaction.countDocuments(query);
-
-  return {
-    items: transactions,
-    page,
-    limit,
-    total,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
 
 export async function getDeliveryWithdrawalsData({ page, limit, skip }) {
   const query = { userModel: "Delivery", type: "Withdrawal" };
