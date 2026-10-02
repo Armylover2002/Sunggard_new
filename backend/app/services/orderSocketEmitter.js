@@ -133,7 +133,14 @@ function offerPushData(payload = {}) {
     riderEarnings: preview.earnings,
     paymentMethod: preview.paymentMethod,
     collectAmount: preview.collectAmount,
-    total: preview.total,
+    // `preview.total` was never set by parcelBroadcastPayloadFromDoc (the
+    // only builder that feeds this), so this always shipped as undefined and
+    // the app's "₹0" fallback kicked in. `fare` is the field that's actually
+    // populated — the order amount, not the rider's payout (which is
+    // `earnings`, correctly 0 pre-accept since the real payout distance
+    // isn't known until the rider's accept location is).
+    fare: preview.fare,
+    total: preview.fare,
     acceptanceDeadlineAt: hasDeadline ? deadline.toISOString() : undefined,
     timeoutSeconds: hasDeadline
       ? Math.max(0, Math.round((deadline.getTime() - Date.now()) / 1000))
