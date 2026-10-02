@@ -172,3 +172,78 @@ export async function closeCodQr(qrId) {
     return null;
   }
 }
+
+/**
+ * A Razorpay Payment Link for the same amount as the QR.
+ *
+ * `short_url` opens Razorpay's own hosted checkout page in a browser — no
+ * UPI app needed, so it's the easy way to pay (or test paying) with a card,
+ * netbanking, or Razorpay's test-mode UPI simulator. Created alongside the
+ * QR rather than instead of it: some riders/customers find a tap-to-pay link
+ * easier than scanning, others the reverse.
+ *
+ * @returns {{ paymentLinkId, paymentLinkUrl, status }}
+ */
+export async function createCodPaymentLink({ amount, label, notes = {} }) {
+  const client = getClient();
+  const paise = toPaise(amount);
+
+  try {
+    const link = await client.paymentLink.create({
+      amount: paise,
+      currency: "INR",
+      accept_partial: false,
+      description: String(label || "Delivery payment").slice(0, 120),
+      notes,
+      reminder_enable: false,
+    });
+
+    return {
+      paymentLinkId: link.id,
+      paymentLinkUrl: link.short_url,
+      status: link.status,
+    };
+  } catch (err) {
+    throw formatRazorpayError(err);
+  }
+}
+
+/**
+ * Has this payment link been paid?
+ *
+ * A payment made through the link is a separate Razorpay entity from the QR
+ * — it never shows up in `qrCode.fetch`'s `payments_amount_received` — so a
+ * flow offering both has to poll both and treat either one reporting paid as
+ * the booking being paid.
+ *
+ * @returns {{ paid, status, paymentId }}
+ */
+export async function fetchCodPaymentLinkStatus(paymentLinkId) {
+  if (!paymentLinkId) {
+    return { paid: false, status: "created", paymentId: null };
+  }
+
+  const client = getClient();
+  try {
+    const link = await client.paymentLink.fetch(paymentLinkId);
+    const paidEntry = (link?.payments || []).find((p) => p.status === "captured");
+
+    return {
+      paid: link?.status === "paid",
+      status: link?.status || "created",
+      paymentId: paidEntry?.payment_id || null,
+    };
+  } catch (err) {
+    throw formatRazorpayError(err);
+  }
+}
+
+/** Cancels a link so it cannot be paid again. Failure here is not fatal. */
+export async function cancelCodPaymentLink(paymentLinkId) {
+  if (!paymentLinkId) return null;
+  try {
+    return await getClient().paymentLink.cancel(paymentLinkId);
+  } catch {
+    return null;
+  }
+}

@@ -288,6 +288,16 @@ const parcelSchema = new mongoose.Schema(
       createdAt: { type: Date, default: null },
       paidAt: { type: Date, default: null },
       paymentId: { type: String, default: null },
+      /**
+       * A Razorpay Payment Link for the same amount, created alongside the
+       * QR. Lets the rider send/tap a link that opens Razorpay's hosted
+       * checkout directly — useful whenever scanning a UPI QR isn't the
+       * easiest path (testing without a UPI app installed, a customer who'd
+       * rather pay by card/netbanking). Paying through either one settles
+       * the booking; they are two doors to the same captured payment.
+       */
+      paymentLinkId: { type: String, default: null },
+      paymentLinkUrl: { type: String, default: null },
     },
     /** Razorpay order id for UPI/online parcel payments. */
     razorpayOrderId: {

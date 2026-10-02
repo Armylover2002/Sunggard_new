@@ -16,6 +16,9 @@ import {
   fetchCodQrStatus,
   closeCodQr,
   isCodQrAvailable,
+  createCodPaymentLink,
+  fetchCodPaymentLinkStatus,
+  cancelCodPaymentLink,
 } from "../services/codQrService.js";
 import {
   getRiderCashStatus,
@@ -158,7 +161,11 @@ export const riderCreateCodQr = async (req, res) => {
       return handleResponse(res, 200, "Scan to pay", {
         qrId: existing.qrId,
         imageUrl: existing.imageUrl,
-        amount: existing.amount,
+        // Stored in paise (matches what Razorpay was asked to collect);
+        // every rupee amount this API hands a client has to be converted
+        // back, same as the "payment received" notification already does.
+        amount: Number(existing.amount || 0) / 100,
+        paymentLinkUrl: existing.paymentLinkUrl || null,
       });
     }
 
@@ -166,16 +173,24 @@ export const riderCreateCodQr = async (req, res) => {
     const amount =
       Number(codState.collectAmount) || Number(codState.amount) || Number(booking.fare);
 
-    const qr = await createCodQr({
-      amount,
-      label: `Delivery ${booking.referenceId || String(booking._id).slice(-6).toUpperCase()}`,
-      notes: {
-        kind,
-        bookingId: String(booking._id),
-        riderId: String(req.user.id),
-        purpose: "cod_switch_to_online",
-      },
-    });
+    const label = `Delivery ${booking.referenceId || String(booking._id).slice(-6).toUpperCase()}`;
+    const notes = {
+      kind,
+      bookingId: String(booking._id),
+      riderId: String(req.user.id),
+      purpose: "cod_switch_to_online",
+    };
+
+    const qr = await createCodQr({ amount, label, notes });
+
+    // A link alongside the QR is a courtesy, not the point of this call — if
+    // Razorpay can't create one, the rider still gets a working QR.
+    let link = null;
+    try {
+      link = await createCodPaymentLink({ amount, label, notes });
+    } catch {
+      /* QR alone still lets the customer pay */
+    }
 
     booking.codOnlineQr = {
       qrId: qr.qrId,
@@ -184,13 +199,16 @@ export const riderCreateCodQr = async (req, res) => {
       createdAt: new Date(),
       paidAt: null,
       paymentId: null,
+      paymentLinkId: link?.paymentLinkId || null,
+      paymentLinkUrl: link?.paymentLinkUrl || null,
     };
     await booking.save();
 
     return handleResponse(res, 201, "Scan to pay", {
       qrId: qr.qrId,
       imageUrl: qr.imageUrl,
-      amount: qr.amount,
+      amount: Number(qr.amount || 0) / 100,
+      paymentLinkUrl: link?.paymentLinkUrl || null,
     });
   } catch (error) {
     return handleResponse(res, error.statusCode || 500, error.message);
@@ -214,6 +232,7 @@ export const riderCheckCodQr = async (req, res) => {
     }
 
     const qrId = booking.codOnlineQr?.qrId;
+    const paymentLinkId = booking.codOnlineQr?.paymentLinkId;
     if (!qrId) {
       return handleResponse(res, 400, "No payment QR has been created for this booking");
     }
@@ -223,6 +242,7 @@ export const riderCheckCodQr = async (req, res) => {
     // booking on top of cash that's already in the "Cash Collection" ledger.
     if (!PRE_PICKUP_STATUSES[kind]?.has(booking.status)) {
       await closeCodQr(qrId);
+      await cancelCodPaymentLink(paymentLinkId);
       return handleResponse(
         res,
         400,
@@ -230,7 +250,15 @@ export const riderCheckCodQr = async (req, res) => {
       );
     }
 
-    const status = await fetchCodQrStatus(qrId, booking.codOnlineQr?.amount);
+    // The QR and the link are two separate Razorpay entities for the same
+    // amount — a customer could pay through either, so both are polled and
+    // either one reporting paid settles the booking.
+    const qrStatus = await fetchCodQrStatus(qrId, booking.codOnlineQr?.amount);
+    const linkStatus = paymentLinkId
+      ? await fetchCodPaymentLinkStatus(paymentLinkId)
+      : { paid: false, paymentId: null };
+    const status = qrStatus.paid ? qrStatus : linkStatus;
+
     if (!status.paid) {
       return handleResponse(res, 200, "Waiting for payment", { paid: false });
     }
@@ -249,7 +277,10 @@ export const riderCheckCodQr = async (req, res) => {
     };
 
     await booking.save();
+    // Shut the one that wasn't used too — paid is paid, neither should stay
+    // scannable/clickable for a second, accidental charge.
     await closeCodQr(qrId);
+    await cancelCodPaymentLink(paymentLinkId);
 
     emitNotificationEvent(NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE, {
       userId: booking.customerId,

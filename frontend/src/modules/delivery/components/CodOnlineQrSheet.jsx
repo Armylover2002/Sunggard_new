@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Loader2, CheckCircle2, QrCode, RefreshCw } from "lucide-react";
+import { X, Loader2, CheckCircle2, QrCode, RefreshCw, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { deliveryApi } from "../services/deliveryApi";
 
@@ -171,6 +171,17 @@ const CodOnlineQrSheet = ({ open, kind, bookingId, amount, onClose, onPaid }) =>
             <p className="text-center text-[12px] font-semibold text-slate-500">
               Ask the customer to scan this with any UPI app. It updates here on its own.
             </p>
+
+            {qr?.paymentLinkUrl && (
+              <a
+                href={qr.paymentLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-[12px] font-bold text-slate-700"
+              >
+                <Link2 size={14} /> Or pay by link instead
+              </a>
+            )}
 
             <div className="flex items-center gap-2 text-[11px] font-semibold text-amber-700">
               <Loader2 size={12} className="animate-spin" />
