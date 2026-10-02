@@ -203,32 +203,47 @@ export async function emitParcelBroadcast(lat, lng, radiusKm, payload, { zone = 
     }
   }
 
+  // The "New Parcel Request" push is deliberately first-round only — a rider
+  // still in range on a retry already has the offer live on their screen
+  // (the socket emit above just went to them again), so a second push would
+  // just be a repeat alert for the same job.
   if (!payload.retryAttempt) {
     emitNotificationEvent(NOTIFICATION_EVENTS.NEW_PARCEL_BROADCAST, {
       parcelId: payload.parcelId,
       deliveryIds: ids,
       data: offerPushData(payload),
     });
+  }
 
-    try {
-      await Notification.insertMany(
-        ids.map((id) => ({
-          recipient: new mongoose.Types.ObjectId(id),
-          recipientModel: "Delivery",
-          title: "New parcel delivery",
-          message: `Parcel #${String(payload.parcelId || "").slice(-6)} nearby — tap Accept on the alert.`,
-          type: "parcel",
-          data: {
-            parcelId: payload.parcelId,
-            preview: payload.preview || null,
-            searchExpiresAt: payload.searchExpiresAt || null,
-          },
-        })),
-        { ordered: false },
-      );
-    } catch (e) {
-      console.warn("[emitParcelBroadcast] notifications", e.message);
-    }
+  /**
+   * Tracks who currently holds a live offer for this parcel — every round,
+   * not just the first. This is what retractParcelBroadcast's query reads to
+   * decide who to dismiss, and it used to be written only inside the
+   * `!retryAttempt` branch above. A rider reached only on a retry (a very
+   * normal case — the first round can easily miss someone who comes online
+   * or free up a minute later) was never recorded here, so a customer
+   * cancelling afterward found no row for them: no dismiss push, no targeted
+   * socket event, nothing — the offer stayed on their screen for the full
+   * accept-window timeout no matter what the customer did.
+   */
+  try {
+    await Notification.insertMany(
+      ids.map((id) => ({
+        recipient: new mongoose.Types.ObjectId(id),
+        recipientModel: "Delivery",
+        title: "New parcel delivery",
+        message: `Parcel #${String(payload.parcelId || "").slice(-6)} nearby — tap Accept on the alert.`,
+        type: "parcel",
+        data: {
+          parcelId: payload.parcelId,
+          preview: payload.preview || null,
+          searchExpiresAt: payload.searchExpiresAt || null,
+        },
+      })),
+      { ordered: false },
+    );
+  } catch (e) {
+    console.warn("[emitParcelBroadcast] notifications", e.message);
   }
 
   return { ids };
