@@ -16,11 +16,9 @@ import {
     approveDeliveryPartner,
     rejectDeliveryPartner,
     setDeliveryPartnerActive,
-    getAdminWalletData,
     getDeliveryTransactions,
     settleTransaction,
     bulkSettleDelivery,
-    getSellerWithdrawals,
     getDeliveryWithdrawals,
     updateWithdrawalStatus,
     getDeliveryCashBalances,
@@ -31,10 +29,6 @@ import {
     getPlatformSettings,
     updatePlatformSettings
 } from "../controller/adminController.js";
-import {
-    exportAdminFinanceStatementController,
-    getAdminFinanceLedgerController,
-} from "../controller/adminFinanceController.js";
 
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 import { validate } from "../middleware/validate.js";
@@ -98,18 +92,6 @@ router.put(
 );
 
 router.get(
-    "/finance/ledger",
-    verifyToken,
-    allowRoles("admin"),
-    getAdminFinanceLedgerController,
-);
-router.get(
-    "/finance/export-statement",
-    verifyToken,
-    allowRoles("admin"),
-    exportAdminFinanceStatementController,
-);
-router.get(
     "/settings/platform",
     verifyToken,
     allowRoles("admin"),
@@ -172,7 +154,6 @@ router.patch(
     setDeliveryPartnerActive
 );
 
-router.get("/wallet-data", verifyToken, allowRoles("admin"), getAdminWalletData);
 
 // Delivery Payouts / Funds
 router.get("/delivery-transactions", verifyToken, allowRoles('admin'), getDeliveryTransactions);
@@ -185,8 +166,6 @@ router.get("/rider-cash-details/:id", verifyToken, allowRoles("admin"), getRider
 router.post("/settle-cash", verifyToken, allowRoles("admin"), validate(adminSettleCashSchema), settleRiderCash);
 router.get("/cash-history", verifyToken, allowRoles("admin"), getCashSettlementHistory);
 
-// Seller Withdrawal Management
-router.get("/seller-withdrawals", verifyToken, allowRoles("admin"), getSellerWithdrawals);
 router.get("/delivery-withdrawals", verifyToken, allowRoles("admin"), getDeliveryWithdrawals);
 router.put("/withdrawals/:id", verifyToken, allowRoles("admin"), updateWithdrawalStatus);
 

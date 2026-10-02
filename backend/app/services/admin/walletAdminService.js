@@ -1,49 +1,9 @@
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
 import { getOrCreateWallet } from "../finance/walletService.js";
-import { getLedgerEntries } from "../finance/ledgerService.js";
 import { OWNER_TYPE } from "../../constants/finance.js";
 import { addMoney, roundCurrency } from "../../utils/money.js";
 import { buildKey, invalidate } from "../cacheService.js";
-
-export async function getAdminWalletOverview({ page, limit }) {
-  const adminWallet = await getOrCreateWallet(OWNER_TYPE.ADMIN, null);
-  const ledger = await getLedgerEntries({ page, limit });
-  const transactionItems = ledger.items.map((entry) => ({
-    id: entry.transactionId || entry.reference || String(entry._id),
-    type: entry.type,
-    amount:
-      entry.direction === "DEBIT"
-        ? -Math.abs(entry.amount || 0)
-        : Math.abs(entry.amount || 0),
-    status: entry.status,
-    sender: entry.direction === "DEBIT" ? entry.actorType : "System/Order",
-    recipient: entry.direction === "CREDIT" ? entry.actorType : "Platform Wallet",
-    date: new Date(entry.createdAt).toLocaleDateString(),
-    time: new Date(entry.createdAt).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    notes: entry.description || entry.type,
-    method: entry.paymentMode || "N/A",
-  }));
-
-  return {
-    stats: {
-      availableBalance: roundCurrency(adminWallet.availableBalance || 0),
-      totalCredited: roundCurrency(adminWallet.totalCredited || 0),
-      totalDebited: roundCurrency(adminWallet.totalDebited || 0),
-      systemFloat: roundCurrency(adminWallet.cashInHand || 0),
-    },
-    transactions: {
-      items: transactionItems,
-      page: ledger.page,
-      limit: ledger.limit,
-      total: ledger.total,
-      totalPages: ledger.totalPages,
-    },
-  };
-}
 
 export async function getDeliveryTransactionsData({ page, limit, skip }) {
   const query = { userModel: "Delivery" };
@@ -64,29 +24,6 @@ export async function getDeliveryTransactionsData({ page, limit, skip }) {
     totalPages: Math.ceil(total / limit) || 1,
   };
 }
-
-export async function getSellerWithdrawalsData({ page, limit, skip }) {
-  const query = { userModel: "Seller", type: "Withdrawal" };
-
-  const [transactions, total] = await Promise.all([
-    Transaction.find(query)
-      .populate("user", "name shopName phone")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Transaction.countDocuments(query),
-  ]);
-
-  return {
-    items: transactions,
-    page,
-    limit,
-    total,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
-
 
 export async function getDeliveryWithdrawalsData({ page, limit, skip }) {
   const query = { userModel: "Delivery", type: "Withdrawal" };

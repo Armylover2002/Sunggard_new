@@ -2,30 +2,11 @@ import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
 import {
   bulkSettleDeliveryTransactions,
-  getAdminWalletOverview,
   getDeliveryTransactionsData,
   getDeliveryWithdrawalsData,
-  getSellerWithdrawalsData,
   settleDeliveryTransactionById,
   updateWithdrawalStatusById,
 } from "../../services/admin/walletAdminService.js";
-
-export const getAdminWalletData = async (req, res) => {
-  try {
-    console.log('[WalletService] Fetching admin wallet data for ID:', req.user?.id);
-    const { page, limit } = getPagination(req, {
-      defaultLimit: 25,
-      maxLimit: 100,
-    });
-
-    const data = await getAdminWalletOverview({ page, limit });
-    console.log('[WalletService] Successfully fetched wallet data');
-    return handleResponse(res, 200, "Admin wallet data fetched", data);
-  } catch (error) {
-    console.error('[WalletService] FATAL ERROR:', error);
-    return handleResponse(res, 500, error.message);
-  }
-};
 
 export const getDeliveryTransactions = async (req, res) => {
   try {
@@ -36,20 +17,6 @@ export const getDeliveryTransactions = async (req, res) => {
 
     const data = await getDeliveryTransactionsData({ page, limit, skip });
     return handleResponse(res, 200, "Delivery transactions fetched", data);
-  } catch (error) {
-    return handleResponse(res, 500, error.message);
-  }
-};
-
-export const getSellerWithdrawals = async (req, res) => {
-  try {
-    const { page, limit, skip } = getPagination(req, {
-      defaultLimit: 25,
-      maxLimit: 200,
-    });
-
-    const data = await getSellerWithdrawalsData({ page, limit, skip });
-    return handleResponse(res, 200, "Seller withdrawals fetched", data);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

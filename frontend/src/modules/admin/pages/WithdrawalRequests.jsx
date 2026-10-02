@@ -10,7 +10,6 @@ import {
     Search,
     Filter,
     ChevronRight,
-    Building2,
     Truck,
     ArrowUpRight,
     CreditCard,
@@ -96,40 +95,27 @@ const PayoutDestination = ({ request, compact = false }) => {
 };
 
 const WithdrawalRequests = () => {
-    const [activeTab, setActiveTab] = useState('sellers');
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [loading, setLoading] = useState(true);
     const [actionModal, setActionModal] = useState({ isOpen: false, type: null, request: null });
 
-    const [sellerRequests, setSellerRequests] = useState([]);
     const [deliveryRequests, setDeliveryRequests] = useState([]);
-    const [sellerPage, setSellerPage] = useState(1);
     const [deliveryPage, setDeliveryPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
-    const [sellerTotal, setSellerTotal] = useState(0);
     const [deliveryTotal, setDeliveryTotal] = useState(0);
 
-    const fetchData = async (sellerPageNum = 1, deliveryPageNum = 1) => {
+    const fetchData = async (deliveryPageNum = 1) => {
         try {
             setLoading(true);
-            const commonParams = { page: 1, limit: pageSize };
+            const commonParams = { page: deliveryPageNum, limit: pageSize };
             if (searchTerm.trim()) commonParams.search = searchTerm.trim();
             if (filterStatus !== 'all') commonParams.status = filterStatus;
 
-            const [sellerRes, deliveryRes] = await Promise.all([
-                adminApi.getSellerWithdrawals({ ...commonParams, page: sellerPageNum }).catch(err => ({ data: { success: false, result: {} } })),
-                adminApi.getDeliveryWithdrawals({ ...commonParams, page: deliveryPageNum }).catch(err => ({ data: { success: false, result: {} } }))
-            ]);
+            const deliveryRes = await adminApi.getDeliveryWithdrawals(commonParams)
+                .catch(err => ({ data: { success: false, result: {} } }));
 
-            if (sellerRes.data.success) {
-                const payload = sellerRes.data.result || {};
-                const items = Array.isArray(payload.items) ? payload.items : (sellerRes.data.results || []);
-                setSellerRequests(items);
-                setSellerTotal(typeof payload.total === 'number' ? payload.total : items.length);
-                setSellerPage(typeof payload.page === 'number' ? payload.page : sellerPageNum);
-            }
             if (deliveryRes.data.success) {
                 const payload = deliveryRes.data.result || {};
                 const items = Array.isArray(payload.items) ? payload.items : (deliveryRes.data.results || []);
@@ -147,41 +133,30 @@ const WithdrawalRequests = () => {
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            fetchData(1, 1);
+            fetchData(1);
         }, 500);
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pageSize, searchTerm, filterStatus]);
 
-    const fetchSellerPage = (p) => {
-        fetchData(p, deliveryPage);
-        setSellerPage(p);
-    };
     const fetchDeliveryPage = (p) => {
-        fetchData(sellerPage, p);
-        setDeliveryPage(p);
+        fetchData(p);
     };
 
     const stats = useMemo(() => {
-        const sData = Array.isArray(sellerRequests) ? sellerRequests : [];
         const dData = Array.isArray(deliveryRequests) ? deliveryRequests : [];
 
         return {
-            sellers: {
-                pending: sData.filter(r => r.status === 'Pending' || r.status === 'Processing').length,
-                amount: Math.abs(sData.filter(r => r.status === 'Pending' || r.status === 'Processing').reduce((acc, r) => acc + (Number(r.amount) || 0), 0)),
-                processed: sData.filter(r => r.status === 'Settled').length
-            },
             delivery: {
                 pending: dData.filter(r => r.status === 'Pending' || r.status === 'Processing').length,
                 amount: Math.abs(dData.filter(r => r.status === 'Pending' || r.status === 'Processing').reduce((acc, r) => acc + (Number(r.amount) || 0), 0)),
                 processed: dData.filter(r => r.status === 'Settled').length
             }
         };
-    }, [sellerRequests, deliveryRequests]);
+    }, [deliveryRequests]);
 
     const currentData = useMemo(() => {
-        const data = activeTab === 'sellers' ? (sellerRequests || []) : (deliveryRequests || []);
+        const data = deliveryRequests || [];
         return data.filter(r => {
             const name = r.user?.shopName || r.user?.name || "";
             const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -189,7 +164,7 @@ const WithdrawalRequests = () => {
             const matchesStatus = filterStatus === 'all' || r.status?.toLowerCase() === filterStatus.toLowerCase();
             return matchesSearch && matchesStatus;
         });
-    }, [activeTab, sellerRequests, deliveryRequests, searchTerm, filterStatus]);
+    }, [deliveryRequests, searchTerm, filterStatus]);
 
     const handleAction = (type, request) => {
         setActionModal({ isOpen: true, type, request });
@@ -202,7 +177,7 @@ const WithdrawalRequests = () => {
             const res = await adminApi.updateWithdrawalStatus(actionModal.request._id, { status });
             if (res.data.success) {
                 toast.success(`Request ${status} successfully`);
-                fetchData(sellerPage, deliveryPage);
+                fetchData(deliveryPage);
                 setActionModal({ isOpen: false, type: null, request: null });
             }
         } catch (error) {
@@ -221,11 +196,11 @@ const WithdrawalRequests = () => {
                         Withdrawal Requests
                         <Badge variant="primary" className="text-[10px] px-2 py-0.5 font-bold uppercase tracking-wider">Financial Hub</Badge>
                     </h1>
-                    <p className="ds-description mt-1">Review and process fund disbursement requests from sellers and delivery partners.</p>
+                    <p className="ds-description mt-1">Review and process fund disbursement requests from delivery partners.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => fetchData(sellerPage, deliveryPage)}
+                        onClick={() => fetchData(deliveryPage)}
                         className="p-2.5 bg-white ring-1 ring-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
                     >
                         <RotateCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -240,9 +215,9 @@ const WithdrawalRequests = () => {
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
-                    { label: 'Total Pending', value: stats.sellers.pending + stats.delivery.pending, icon: Clock, color: 'amber', bg: 'bg-amber-50', iconColor: 'text-amber-500' },
-                    { label: 'Pending Volume', value: `₹${(stats.sellers.amount + stats.delivery.amount).toLocaleString()}`, icon: Banknote, color: 'blue', bg: 'bg-brand-50', iconColor: 'text-brand-500' },
-                    { label: 'Settled Today', value: stats.sellers.processed + stats.delivery.processed, icon: CheckCircle2, color: 'emerald', bg: 'bg-brand-50', iconColor: 'text-brand-500' },
+                    { label: 'Total Pending', value: stats.delivery.pending, icon: Clock, color: 'amber', bg: 'bg-amber-50', iconColor: 'text-amber-500' },
+                    { label: 'Pending Volume', value: `₹${stats.delivery.amount.toLocaleString()}`, icon: Banknote, color: 'blue', bg: 'bg-brand-50', iconColor: 'text-brand-500' },
+                    { label: 'Settled Today', value: stats.delivery.processed, icon: CheckCircle2, color: 'emerald', bg: 'bg-brand-50', iconColor: 'text-brand-500' },
                 ].map((stat, i) => (
                     <Card key={i} className="p-6 border-none shadow-sm ring-1 ring-slate-100 bg-white">
                         <div className="flex items-center gap-4">
@@ -261,35 +236,10 @@ const WithdrawalRequests = () => {
             {/* Main Interface Tab Structure */}
             <div className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit">
-                        <button
-                            onClick={() => setActiveTab('sellers')}
-                            className={cn(
-                                "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all",
-                                activeTab === 'sellers' ? "bg-white text-slate-900 shadow-md" : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            <Building2 className="h-4 w-4" />
-                            SELLER REQUESTS
-                            <span className={cn(
-                                "ml-1 px-2 py-0.5 rounded-full text-[10px]",
-                                activeTab === 'sellers' ? "bg-[color:var(--primary)] text-white" : "bg-slate-200 text-slate-600"
-                            )}>{sellerRequests.length}</span>
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('delivery')}
-                            className={cn(
-                                "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all",
-                                activeTab === 'delivery' ? "bg-white text-slate-900 shadow-md" : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            <Truck className="h-4 w-4" />
-                            DELIVERY PARTNERS
-                            <span className={cn(
-                                "ml-1 px-2 py-0.5 rounded-full text-[10px]",
-                                activeTab === 'delivery' ? "bg-[color:var(--primary)] text-white" : "bg-slate-200 text-slate-600"
-                            )}>{deliveryRequests.length}</span>
-                        </button>
+                    <div className="flex items-center gap-2 px-1 text-xs font-bold text-slate-500">
+                        <Truck className="h-4 w-4" />
+                        DELIVERY PARTNERS
+                        <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-600">{deliveryRequests.length}</span>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -340,10 +290,9 @@ const WithdrawalRequests = () => {
                                         <td className="px-6 py-5 pl-8">
                                             <div className="flex items-center gap-4">
                                                 <div className={cn(
-                                                    "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner",
-                                                    activeTab === 'sellers' ? "bg-brand-50 text-brand-600" : "bg-brand-50 text-brand-600"
+                                                    "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner bg-brand-50 text-brand-600",
                                                 )}>
-                                                    {activeTab === 'sellers' ? <Building2 className="h-6 w-6" /> : <Truck className="h-6 w-6" />}
+                                                    <Truck className="h-6 w-6" />
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors cursor-pointer" onClick={() => setSelectedRequest(req)}>
@@ -419,14 +368,13 @@ const WithdrawalRequests = () => {
                     </div>
                     <div className="px-6 py-3 border-t border-slate-100">
                         <Pagination
-                            page={activeTab === 'sellers' ? sellerPage : deliveryPage}
-                            totalPages={Math.ceil((activeTab === 'sellers' ? sellerTotal : deliveryTotal) / pageSize) || 1}
-                            total={activeTab === 'sellers' ? sellerTotal : deliveryTotal}
+                            page={deliveryPage}
+                            totalPages={Math.ceil(deliveryTotal / pageSize) || 1}
+                            total={deliveryTotal}
                             pageSize={pageSize}
-                            onPageChange={activeTab === 'sellers' ? fetchSellerPage : fetchDeliveryPage}
+                            onPageChange={fetchDeliveryPage}
                             onPageSizeChange={(newSize) => {
                                 setPageSize(newSize);
-                                setSellerPage(1);
                                 setDeliveryPage(1);
                             }}
                             loading={loading}
@@ -446,10 +394,9 @@ const WithdrawalRequests = () => {
                     <div className="ds-section-spacing">
                         <div className="flex items-center gap-6 p-6 bg-slate-50 rounded-xl border border-slate-100">
                             <div className={cn(
-                                "h-20 w-20 rounded-xl flex items-center justify-center shadow-xl",
-                                activeTab === 'sellers' ? "bg-[color:var(--primary)]  text-primary-foreground" : "bg-[color:var(--primary)]  text-primary-foreground"
+                                "h-20 w-20 rounded-xl flex items-center justify-center shadow-xl bg-[color:var(--primary)] text-primary-foreground",
                             )}>
-                                {activeTab === 'sellers' ? <Building2 className="h-10 w-10" /> : <Truck className="h-10 w-10" />}
+                                <Truck className="h-10 w-10" />
                             </div>
                             <div>
                                 <h3 className="text-2xl font-black text-slate-900 tracking-tight">{selectedRequest.user?.shopName || selectedRequest.user?.name || "Unknown"}</h3>
