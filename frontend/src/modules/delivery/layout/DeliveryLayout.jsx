@@ -27,9 +27,14 @@ import orderAlertSound from "@/assets/sounds/order_alert.mp3";
 
 const getDeliveryToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
 
-/** Match server parcel `searchExpiresAt`. */
+/**
+ * Match server parcel `searchExpiresAt`. The fallback below only fires when
+ * an offer somehow arrives without one — it must track
+ * PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS's own default (30s), not the old
+ * simultaneous-broadcast window this UI was written for.
+ */
 function secondsLeftUntilParcelExpiry(expiresAt) {
-  if (!expiresAt) return 60;
+  if (!expiresAt) return 30;
   const ms = new Date(expiresAt).getTime() - Date.now();
   return Math.max(0, Math.ceil(ms / 1000));
 }
@@ -44,8 +49,8 @@ const DeliveryLayout = () => {
 
   const [activeParcel, setActiveParcel] = useState(null);
   const [activeParcelOffer, setActiveParcelOffer] = useState(null);
-  const [parcelTimeLeft, setParcelTimeLeft] = useState(60);
-  const [parcelAcceptWindowTotal, setParcelAcceptWindowTotal] = useState(60);
+  const [parcelTimeLeft, setParcelTimeLeft] = useState(30);
+  const [parcelAcceptWindowTotal, setParcelAcceptWindowTotal] = useState(30);
   const shownParcelIdsRef = useRef(new Set());
   const activeParcelRef = useRef(null);
   const activeParcelOfferRef = useRef(null);
@@ -995,7 +1000,7 @@ const DeliveryLayout = () => {
                         initial={{ width: "100%" }}
                         animate={{ width: "0%" }}
                         transition={{
-                          duration: Math.max(1, parcelAcceptWindowTotal || 60),
+                          duration: Math.max(1, parcelAcceptWindowTotal || 30),
                           ease: "linear",
                         }}
                         className={
