@@ -241,7 +241,6 @@ const SellerLocations = () => {
   const [category, setCategory] = useState("all");
   const [city, setCity] = useState("all");
   const [sort, setSort] = useState("recent");
-  const [mapView, setMapView] = useState("coverage");
   const [page, setPage] = useState(1);
   const [selectedSellerId, setSelectedSellerId] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -254,7 +253,6 @@ const SellerLocations = () => {
     mappedSellers: 0,
     unmappedSellers: 0,
     citiesCovered: 0,
-    totalActiveOrders: 0,
     averageRadiusKm: 0,
     maxRadiusKm: 0,
   });
@@ -317,7 +315,6 @@ const SellerLocations = () => {
           mappedSellers: Number(payload.stats?.mappedSellers || 0),
           unmappedSellers: Number(payload.stats?.unmappedSellers || 0),
           citiesCovered: Number(payload.stats?.citiesCovered || 0),
-          totalActiveOrders: Number(payload.stats?.totalActiveOrders || 0),
           averageRadiusKm: Number(payload.stats?.averageRadiusKm || 0),
           maxRadiusKm: Number(payload.stats?.maxRadiusKm || 0),
         });
@@ -389,33 +386,13 @@ const SellerLocations = () => {
   const getCircleOptions = (seller) => {
     const selected = selectedSellerId === seller.id;
     const baseColor = getSellerColor(seller.id);
-    const density = Number(seller.densityScore || 1);
-
-    let fillOpacity = selected ? 0.22 : 0.11;
-    let strokeOpacity = selected ? 0.88 : 0.5;
-    let strokeWeight = selected ? 2.2 : 1.4;
-
-    if (mapView === "density") {
-      if (density >= 4) {
-        fillOpacity = selected ? 0.28 : 0.16;
-        strokeOpacity = selected ? 0.95 : 0.62;
-        strokeWeight = selected ? 2.8 : 1.8;
-      } else if (density >= 3) {
-        fillOpacity = selected ? 0.25 : 0.14;
-        strokeOpacity = selected ? 0.92 : 0.56;
-        strokeWeight = selected ? 2.5 : 1.6;
-      } else if (density >= 2) {
-        fillOpacity = selected ? 0.23 : 0.12;
-        strokeOpacity = selected ? 0.9 : 0.52;
-      }
-    }
 
     return {
       fillColor: baseColor,
-      fillOpacity,
+      fillOpacity: selected ? 0.22 : 0.11,
       strokeColor: baseColor,
-      strokeOpacity,
-      strokeWeight,
+      strokeOpacity: selected ? 0.88 : 0.5,
+      strokeWeight: selected ? 2.2 : 1.4,
     };
   };
 
@@ -423,7 +400,7 @@ const SellerLocations = () => {
     <div className="h-[calc(100vh-84px)] min-h-[820px] flex flex-col gap-5 animate-in fade-in duration-700 overflow-hidden">
       <PageHeader
         title="Seller Locations"
-        description="Global view of seller locations, radius coverage, and order density."
+        description="Global view of seller locations and radius coverage."
         badge={
           <Badge
             variant="primary"
@@ -433,35 +410,6 @@ const SellerLocations = () => {
         }
         actions={
           <div className="flex items-center gap-2">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-            <button
-              onClick={() => setMapView("coverage")}
-              disabled={!mapUnlocked}
-              className={cn(
-                "px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all",
-                !mapUnlocked
-                  ? "text-slate-400 cursor-not-allowed"
-                  : mapView === "coverage"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
-              )}>
-              COVERAGE
-            </button>
-            <button
-              onClick={() => setMapView("density")}
-              disabled={!mapUnlocked}
-              className={cn(
-                "px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all",
-                !mapUnlocked
-                  ? "text-slate-400 cursor-not-allowed"
-                  : mapView === "density"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
-              )}>
-              DENSITY
-            </button>
-          </div>
-
           {mapUnlocked && (
             <button
               onClick={() => setMapUnlocked(false)}
@@ -483,11 +431,10 @@ const SellerLocations = () => {
         }
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
+      <div className="grid grid-cols-3 gap-3 shrink-0">
         <StatCard label="Sellers" value={stats.totalSellers.toLocaleString("en-IN")} className="p-4" />
         <StatCard label="Mapped" value={stats.mappedSellers.toLocaleString("en-IN")} color="text-brand-600" bg="bg-brand-50" className="p-4" />
         <StatCard label="Avg Radius" value={`${stats.averageRadiusKm} km`} className="p-4" />
-        <StatCard label="Active Orders" value={stats.totalActiveOrders.toLocaleString("en-IN")} className="p-4" />
       </div>
 
       <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-5">
@@ -619,15 +566,6 @@ const SellerLocations = () => {
                               : "text-slate-500",
                           )}>
                           {seller.serviceRadiusKm}km
-                        </span>
-                        <span
-                          className={cn(
-                            "text-[9px] font-bold",
-                            selectedSellerId === seller.id
-                              ? "text-slate-100"
-                              : "text-slate-500",
-                          )}>
-                          {seller.activeOrders} active orders
                         </span>
                         {!seller.hasValidLocation && (
                           <span

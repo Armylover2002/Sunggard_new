@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@core/context/AuthContext';
-import { LogOut, Bell, Search, Menu } from 'lucide-react';
+import { LogOut, Bell, Menu } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { sellerApi } from '@/modules/seller/services/sellerApi';
@@ -22,7 +22,6 @@ const Topbar = ({ onMenuClick }) => {
     const appName = settings?.appName || 'App';
     const logoUrl = settings?.logoUrl || '';
 
-    const [searchQuery, setSearchQuery] = useState('');
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -30,17 +29,6 @@ const Topbar = ({ onMenuClick }) => {
 
     const isSeller = location.pathname.startsWith('/seller');
     const isAdmin = location.pathname.startsWith('/admin');
-
-    const handleSearchSubmit = (e) => {
-        e?.preventDefault();
-        const q = (searchQuery || '').trim();
-        if (!q) return;
-        if (isSeller) {
-            navigate(`/seller/products?q=${encodeURIComponent(q)}`);
-        } else if (isAdmin) {
-            navigate(`/admin/products?search=${encodeURIComponent(q)}`);
-        }
-    };
 
     const isSellerRef = useRef(isSeller);
     const isAdminRef = useRef(isAdmin);
@@ -168,17 +156,6 @@ const Topbar = ({ onMenuClick }) => {
                     )}
                 </span>
 
-                <form onSubmit={handleSearchSubmit} className="group relative hidden w-full max-w-md md:block">
-                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-[color:var(--primary)]" />
-                    <input
-                        type="search"
-                        aria-label={isSeller ? "Search products, inventory and orders" : "Search orders, products, users and coupons"}
-                        placeholder={isSeller ? "Search products, inventory, orders" : "Search orders, products, users, coupons"}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-[13px] font-medium text-slate-900 outline-none transition-colors placeholder:font-normal placeholder:text-slate-400 focus:border-[color:var(--primary)] focus:bg-white focus:ring-2 focus:ring-[color:var(--primary)]/10"
-                    />
-                </form>
             </div>
 
             {/* Right: what is waiting, and who is filing. */}
