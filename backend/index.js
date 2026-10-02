@@ -39,6 +39,11 @@ import {
   getAbandonedCheckoutJobInterval,
   isAbandonedCheckoutJobEnabled,
 } from "./app/jobs/abandonedCheckoutJob.js";
+import {
+  getReconcilePorterPaymentsJobHandler,
+  getReconcilePorterPaymentsJobInterval,
+  isReconcilePorterPaymentsJobEnabled,
+} from "./app/jobs/reconcilePorterPaymentsJob.js";
 import logger from "./app/services/logger.js";
 import { stopScheduledJobs } from "./app/services/distributedScheduler.js";
 
@@ -345,6 +350,18 @@ async function startScheduler() {
     );
   }
 
+  // Payments Razorpay captured but that never got confirmed back to us —
+  // the webhook didn't arrive (or isn't configured) and the client never
+  // called /verify. Re-reads status straight from Razorpay for anything
+  // stuck past the grace period, same as the webhook would.
+  if (isReconcilePorterPaymentsJobEnabled()) {
+    registerScheduledJob(
+      'reconcilePorterPaymentsJob',
+      getReconcilePorterPaymentsJobInterval(),
+      getReconcilePorterPaymentsJobHandler()
+    );
+  }
+
   // Start all registered jobs
   await startScheduledJobs();
   registerSchedulerStopper(stopScheduledJobs);
@@ -352,6 +369,7 @@ async function startScheduler() {
   const scheduledJobs = [];
   if (isFirebaseTrackingCleanupJobEnabled()) scheduledJobs.push('firebaseTrackingCleanupJob');
   if (isAbandonedCheckoutJobEnabled()) scheduledJobs.push('abandonedCheckoutJob');
+  if (isReconcilePorterPaymentsJobEnabled()) scheduledJobs.push('reconcilePorterPaymentsJob');
   logger.info('Scheduler started', {
     jobs: scheduledJobs,
     role: getProcessRole()
