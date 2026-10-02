@@ -26,7 +26,7 @@ export async function getSellerLocationsData({
   const normalizedLifecycle = String(lifecycle || "all").trim().toLowerCase();
   const normalizedCategory = String(category || "all").trim();
   const normalizedCity = String(city || "all").trim();
-  const normalizedSort = String(sort || "orders_desc").trim().toLowerCase();
+  const normalizedSort = String(sort || "recent").trim().toLowerCase();
   const search = String(q || "").trim();
   const requestedMapLimit = Number(rawMapLimit);
   const mapItemLimit = Number.isFinite(requestedMapLimit)

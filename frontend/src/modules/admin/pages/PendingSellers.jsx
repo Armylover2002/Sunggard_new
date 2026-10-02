@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import {
@@ -25,7 +24,6 @@ import { toast } from 'sonner';
 import { adminApi } from '../services/adminApi';
 
 const PendingSellers = () => {
-    const navigate = useNavigate();
     const [pendingSellers, setPendingSellers] = useState([]);
     const [summaryStats, setSummaryStats] = useState({
         totalApplications: 0,
@@ -212,10 +210,7 @@ const PendingSellers = () => {
                             ) : filteredSellers.length > 0 ? filteredSellers.map((s) => (
                                 <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="px-6 py-4.5 align-middle">
-                                        <div
-                                            className="flex items-center gap-4 cursor-pointer group/name"
-                                            onClick={() => navigate(`/admin/sellers/active/${s.id}`)}
-                                        >
+                                        <div className="flex items-center gap-4 group/name">
                                             <div className="h-11 w-11 rounded-xl overflow-hidden bg-slate-100 ring-1 ring-slate-200 group-hover:ring-primary/40 transition-all shrink-0">
                                                 <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400">
                                                     <HiOutlineBuildingOffice2 className="h-5 w-5" />

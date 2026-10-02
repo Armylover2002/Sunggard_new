@@ -120,12 +120,6 @@ export function sortActiveSellerRows(rows, sortBy) {
       new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime(),
     name_asc: (a, b) => a.shopName.localeCompare(b.shopName),
     name_desc: (a, b) => b.shopName.localeCompare(a.shopName),
-    revenue_desc: (a, b) => (b.totalRevenue || 0) - (a.totalRevenue || 0),
-    revenue_asc: (a, b) => (a.totalRevenue || 0) - (b.totalRevenue || 0),
-    orders_desc: (a, b) => (b.totalOrders || 0) - (a.totalOrders || 0),
-    orders_asc: (a, b) => (a.totalOrders || 0) - (b.totalOrders || 0),
-    products_desc: (a, b) => (b.productCount || 0) - (a.productCount || 0),
-    products_asc: (a, b) => (a.productCount || 0) - (b.productCount || 0),
   };
 
   const compare = sorters[sortBy] || sorters.recent;

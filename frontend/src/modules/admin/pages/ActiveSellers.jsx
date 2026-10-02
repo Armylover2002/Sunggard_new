@@ -26,9 +26,6 @@ const SORT_OPTIONS = [
   { value: "oldest", label: "Oldest first" },
   { value: "name_asc", label: "Shop name A-Z" },
   { value: "name_desc", label: "Shop name Z-A" },
-  { value: "revenue_desc", label: "Highest revenue" },
-  { value: "orders_desc", label: "Most orders" },
-  { value: "products_desc", label: "Most products" },
 ];
 
 const safeNumber = (value) => {

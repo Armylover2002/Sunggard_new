@@ -7,8 +7,6 @@ import RootErrorBoundary from '../../shared/components/RootErrorBoundary';
 import { setActiveRole, ROLES } from '../auth/activeRoleStore';
 
 // Providers for Customer Module
-import { CartAnimationProvider } from '../../modules/customer/context/CartAnimationContext';
-import { ProductDetailProvider } from '../../modules/customer/context/ProductDetailContext';
 import { LocationProvider } from '../../modules/customer/context/LocationContext';
 import ScrollToTop from '../../modules/customer/components/shared/ScrollToTop';
 import NotFoundPage from '../../shared/components/NotFoundPage';
@@ -59,16 +57,12 @@ const CustomerLayoutWrapper = () => {
 
     return (
         <LocationProvider>
-            <CartAnimationProvider>
-                <ProductDetailProvider>
-                    <ScrollToTop />
-                    <CustomerLayout>
-                        <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
-                            <Outlet />
-                        </Suspense>
-                    </CustomerLayout>
-                </ProductDetailProvider>
-            </CartAnimationProvider>
+            <ScrollToTop />
+            <CustomerLayout>
+                <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
+                    <Outlet />
+                </Suspense>
+            </CustomerLayout>
         </LocationProvider>
     );
 };

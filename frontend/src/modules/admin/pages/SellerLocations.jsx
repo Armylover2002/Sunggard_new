@@ -37,11 +37,10 @@ const LIFECYCLE_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
-  { value: "orders_desc", label: "Most active orders" },
+  { value: "recent", label: "Newest first" },
   { value: "radius_desc", label: "Largest radius" },
   { value: "name_asc", label: "Store name A-Z" },
   { value: "city_asc", label: "City A-Z" },
-  { value: "recent", label: "Newest first" },
 ];
 
 const mapContainerStyle = {
@@ -241,7 +240,7 @@ const SellerLocations = () => {
   const [lifecycle, setLifecycle] = useState("all");
   const [category, setCategory] = useState("all");
   const [city, setCity] = useState("all");
-  const [sort, setSort] = useState("orders_desc");
+  const [sort, setSort] = useState("recent");
   const [mapView, setMapView] = useState("coverage");
   const [page, setPage] = useState(1);
   const [selectedSellerId, setSelectedSellerId] = useState(null);

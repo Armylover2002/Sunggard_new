@@ -68,7 +68,6 @@ const CustomerDetail = React.lazy(() => import("../pages/CustomerDetail"));
 const UserManagement = React.lazy(() => import("../pages/UserManagement"));
 const Profile = React.lazy(() => import("@/pages/Profile"));
 const FAQManagement = React.lazy(() => import("../pages/FAQManagement"));
-const SellerDetail = React.lazy(() => import("../pages/SellerDetail"));
 const SupportTickets = React.lazy(() => import("../pages/SupportTickets"));
 const CouponManagement = React.lazy(() => import("../pages/CouponManagement"));
 const NotificationComposer = React.lazy(
@@ -281,7 +280,6 @@ const AdminRoutes = () => {
         <Route path="/users" element={<UserManagement />} />
         <Route path="/profile" element={<AdminProfile />} />
         <Route path="/sellers/active" element={<ActiveSellers />} />
-        <Route path="/sellers/active/:id" element={<SellerDetail />} />
         <Route path="/support-tickets" element={<SupportTickets />} />
         <Route path="/notifications" element={<NotificationComposer />} />
         <Route path="/coupons" element={<CouponManagement />} />

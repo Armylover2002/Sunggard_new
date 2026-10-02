@@ -5,7 +5,6 @@ import BottomNav from './BottomNav';
 import DesktopNav from './DesktopNav';
 import LocationGate from '../shared/LocationGate';
 import MobileFooterMessage from './MobileFooterMessage';
-import { useProductDetail } from '../../context/ProductDetailContext';
 import { cn } from '@/lib/utils';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
@@ -15,7 +14,6 @@ import { ShieldCheck, Package } from 'lucide-react';
 
 const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showBottomNav: showBottomNavProp }) => {
     const location = useLocation();
-    const { isOpen: isProductDetailOpen } = useProductDetail();
     const { user, token } = useAuth();
 
     // Listen for Return OTPs (Real-time Alert for Customer)
@@ -103,12 +101,6 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const hideFooterMessageRoutes = ['/profile', '/profile/edit', '/profile/parcel-history'];
     const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category');
 
-    // Hide elements on mobile only when product detail is open
-    // On desktop, we want to keep the header visible even if the modal is open
-    const finalShowHeaderMobile = showHeader && !isProductDetailOpen;
-    const finalShowBottomNavMobile = showBottomNav && !isProductDetailOpen;
-    const finalShowFooterMessageMobile = showFooterMessage && !isProductDetailOpen;
-
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
             {/* Header logic: Always show on desktop if showHeader is true. On mobile, hide if product detail is open. */}
@@ -117,7 +109,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
                     <div className="hidden md:block">
                         <Header />
                     </div>
-                    {finalShowHeaderMobile && (
+                    {showHeader && (
                         <div className="block md:hidden">
                             <Header />
                         </div>
@@ -143,12 +135,12 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
             {/* Mobile Footer Message logic — QUICK COMMERCE DISABLED */}
             {/* <div className="md:hidden">
-                {finalShowFooterMessageMobile && <MobileFooterMessage />}
+                {showFooterMessage && <MobileFooterMessage />}
             </div> */}
 
             {/* Bottom Nav logic */}
             <div className="md:hidden">
-                {finalShowBottomNavMobile && <BottomNav />}
+                {showBottomNav && <BottomNav />}
             </div>
         </div>
     );
