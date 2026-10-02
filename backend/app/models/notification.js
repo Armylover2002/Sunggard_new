@@ -94,6 +94,16 @@ const notificationSchema = new mongoose.Schema(
         "payment",
         "alert",
         "system",
+        // Lightweight bookkeeping row written directly by
+        // emitParcelBroadcast (not through the notify()/queue pipeline) to
+        // track who currently holds a live parcel offer, so
+        // retractParcelBroadcast knows who to dismiss on cancel/accept/
+        // timeout. Was missing from this enum since the field was added,
+        // so every one of those inserts failed Mongoose validation,
+        // silently (caught and logged, never thrown) — retractParcelBroadcast's
+        // query for it always matched zero rows, and no rider's stale offer
+        // was ever dismissed by anything but its own client-side timer.
+        "parcel",
       ],
       default: "alert",
       index: true,
