@@ -46,7 +46,6 @@ import "../models/transaction.js";
 import "../models/wallet.js";
 
 // CMS / configuration models
-import "../models/faq.js";
 import "../models/setting.js";
 
 // Read-optimized / cache models
@@ -93,7 +92,6 @@ export const REQUIRED_MODELS = Object.freeze([
   "NotificationPreference",
   "PushToken",
   "Ticket",
-  "FAQ",
 
   // Configuration
   "Setting",

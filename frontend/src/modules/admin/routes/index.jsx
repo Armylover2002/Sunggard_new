@@ -12,9 +12,7 @@ import {
   Receipt,
   CircleDollarSign,
   Users,
-  HelpCircle,
   Settings,
-  Terminal,
   Sparkles,
   User,
   Package,
@@ -55,23 +53,12 @@ const WithdrawalRequests = React.lazy(
 const CashCollection = React.lazy(() => import("../pages/CashCollection"));
 const UserManagement = React.lazy(() => import("../pages/UserManagement"));
 const Profile = React.lazy(() => import("@/pages/Profile"));
-const FAQManagement = React.lazy(() => import("../pages/FAQManagement"));
 const SupportTickets = React.lazy(() => import("../pages/SupportTickets"));
 const CouponManagement = React.lazy(() => import("../pages/CouponManagement"));
-const NotificationComposer = React.lazy(
-  () => import("../pages/NotificationComposer"),
-);
 const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
-const EnvSettings = React.lazy(() => import("../pages/EnvSettings"));
 const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
 
 const navItems = [
-  {
-    label: "Send Notifications",
-    path: "/admin/notifications",
-    icon: Sparkles,
-    color: "amber",
-  },
   {
     label: "Customer Support",
     icon: Receipt,
@@ -197,7 +184,6 @@ const navItems = [
     color: "green",
     group: "porter",
   },
-  { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
   {
     label: "Settings",
     path: "/admin/settings",
@@ -209,7 +195,6 @@ const navItems = [
     group: "porter",
   },
   { label: "My Profile", path: "/admin/profile", icon: User, color: "indigo" },
-  { label: "System Settings", path: "/admin/env", icon: Terminal, color: "dark" },
 ];
 
 const AdminRoutes = () => {
@@ -243,7 +228,6 @@ const AdminRoutes = () => {
         <Route path="/users" element={<UserManagement />} />
         <Route path="/profile" element={<AdminProfile />} />
         <Route path="/support-tickets" element={<SupportTickets />} />
-        <Route path="/notifications" element={<NotificationComposer />} />
         <Route path="/coupons" element={<CouponManagement />} />
         <Route path="/delivery-boys/active" element={<ActiveDeliveryBoys />} />
         <Route
@@ -267,9 +251,7 @@ const AdminRoutes = () => {
         <Route path="/wallet" element={<AdminWallet />} />
         <Route path="/withdrawals" element={<WithdrawalRequests />} />
         <Route path="/cash-collection" element={<CashCollection />} />
-        <Route path="/faqs" element={<FAQManagement />} />
         <Route path="/settings" element={<AdminSettings />} />
-        <Route path="/env" element={<EnvSettings />} />
       </Route>
       <Route path="*" element={<NotFoundPage homePath="/admin" />} />
     </Routes>
