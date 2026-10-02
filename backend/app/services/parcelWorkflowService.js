@@ -102,7 +102,7 @@ async function assertRiderWithinPickupRadius(deliveryOid, parcelId) {
  * are in range.
  */
 const PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS = () =>
-  parseInt(process.env.PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS || "20000", 10);
+  parseInt(process.env.PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS || "30000", 10);
 
 function money(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
