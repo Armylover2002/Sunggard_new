@@ -131,7 +131,7 @@ async function notifyParcelRequested(parcel, userId) {
       adminIds,
       parcelId: parcel._id,
       fare: parcel.fare,
-      customerBody: `Your parcel delivery request (ID: ${parcel._id}) has been created. Searching for a nearby rider...`,
+      customerBody: `Your parcel delivery request has been created. Searching for a nearby rider...`,
       adminBody: `Parcel #${String(parcel._id).slice(-6)}${parcel.deliverySpeed === "express" ? " (EXPRESS)" : ""} booked for ₹${parcel.fare}. Open Parcel Delivery to view.`,
       data: {
         parcelId: parcel._id,
