@@ -1763,7 +1763,7 @@ export const adminAssignRider = async (req, res) => {
       parcel.customerId,
       "customer",
       "Rider Assigned",
-      `Delivery partner ${rider.name} (${rider.phone}) has been assigned to your parcel.`,
+      `Delivery partner ${rider.name} has been assigned to your parcel.`,
       NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
       parcel._id
     );

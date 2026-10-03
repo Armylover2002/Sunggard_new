@@ -795,7 +795,7 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
     userId: updated.customerId?._id || updated.customerId,
     customerId: updated.customerId?._id || updated.customerId,
     parcelId: String(parcelId),
-    body: `Delivery partner ${partner.name} (${partner.phone}) has accepted your parcel.`,
+    body: `Delivery partner ${partner.name} has accepted your parcel.`,
   });
 
   if (idempotencyKey) {
