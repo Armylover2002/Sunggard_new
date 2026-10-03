@@ -804,9 +804,12 @@ const ParcelDeliveryPage = () => {
   const [destinationCityLoading, setDestinationCityLoading] = useState(false);
 
   // Re-fetch the receiver-city dropdown options whenever the pickup city or
-  // chosen courier changes. cityCheckTick (bumped on the pickup-city input's
-  // blur) stands in for pickupDetails.city here for the same reason it does
-  // in the fare-recalc effect below — it's free-typed text.
+  // chosen courier changes. Debounced on pickupDetails.city directly rather
+  // than waiting for the input's blur event — relying on blur meant a
+  // pickup city typed and left in place without ever losing focus (browser
+  // autofill, tapping "Continue" straight from the field, a resumed draft)
+  // left this dropdown stuck on "No priced cities yet" forever, even though
+  // the city was right there and the backend had the routes priced.
   useEffect(() => {
     const originCity = pickupDetails.city?.trim();
     if (!originCity || !courierCompanyId) {
@@ -814,29 +817,32 @@ const ParcelDeliveryPage = () => {
       return undefined;
     }
     let cancelled = false;
-    setDestinationCityLoading(true);
-    parcelApi
-      .getCityRateDestinations(originCity, courierCompanyId)
-      .then((res) => {
-        if (cancelled || !res.data?.success) return;
-        const raw = res.data.results || res.data.result || [];
-        const list = Array.isArray(raw) ? raw : [];
-        setDestinationCityOptions(list);
-        if (list.length && receiverDetails.city && !list.includes(receiverDetails.city)) {
-          updateReceiverField("city", "");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setDestinationCityOptions([]);
-      })
-      .finally(() => {
-        if (!cancelled) setDestinationCityLoading(false);
-      });
+    const timer = setTimeout(() => {
+      setDestinationCityLoading(true);
+      parcelApi
+        .getCityRateDestinations(originCity, courierCompanyId)
+        .then((res) => {
+          if (cancelled || !res.data?.success) return;
+          const raw = res.data.results || res.data.result || [];
+          const list = Array.isArray(raw) ? raw : [];
+          setDestinationCityOptions(list);
+          if (list.length && receiverDetails.city && !list.includes(receiverDetails.city)) {
+            updateReceiverField("city", "");
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setDestinationCityOptions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setDestinationCityLoading(false);
+        });
+    }, 400);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cityCheckTick, courierCompanyId]);
+  }, [pickupDetails.city, courierCompanyId]);
 
   // Coupon
   const [availableCoupons, setAvailableCoupons] = useState([]);
