@@ -4,11 +4,18 @@ export const handleResponse = (res, statusCode, message, data = {}) => {
   const sanitize = (item) => {
     if (!item) return item;
 
+    // Primitives (strings, numbers, booleans) have nothing to sanitize —
+    // destructuring one below would spread it into a character-indexed
+    // object instead (`{...rest} = "Botad"` -> `{0:'B',1:'o',...}`), which
+    // broke every endpoint that returns a plain string array (e.g. the
+    // destination-city list) the moment it actually had data to return.
+    if (typeof item !== 'object') return item;
+
     // Handle Mongoose documents
     let obj = item;
     if (typeof item.toObject === 'function') {
       obj = item.toObject();
-    } else if (typeof item === 'object') {
+    } else {
       // Recursively sanitize if it's a plain object that might contain Mongoose docs
       obj = { ...item };
       for (const key in obj) {
