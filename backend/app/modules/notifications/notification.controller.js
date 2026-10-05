@@ -4,6 +4,10 @@ import PushToken from "./token.model.js";
 import NotificationPreference from "./preference.model.js";
 import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
+import User from "../../models/customer.js";
+import Seller from "../../models/seller.js";
+import Delivery from "../../models/delivery.js";
+import Admin from "../../models/admin.js";
 import {
   normalizeNotificationRole,
   ROLE_TO_USER_MODEL,
