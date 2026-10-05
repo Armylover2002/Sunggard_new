@@ -1,8 +1,17 @@
+import { translate } from "./notification.i18n.js";
 import {
   NOTIFICATION_EVENTS,
   NOTIFICATION_ROLES,
   ROLE_TO_RECIPIENT_MODEL,
 } from "./notification.constants.js";
+
+/**
+ * A translatable message: the English text is kept for the in-app list and
+ * logs, and the key + vars let the sender render it in the recipient language.
+ */
+function msg(key, vars = {}) {
+  return { key, vars, en: translate("en", key, vars) };
+}
 
 function normalizeId(value) {
   if (!value) return null;
@@ -78,11 +87,14 @@ function eventDefinition(eventType) {
               if (fromRole === "admin") return [];
               return normalizeIdList(payload.adminIds);
             },
-            title: (payload) => {
-              const name = String(payload.userName || "Customer").trim() || "Customer";
-              return `Support message from ${name}`;
-            },
-            body: (payload) => truncateText(payload.messageText || "New message"),
+            title: (payload) =>
+              msg("support_message_title", {
+                name: String(payload.userName || "Customer").trim() || "Customer",
+              }),
+            body: (payload) =>
+              payload.messageText
+                ? truncateText(payload.messageText)
+                : msg("new_message"),
           },
           {
             role: NOTIFICATION_ROLES.CUSTOMER,
@@ -91,8 +103,11 @@ function eventDefinition(eventType) {
               if (fromRole !== "admin") return [];
               return normalizeIdList(payload.userId || payload.customerId);
             },
-            title: () => "Support reply",
-            body: (payload) => truncateText(payload.messageText || "New message"),
+            title: () => msg("support_reply_title"),
+            body: (payload) =>
+              payload.messageText
+                ? truncateText(payload.messageText)
+                : msg("new_message"),
           },
         ],
       };
@@ -104,23 +119,24 @@ function eventDefinition(eventType) {
             role: NOTIFICATION_ROLES.CUSTOMER,
             recipientIds: (payload) =>
               normalizeIdList(payload.userId || payload.customerId),
-            title: () => "Courier Request Created",
+            title: () => msg("parcel_request_created_title"),
             body: (payload) =>
               payload.customerBody ||
               payload.body ||
-              "Your courier request has been created.",
+              msg("parcel_request_created_body"),
           },
           {
             role: NOTIFICATION_ROLES.ADMIN,
             recipientIds: (payload) => normalizeIdList(payload.adminIds),
-            title: () => "New Courier Request 📦",
+            title: () => msg("parcel_new_request_title"),
             body: (payload) =>
               payload.adminBody ||
               (payload.parcelId
-                ? `Courier #${String(payload.parcelId).slice(-6)} booked for ₹${
-                    Number(payload.fare) || 0
-                  }. Tap to view.`
-                : "A customer placed a new courier delivery request."),
+                ? msg("parcel_admin_booked_body", {
+                    code: String(payload.parcelId).slice(-6),
+                    fare: Number(payload.fare) || 0,
+                  })
+                : msg("parcel_admin_new_default")),
           },
         ],
       };
@@ -128,39 +144,45 @@ function eventDefinition(eventType) {
       return {
         role: NOTIFICATION_ROLES.DELIVERY,
         recipientIds: (payload) => normalizeIdList(payload.deliveryIds),
-        title: () => "New Courier Request 📦",
+        title: () => msg("parcel_new_request_title"),
         body: (payload) =>
           payload.parcelId
-            ? `Courier #${String(payload.parcelId).slice(-6)} is available nearby.`
-            : "A new courier delivery request is available nearby.",
+            ? msg("parcel_nearby_body", { code: String(payload.parcelId).slice(-6) })
+            : msg("parcel_nearby_default"),
       };
     case NOTIFICATION_EVENTS.PARCEL_ASSIGNED:
       return {
         role: NOTIFICATION_ROLES.DELIVERY,
         recipientIds: (payload) => normalizeIdList(payload.deliveryId),
-        title: () => "New Courier Assigned",
-        body: (payload) => payload.body || "You have been assigned a new courier delivery.",
+        title: () => msg("parcel_assigned_title"),
+        body: (payload) => payload.body || msg("parcel_assigned_default"),
       };
     case NOTIFICATION_EVENTS.PARCEL_SEARCH_CANCELLED:
       return {
         role: NOTIFICATION_ROLES.DELIVERY,
         recipientIds: (payload) => normalizeIdList(payload.deliveryIds),
-        title: () => "Courier request no longer available",
-        body: () => "This courier request was cancelled or taken by another rider.",
+        title: () => msg("parcel_cancelled_title"),
+        body: () => msg("parcel_cancelled_body"),
       };
     case NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE:
       return {
         role: NOTIFICATION_ROLES.CUSTOMER,
         recipientIds: (payload) => normalizeIdList(payload.userId || payload.customerId),
-        title: () => "Courier Status Update",
-        body: (payload) => payload.body || "Your courier status has been updated.",
+        title: () => msg("parcel_status_title"),
+        body: (payload) =>
+          payload.bodyKey
+            ? msg(payload.bodyKey, payload.bodyVars || {})
+            : payload.body || msg("parcel_status_default"),
       };
     case NOTIFICATION_EVENTS.PARCEL_DELIVERED:
       return {
         role: NOTIFICATION_ROLES.CUSTOMER,
         recipientIds: (payload) => normalizeIdList(payload.userId || payload.customerId),
-        title: () => "Courier Delivered",
-        body: (payload) => payload.body || "Your courier has been delivered successfully.",
+        title: () => msg("parcel_delivered_title"),
+        body: (payload) =>
+          payload.bodyKey
+            ? msg(payload.bodyKey, payload.bodyVars || {})
+            : payload.body || msg("parcel_delivered_default"),
       };
 
     default:
@@ -229,8 +251,12 @@ export function buildNotification(eventType, payload = {}) {
     if (!recipientIds.length) continue;
 
     const role = def.role;
-    const title = def.title(payload);
-    const body = def.body(payload);
+    const titleValue = def.title(payload);
+    const bodyValue = def.body(payload);
+    const titleMsg = typeof titleValue === "string" ? null : titleValue;
+    const bodyMsg = typeof bodyValue === "string" ? null : bodyValue;
+    const title = titleMsg ? titleMsg.en : titleValue;
+    const body = bodyMsg ? bodyMsg.en : bodyValue;
     const data = eventData(eventType, payload, role);
 
     recipientIds.forEach((recipientId) => {
@@ -243,6 +269,11 @@ export function buildNotification(eventType, payload = {}) {
         title,
         body,
         message: body,
+        // Keys are used by the sender to write the text in the recipient's language.
+        titleKey: titleMsg?.key,
+        titleVars: titleMsg?.vars,
+        bodyKey: bodyMsg?.key,
+        bodyVars: bodyMsg?.vars,
         data,
         channel: "push",
         provider: "fcm",

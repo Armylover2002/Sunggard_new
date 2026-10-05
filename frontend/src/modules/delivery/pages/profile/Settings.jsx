@@ -5,6 +5,9 @@ import { ArrowLeft, Bell, Smartphone, Moon, Globe, ChevronRight } from "lucide-r
 import Button from "@/shared/components/ui/Button";
 import Card from "@/shared/components/ui/Card";
 import { toast } from "sonner";
+import LanguagePicker from "@shared/components/LanguagePicker";
+import { languageLabel, DEFAULT_LANGUAGE_CODE } from "@shared/constants/languages";
+import { getPushLanguage } from "@shared/services/pushLanguageApi";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -15,8 +18,13 @@ const Settings = () => {
     sound: true,
     vibration: true,
     darkMode: false,
-    language: "English",
   });
+  const [language, setLanguage] = useState(DEFAULT_LANGUAGE_CODE);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  useEffect(() => {
+    getPushLanguage().then(setLanguage).catch(() => {});
+  }, []);
 
   const toggleSetting = (key) => {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -25,6 +33,7 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
+      <LanguagePicker open={pickerOpen} value={language} onClose={() => setPickerOpen(false)} onChange={setLanguage} />
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-10">
         <div className="flex items-center p-4">
@@ -99,12 +108,12 @@ const Settings = () => {
         <section>
           <h2 className="text-sm uppercase font-bold text-gray-500 mb-3 tracking-wider ml-1">General</h2>
           <Card className="divide-y divide-gray-100">
-            <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors">
+            <div onClick={() => setPickerOpen(true)} className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors">
               <div className="flex items-center">
                 <Globe size={20} className="text-gray-400 mr-3" />
                 <div>
                   <h4 className="font-medium text-gray-800">Language</h4>
-                  <p className="text-xs text-gray-500">{settings.language}</p>
+                  <p className="text-xs text-gray-500">{languageLabel(language)}</p>
                 </div>
               </div>
               <ChevronRight size={20} className="text-gray-300" />

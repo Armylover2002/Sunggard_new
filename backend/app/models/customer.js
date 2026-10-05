@@ -25,6 +25,12 @@ const addressSchema = new mongoose.Schema({
 
 const userSchema = new mongoose.Schema(
     {
+    language: {
+        type: String,
+        default: "en",
+        trim: true,
+        lowercase: true,
+    },
         name: {
             type: String,
             trim: true,

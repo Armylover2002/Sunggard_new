@@ -1,9 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import LanguagePicker from '@shared/components/LanguagePicker';
+import { languageLabel, DEFAULT_LANGUAGE_CODE } from '@shared/constants/languages';
+import { getPushLanguage } from '@shared/services/pushLanguageApi';
 import { Bell, Lock, User, Globe, ChevronRight, ToggleRight, LogOut } from 'lucide-react';
 
 const SettingsPage = () => {
+    const [language, setLanguage] = useState(DEFAULT_LANGUAGE_CODE);
+    const [pickerOpen, setPickerOpen] = useState(false);
+
+    useEffect(() => {
+        getPushLanguage().then(setLanguage).catch(() => {});
+    }, []);
+
     return (
         <div className="min-h-screen bg-slate-50 pb-24 font-sans">
+            <LanguagePicker open={pickerOpen} value={language} onClose={() => setPickerOpen(false)} onChange={setLanguage} />
             {/* Header */}
             <div className="bg-gradient-to-br from-primary to-[#149d29] px-5 pt-10 pb-20 relative z-10 rounded-b-[2.5rem] shadow-lg overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-32 pointer-events-none" />
@@ -21,7 +32,7 @@ const SettingsPage = () => {
                     </div>
                     <div className="divide-y divide-slate-50">
                         <SettingItem icon={Bell} label="Notifications" hasToggle />
-                        <SettingItem icon={Globe} label="Language" value="English" />
+                        <SettingItem icon={Globe} label="Language" value={languageLabel(language)} onClick={() => setPickerOpen(true)} />
                         {/* <SettingItem icon={Moon} label="Dark Mode" hasToggle /> */}
                     </div>
                 </div>
@@ -51,8 +62,8 @@ const SettingsPage = () => {
     );
 };
 
-const SettingItem = ({ icon: Icon, label, value, hasToggle }) => (
-    <div className="px-6 py-5 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors">
+const SettingItem = ({ icon: Icon, label, value, hasToggle, onClick }) => (
+    <div onClick={onClick} className="px-6 py-5 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors">
         <div className="flex items-center gap-4">
             <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
                 <Icon size={20} />

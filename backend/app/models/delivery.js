@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const deliverySchema = new mongoose.Schema(
     {
+    language: {
+        type: String,
+        default: "en",
+        trim: true,
+        lowercase: true,
+    },
         name: {
             type: String,
             required: true,

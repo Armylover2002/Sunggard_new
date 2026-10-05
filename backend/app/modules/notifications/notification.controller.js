@@ -9,11 +9,17 @@ import Seller from "../../models/seller.js";
 import Delivery from "../../models/delivery.js";
 import Admin from "../../models/admin.js";
 import {
+  NOTIFICATION_ROLES,
   normalizeNotificationRole,
   ROLE_TO_USER_MODEL,
   roleFromRecipientModel,
 } from "./notification.constants.js";
 import { notify } from "./notification.service.js";
+import {
+  LANGUAGES,
+  isSupportedLanguage,
+} from "./notification.i18n.js";
+import { getUserLanguage, setCachedLanguage } from "./notification.language.js";
 import { NOTIFICATION_EVENTS } from "./notification.constants.js";
 
 function resolveRole(req) {
@@ -418,4 +424,45 @@ export default {
   updateNotificationPreferences,
   testPushNotification,
   getTestPushNotificationStatus,
+};
+
+/** The language notifications are written in for the signed-in user. */
+export const getPushLanguage = async (req, res) => {
+  try {
+    const role = resolveRole(req);
+    const language = await getUserLanguage(req?.user?.id, role);
+    return handleResponse(res, 200, "Language fetched", { language, languages: LANGUAGES });
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+/** Saves the language a customer or delivery partner wants notifications in. */
+export const setPushLanguage = async (req, res) => {
+  try {
+    const userId = req?.user?.id;
+    const role = resolveRole(req);
+    const language = String(req.body?.language || "").trim().toLowerCase();
+
+    if (!userId || !role) {
+      return handleResponse(res, 401, "Unauthorized");
+    }
+    if (!isSupportedLanguage(language)) {
+      return handleResponse(res, 400, "Choose one of the supported languages");
+    }
+    if (role !== NOTIFICATION_ROLES.CUSTOMER && role !== NOTIFICATION_ROLES.DELIVERY) {
+      return handleResponse(res, 403, "Language applies to customer and delivery accounts");
+    }
+
+    const Model = role === NOTIFICATION_ROLES.CUSTOMER ? User : Delivery;
+    const result = await Model.updateOne({ _id: userId }, { $set: { language } });
+    if (!result.matchedCount) {
+      return handleResponse(res, 404, "Account not found");
+    }
+
+    setCachedLanguage(role, userId, language);
+    return handleResponse(res, 200, "Language updated", { language });
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
 };

@@ -158,7 +158,7 @@ async function activateParcelAfterPayment(parcel) {
 import { syncDeliveryPartnerBusyFlag } from "../services/deliveryBusyService.js";
 
 // Utility to send notifications
-async function sendParcelNotification(userId, role, title, body, eventType = "alert", parcelId = null, status = null) {
+async function sendParcelNotification(userId, role, title, body, eventType = "alert", parcelId = null, status = null, extra = {}) {
   try {
     if (Object.values(NOTIFICATION_EVENTS).includes(eventType)) {
       emitNotificationEvent(eventType, {
@@ -171,6 +171,9 @@ async function sendParcelNotification(userId, role, title, body, eventType = "al
         // of only the first status change ever sending.
         status: status || undefined,
         body,
+        // Translation key for the body; the notification is written in the recipient's language.
+        bodyKey: extra.bodyKey,
+        bodyVars: extra.bodyVars,
         data: {
           title,
           parcelId,
@@ -2345,7 +2348,12 @@ export const riderUpdateStatus = async (req, res) => {
           ? `Your courier was picked up and delivered. COD ₹${getParcelCollectAmount(parcel)} was collected at pickup.`
           : "Your courier was picked up and delivered successfully.",
         NOTIFICATION_EVENTS.PARCEL_DELIVERED,
-        parcel._id
+        parcel._id,
+        null,
+        {
+          bodyKey: isParcelCod(parcel) ? "parcel_delivered_cod" : "parcel_delivered_body",
+          bodyVars: { amount: getParcelCollectAmount(parcel) },
+        },
       );
 
       const resultDoc = populated || parcel;
@@ -2397,6 +2405,8 @@ export const riderUpdateStatus = async (req, res) => {
 
     // Map status to customer-friendly notification descriptions
     let msg = "";
+    let msgKey = null;
+    let msgVars = {};
     if (status === "ACCEPTED") msg = "Your courier delivery request has been accepted by the rider.";
     else if (status === "RIDER_ASSIGNED") msg = "Rider is on the way to pick up your courier.";
     else if (status === "PICKUP_REACHED") {
@@ -2404,6 +2414,13 @@ export const riderUpdateStatus = async (req, res) => {
     }
     else if (status === "OUT_FOR_DELIVERY") msg = "Your courier has been collected and is on its way to our hub.";
     else if (status === "CANCELLED") msg = "Your courier delivery was cancelled by the rider.";
+    if (status === "ACCEPTED") msgKey = "status_accepted";
+    else if (status === "RIDER_ASSIGNED") msgKey = "status_rider_assigned";
+    else if (status === "PICKUP_REACHED") {
+      msgKey = "status_pickup_reached";
+      msgVars = { otp: parcel.otp };
+    } else if (status === "OUT_FOR_DELIVERY") msgKey = "status_collected";
+    else if (status === "CANCELLED") msgKey = "status_cancelled_by_rider";
 
     await sendParcelNotification(
       parcel.customerId,
@@ -2414,7 +2431,8 @@ export const riderUpdateStatus = async (req, res) => {
       msg,
       NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
       parcel._id,
-      status
+      status,
+      { bodyKey: msgKey, bodyVars: msgVars }
     );
 
     const resultDoc = populated || parcel;

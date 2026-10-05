@@ -9,6 +9,8 @@ import {
   updateNotificationPreferences,
   testPushNotification,
   getTestPushNotificationStatus,
+  getPushLanguage,
+  setPushLanguage,
 } from "./notification.controller.js";
 
 const notificationRouter = express.Router();
@@ -31,6 +33,8 @@ pushRouter.post("/test", testPushNotification);
 pushRouter.get("/test-status/:orderId", getTestPushNotificationStatus);
 pushRouter.get("/preferences", getNotificationPreferences);
 pushRouter.patch("/preferences", updateNotificationPreferences);
+pushRouter.get("/language", getPushLanguage);
+pushRouter.put("/language", setPushLanguage);
 
 export { notificationRouter, pushRouter };
 export default notificationRouter;

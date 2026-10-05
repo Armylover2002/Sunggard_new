@@ -12,6 +12,8 @@ import { getRedisClient, isBullMQEnabled } from "../../config/redis.js";
 import logger from "../../services/logger.js";
 import { incrementCounter, setGauge } from "../../services/metrics.js";
 import { deliverNotificationById } from "./notification.worker.js";
+import { translate } from "./notification.i18n.js";
+import { getUserLanguage } from "./notification.language.js";
 import {
   notificationQueue,
   NOTIFICATION_JOB_NAMES,
@@ -215,6 +217,18 @@ function emitInAppNotificationDelta(notification, notificationDoc, eventType) {
   }
 }
 
+/**
+ * Renders a notification's title and body in the recipient's language. A
+ * message without a translation key (e.g. chat text) is sent as written.
+ */
+async function localizeForRecipient(raw) {
+  const lang = await getUserLanguage(raw.userId, raw.role);
+  const { titleKey, titleVars, bodyKey, bodyVars, ...rest } = raw;
+  const title = titleKey ? translate(lang, titleKey, titleVars) : raw.title;
+  const body = bodyKey ? translate(lang, bodyKey, bodyVars) : raw.body;
+  return { ...rest, title, body, message: body };
+}
+
 export async function notify(eventType, payload = {}) {
   if (!NOTIFICATIONS_ENABLED()) {
     return { enqueued: 0, skipped: 0, duplicates: 0, notificationIds: [] };
@@ -231,7 +245,9 @@ export async function notify(eventType, payload = {}) {
   let duplicates = 0;
   const notificationIds = [];
 
-  for (const notification of notifications) {
+  for (const rawNotification of notifications) {
+    // Text is written in the recipient's chosen language (English by default).
+    const notification = await localizeForRecipient(rawNotification);
     try {
       const preference = await getPreference(notification.userId, notification.role);
       if (!isAllowedByPreference(eventType, preference)) {
