@@ -534,6 +534,8 @@ return (
                                 <DetailField label="Account Holder" value={viewingRider.accountHolder} />
                                 <DetailField label="Account Number" value={viewingRider.accountNumber} mono />
                                 <DetailField label="IFSC Code" value={viewingRider.ifsc} mono />
+                                <DetailField label="Bank Name" value={viewingRider.bankName} />
+                                <DetailField label="UPI ID" value={viewingRider.upiId} mono />
                             </div>
 
                             {viewingRider.documents?.length > 0 && (

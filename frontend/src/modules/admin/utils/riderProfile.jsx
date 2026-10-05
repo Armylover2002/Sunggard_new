@@ -66,6 +66,8 @@ export const mapDeliveryPartner = (r) => ({
     accountHolder: r.accountHolder || "Not provided",
     accountNumber: r.accountNumber || "Not provided",
     ifsc: r.ifsc || "Not provided",
+    bankName: r.bankName || "",
+    upiId: r.upiId || "",
     profileImage: r.profileImage || "",
     documents: Object.keys(r.documents || {}).filter((key) => r.documents[key]),
     documentsRaw: r.documents || {},

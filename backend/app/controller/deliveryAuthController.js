@@ -229,6 +229,11 @@ export const signupDelivery = async (req, res) => {
         const accountHolder = pickBodyString(body, ["accountHolder", "account_holder"], delivery?.accountHolder || "");
         const accountNumber = pickBodyString(body, ["accountNumber", "account_number"], delivery?.accountNumber || "");
         const ifsc = pickBodyString(body, ["ifsc"], delivery?.ifsc || "").toUpperCase();
+        const bankName = pickBodyString(body, ["bankName", "bank_name"], delivery?.bankName || "");
+        const upiId = pickBodyString(body, ["upiId", "upi_id"], delivery?.upiId || "").toLowerCase();
+        if (upiId && !UPI_PATTERN.test(upiId)) {
+            return handleResponse(res, 400, "Enter a valid UPI ID (e.g. name@bank)");
+        }
         const resolvedVehicleNumber = normalizePlateValue(
             pickBodyString(body, ["vehicleNumber", "vehicle_number"], delivery?.vehicleNumber || ""),
         );
@@ -355,6 +360,8 @@ export const signupDelivery = async (req, res) => {
             accountHolder,
             accountNumber,
             ifsc,
+            bankName,
+            upiId,
             profileImage: profileImageUrl,
             experience: pickBodyString(body, ["experience"]),
             experienceDetails: pickBodyString(body, ["experienceDetails", "experience_details"]),

@@ -119,7 +119,7 @@ export const getDeliveryPartnerById = async (req, res) => {
   try {
     const rider = await Delivery.findById(req.params.id)
       .select(
-        "name phone email address vehicleType vehicleNumber drivingLicenseNumber aadharNumber panNumber accountHolder accountNumber ifsc profileImage documents isVerified applicationStatus isParcelService experience experienceDetails currentArea zoneIds createdAt",
+        "name phone email address vehicleType vehicleNumber drivingLicenseNumber aadharNumber panNumber accountHolder accountNumber ifsc bankName upiId profileImage documents isVerified applicationStatus isParcelService experience experienceDetails currentArea zoneIds createdAt",
         // CAR WASH DISABLED — removed isCarWashService from select
       )
       .populate("zoneIds", "name city color")

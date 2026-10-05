@@ -190,9 +190,12 @@ const validateSignupStep2 = ({ signupVehicleNumber, signupDLNumber }) => {
   return null;
 };
 
-const validateSignupStep3 = ({ signupAadharNumber, signupPanNumber, signupAccountHolder, signupAccountNumber, signupIfsc }) => {
-  if (!signupAadharNumber || !signupPanNumber || !signupAccountHolder || !signupAccountNumber || !signupIfsc) {
+const validateSignupStep3 = ({ signupAadharNumber, signupPanNumber, signupAccountHolder, signupAccountNumber, signupIfsc, signupBankName, signupUpiId }) => {
+  if (!signupAadharNumber || !signupPanNumber || !signupAccountHolder || !signupAccountNumber || !signupIfsc || !signupBankName) {
     return "Please fill all bank and identification fields";
+  }
+  if (signupUpiId && !/^[w.-]{2,60}@[a-zA-Z]{2,20}$/.test(signupUpiId)) {
+    return "Enter a valid UPI ID (e.g. name@bank)";
   }
   if (!AADHAR_REGEX.test(signupAadharNumber)) {
     return "Aadhar number must be exactly 12 digits";
@@ -230,6 +233,8 @@ const DeliveryAuth = () => {
   const [signupAadharNumber, setSignupAadharNumber] = useState("");
   const [signupAccountNumber, setSignupAccountNumber] = useState("");
   const [signupIfsc, setSignupIfsc] = useState("");
+  const [signupBankName, setSignupBankName] = useState("");
+  const [signupUpiId, setSignupUpiId] = useState("");
   const [signupAccountHolder, setSignupAccountHolder] = useState("");
   const [signupServiceType, setSignupServiceType] = useState("");
   const [signupZoneId, setSignupZoneId] = useState("");
@@ -326,6 +331,8 @@ const DeliveryAuth = () => {
           signupAccountHolder,
           signupAccountNumber,
           signupIfsc,
+          signupBankName,
+          signupUpiId,
         });
         if (step3Error) { toast.error(step3Error); return; }
 
@@ -340,6 +347,8 @@ const DeliveryAuth = () => {
         formData.append("accountHolder", signupAccountHolder);
         formData.append("accountNumber", signupAccountNumber);
         formData.append("ifsc", signupIfsc);
+        formData.append("bankName", signupBankName.trim());
+        formData.append("upiId", signupUpiId.trim().toLowerCase());
         formData.append("aadharNumber", signupAadharNumber);
         formData.append("aadhar_number", signupAadharNumber);
         formData.append("panNumber", signupPanNumber);
@@ -445,6 +454,8 @@ const DeliveryAuth = () => {
     setSignupAccountNumber("");
     setSignupIfsc("");
     setSignupAccountHolder("");
+    setSignupBankName("");
+    setSignupUpiId("");
     setAadharFrontFile(null);
     setAadharBackFile(null);
     setPanFile(null);
@@ -919,6 +930,27 @@ const DeliveryAuth = () => {
                             />
                           </div>
 
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Bank Name</label>
+                            <input
+                              type="text"
+                              value={signupBankName}
+                              onChange={(e) => setSignupBankName(e.target.value)}
+                              className="w-full px-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                              placeholder="E.G. STATE BANK OF INDIA"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">UPI ID (optional)</label>
+                            <input
+                              type="text"
+                              value={signupUpiId}
+                              onChange={(e) => setSignupUpiId(e.target.value.replace(/s/g, ""))}
+                              className="w-full px-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                              placeholder="name@bank"
+                            />
+                          </div>
+
                           <div className="flex gap-4 pt-2">
                             <button
                               onClick={() => setSignupStep(2)}
@@ -934,6 +966,8 @@ const DeliveryAuth = () => {
                                   signupAccountHolder,
                                   signupAccountNumber,
                                   signupIfsc,
+                                  signupBankName,
+                                  signupUpiId,
                                 });
                                 if (error) {
                                   toast.error(error);
