@@ -190,6 +190,8 @@ export function parcelBroadcastPayloadFromDoc(parcel, extra = {}, settings = {})
     : 0;
   return {
     parcelId: parcel._id?.toString?.() || String(parcel._id),
+    // Short code shown to riders, same format as the history list (PCL-XXXXXX).
+    displayId: `PCL-${String(parcel._id).slice(-6).toUpperCase()}`,
     status: parcel.status,
     preview: {
       pickup,
@@ -297,7 +299,7 @@ export async function offerParcelToNextRider(parcelId) {
 
   const sorted = await getParcelRidersNearPickupSortedByDistance(lat, lng, radiusKm, {
     zone,
-    excludeIds: parcel.skippedBy || [],
+    excludeIds: [...(parcel.skippedBy || []), ...(parcel.offerTimeoutBy || [])],
   });
 
   // Cash-gate up front, not just inside emitParcelBroadcast: skipping a
@@ -514,7 +516,7 @@ export async function processParcelSearchTimeout(parcelId) {
     await Parcel.updateOne(
       { _id: parcelId, status: "SEARCHING" },
       {
-        $addToSet: { skippedBy: offeredTo },
+        $addToSet: { offerTimeoutBy: offeredTo },
         $set: { "searchMeta.offeredTo": null, "searchMeta.offeredAt": null },
       },
     );
@@ -574,6 +576,7 @@ export async function fetchAvailableParcelsForRider(deliveryId) {
     deliveryPartnerId: null,
     searchExpiresAt: { $gt: now },
     skippedBy: { $ne: deliveryOid },
+    offerTimeoutBy: { $ne: deliveryOid },
     "searchMeta.offeredTo": deliveryOid,
   })
     .sort({ createdAt: -1 })
@@ -817,7 +820,7 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
   return { parcel: updated, duplicate: false };
 }
 
-export async function parcelRejectAtomic(deliveryId, parcelId) {
+export async function parcelRejectAtomic(deliveryId, parcelId, { timeout = false } = {}) {
   const deliveryOid = toDeliveryObjectId(deliveryId);
   if (!deliveryOid) {
     const err = new Error("Invalid delivery account");
@@ -828,7 +831,8 @@ export async function parcelRejectAtomic(deliveryId, parcelId) {
   const updated = await Parcel.findOneAndUpdate(
     { _id: parcelId, status: "SEARCHING" },
     {
-      $addToSet: { skippedBy: deliveryOid },
+      // A timeout is not a rejection: it goes to its own list so history stays accurate.
+      $addToSet: timeout ? { offerTimeoutBy: deliveryOid } : { skippedBy: deliveryOid },
       $set: { "searchMeta.offeredTo": null, "searchMeta.offeredAt": null },
     },
   );

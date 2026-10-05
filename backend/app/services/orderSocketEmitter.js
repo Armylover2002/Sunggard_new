@@ -124,6 +124,7 @@ function offerPushData(payload = {}) {
   const hasDeadline = deadline && !Number.isNaN(deadline.getTime());
   return {
     role: "delivery",
+    displayId: payload.displayId,
     type: preview.type || payload.type,
     pickupAddress: preview.pickup,
     dropAddress: preview.drop,

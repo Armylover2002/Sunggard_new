@@ -83,7 +83,8 @@ export const parcelApi = {
       {},
       idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : undefined,
     ),
-  riderRejectParcel: (parcelId) => axiosInstance.post(`/parcel/rider/reject/${parcelId}`),
+  riderRejectParcel: (parcelId, { timeout = false } = {}) =>
+    axiosInstance.post(`/parcel/rider/reject/${parcelId}${timeout ? "?reason=timeout" : ""}`),
   riderUpdateStatus: (data) => axiosInstance.put("/parcel/rider/status", data),
   riderGetEarnings: () => axiosInstance.get("/parcel/rider/earnings"),
 };

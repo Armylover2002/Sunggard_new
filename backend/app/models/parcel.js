@@ -367,6 +367,12 @@ const parcelSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Delivery",
     }],
+    // Riders whose offer ran out on the clock (no tap). They are skipped for
+    // dispatch like skippedBy, but are NOT shown as having rejected the request.
+    offerTimeoutBy: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Delivery",
+    }],
     acceptedAt: {
       type: Date,
       default: null,

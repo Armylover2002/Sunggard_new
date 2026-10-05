@@ -2519,7 +2519,9 @@ export const riderRejectParcel = async (req, res) => {
       return handleResponse(res, 400, "Courier ID is required");
     }
 
-    await parcelRejectAtomic(req.user.id, parcelId);
+    // The client sends reason=timeout when the 30s window runs out on its own.
+    const timeout = req.query?.reason === "timeout";
+    await parcelRejectAtomic(req.user.id, parcelId, { timeout });
     return handleResponse(res, 200, "Courier offer skipped");
   } catch (error) {
     return handleResponse(res, error.statusCode || 500, error.message);

@@ -33,6 +33,9 @@ const getDeliveryToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
  * PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS's own default (30s), not the old
  * simultaneous-broadcast window this UI was written for.
  */
+// Short courier code riders see, same format as the history list (PCL-XXXXXX).
+const displayIdOf = (id) => `PCL-${String(id || "").slice(-6).toUpperCase()}`;
+
 function secondsLeftUntilParcelExpiry(expiresAt) {
   if (!expiresAt) return 30;
   const ms = new Date(expiresAt).getTime() - Date.now();
@@ -775,14 +778,15 @@ const DeliveryLayout = () => {
     fetchNotifications,
   ]);
 
-  const skipParcelOffer = useCallback(async () => {
+  const skipParcelOffer = useCallback(async (options) => {
     const current = activeParcelOfferRef.current;
     if (!current || acceptInFlightRef.current) return;
     stopOrderRingtone();
     activeParcelOfferRef.current = null;
     setActiveParcelOffer(null);
     try {
-      await parcelApi.riderRejectParcel(current.parcelId);
+      // A timeout is recorded as a timeout, not as the rider rejecting the request.
+      await parcelApi.riderRejectParcel(current.parcelId, { timeout: options?.timeout === true });
       shownParcelIdsRef.current = new Set(shownParcelIdsRef.current).add(
         current.parcelId,
       );
@@ -801,7 +805,7 @@ const DeliveryLayout = () => {
     const left = secondsLeftUntilParcelExpiry(activeParcelOffer.expiresAt);
     if (left <= 0) {
       if (!acceptInFlightRef.current) {
-        skipParcelOffer();
+        skipParcelOffer({ timeout: true });
         toast.error("Courier request timed out");
       }
       return undefined;
@@ -816,7 +820,7 @@ const DeliveryLayout = () => {
       if (next <= 0) {
         clearInterval(timer);
         if (!acceptInFlightRef.current) {
-          skipParcelOffer();
+          skipParcelOffer({ timeout: true });
           toast.error("Courier request timed out");
         }
       }
@@ -898,6 +902,9 @@ const DeliveryLayout = () => {
                       New courier request
                       Outstation Courier Request
                     </h2>
+                    <p className="text-xs text-slate-500 font-bold mb-3">
+                      ID: {displayIdOf(activeParcelOffer.parcelId)}
+                    </p>
                     {activeParcelOffer.deliverySpeed === "express" ? (
                       <span className="mb-3 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-800">
                         Express · 10 min
@@ -1018,7 +1025,7 @@ const DeliveryLayout = () => {
                       <button
                         type="button"
                         disabled={isAcceptingOrder}
-                        onClick={skipParcelOffer}
+                        onClick={() => skipParcelOffer()}
                         className="py-4 rounded-2xl bg-slate-100 text-slate-700 font-black text-xs uppercase tracking-wider hover:bg-slate-200/80 disabled:opacity-50">
                         Reject
                       </button>
