@@ -97,7 +97,11 @@ export function applyBillableDaysToFare(
   billableDays = 1,
   gstConfig = null,
 ) {
-  const days = Math.max(1, Number(billableDays) || 1);
+  // One shipment per booking: the fixed, weight and courier charges are paid
+  // once, not per day of the pickup window. The window is still stored on the
+  // booking; it just does not change the price.
+  void billableDays;
+  const days = 1;
   const dailyFare = roundCurrency(fare);
   const preTaxTotal = multiplyMoney(dailyFare, days);
 

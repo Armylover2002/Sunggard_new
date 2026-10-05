@@ -286,18 +286,18 @@ describe("invoice reconciles end to end", () => {
    ====================================================================== */
 
 describe("outstation fare with billable days", () => {
-  it("taxes the multi-day total once", () => {
+  it("taxes the single shipment once, whatever the window", () => {
     const daily = computeParcelDailyFare({ config: PARCEL });
     // Flat delivery charge, unaffected by distance/weight — 80/day.
     expect(daily.fare).toBe(80);
 
     const priced = applyBillableDaysToFare(daily, 7, GST_ON);
-    // 80 x 7 = 560 taxable; 18% = 100.80; gross 660.80, rounded up for
-    // collection to 661 — the 0.20 gap is `roundOff`, not extra tax.
-    expect(priced.taxableAmount).toBe(560);
-    expect(priced.gstAmount).toBe(100.8);
-    expect(priced.roundOff).toBe(0.2);
-    expect(priced.fare).toBe(661);
+    // 80 taxable; 18% = 14.40; gross 94.40, rounded up for collection to 95
+    // — the 0.60 gap is `roundOff`, not extra tax.
+    expect(priced.taxableAmount).toBe(80);
+    expect(priced.gstAmount).toBe(14.4);
+    expect(priced.roundOff).toBe(0.6);
+    expect(priced.fare).toBe(95);
   });
 });
 

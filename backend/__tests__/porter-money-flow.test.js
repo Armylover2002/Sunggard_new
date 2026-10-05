@@ -77,13 +77,14 @@ describe("outstation pricing", () => {
     expect(earning).toBe(0);
   });
 
-  it("multiplies the customer total by booked days, one flat charge per day", () => {
+  it("charges one shipment once, whatever the pickup window", () => {
     const daily = computeParcelDailyFare({ config: PARCEL_CONFIG });
     const days = resolveParcelBillableDays({ pickupWindow: "7_days" });
     const priced = applyBillableDaysToFare(daily, days);
 
     expect(days).toBe(7);
-    expect(priced.fare).toBe(money(daily.fare * 7));
+    expect(priced.billableDays).toBe(1);
+    expect(priced.fare).toBe(money(daily.fare));
   });
 
   it("resolves every booking window to the days it bills for", () => {
