@@ -838,14 +838,15 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
   emitNotificationEvent(NOTIFICATION_EVENTS.PARCEL_ASSIGNED, {
     deliveryId: deliveryOid,
     parcelId: String(parcelId),
-    body: `Courier accepted — pickup at ${updated.pickupAddress?.fullAddress || "pickup location"}.`,
+    bodyKey: "rider_accepted_pickup",
+    bodyVars: { address: updated.pickupAddress?.fullAddress || "pickup location" },
   });
 
   emitNotificationEvent(NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE, {
     userId: updated.customerId?._id || updated.customerId,
     customerId: updated.customerId?._id || updated.customerId,
     parcelId: String(parcelId),
-    body: `Delivery partner ${partner.name} has accepted your courier.`,
+    bodyKey: "status_accepted",
   });
 
   if (idempotencyKey) {

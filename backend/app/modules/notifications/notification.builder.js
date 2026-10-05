@@ -168,7 +168,7 @@ function eventDefinition(eventType) {
       return {
         role: NOTIFICATION_ROLES.CUSTOMER,
         recipientIds: (payload) => normalizeIdList(payload.userId || payload.customerId),
-        title: () => msg("parcel_status_title"),
+        title: (payload) => (payload.titleKey ? msg(payload.titleKey) : msg("parcel_status_title")),
         body: (payload) =>
           payload.bodyKey
             ? msg(payload.bodyKey, payload.bodyVars || {})

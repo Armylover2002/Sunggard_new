@@ -21,7 +21,7 @@ export const STALLED_ACCEPT_TIMEOUT_MS = 3 * 60 * 60 * 1000;
 // OTP flow owns the request, so it is never auto-cancelled.
 const STALLED_STATUSES = ["ACCEPTED", "RIDER_ASSIGNED"];
 
-const notify = (userId, role, title, body, parcelId) => {
+const notify = (userId, role, bodyKey, bodyVars, parcelId) => {
   try {
     emitNotificationEvent(NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE, {
       userId,
@@ -29,8 +29,10 @@ const notify = (userId, role, title, body, parcelId) => {
       deliveryId: role === "delivery" ? userId : undefined,
       parcelId,
       status: "CANCELLED",
-      body,
-      data: { title, parcelId, role, status: "CANCELLED" },
+      titleKey: "stalled_cancelled_title",
+      bodyKey,
+      bodyVars,
+      data: { parcelId, role, status: "CANCELLED" },
     });
   } catch (err) {
     logger.error("parcel_stalled_accept_notify_failed", { parcelId: String(parcelId), message: err?.message });
@@ -92,22 +94,14 @@ async function cancelOne(parcel, now) {
     await syncDeliveryPartnerBusyFlag(parcel.deliveryPartnerId).catch(() => {});
   }
 
-  const customerBody = [
-    "Your courier request was cancelled automatically because no rider picked it up within 3 hours.",
-    refundLine(refund),
-  ]
-    .filter(Boolean)
-    .join(" ");
-  notify(updated.customerId, "customer", "Courier request cancelled", customerBody, updated._id);
+  // One combined body per outcome (bodyKey), since the refund outcome text
+  // cannot be stitched in English and then translated per recipient.
+  const customerBodyKey =
+    refund?.status === "REFUNDED" ? "stalled_cancelled_refunded" : refund?.attempted ? "stalled_cancelled_pending" : "stalled_cancelled_base";
+  notify(updated.customerId, "customer", customerBodyKey, { amount: refund?.amountRupees }, updated._id);
 
   if (parcel.deliveryPartnerId) {
-    notify(
-      parcel.deliveryPartnerId,
-      "delivery",
-      "Courier request cancelled",
-      "This courier request was cancelled automatically because it was not picked up within 3 hours of acceptance.",
-      updated._id,
-    );
+    notify(parcel.deliveryPartnerId, "delivery", "stalled_cancelled_delivery_body", {}, updated._id);
   }
 
   logger.info("parcel_stalled_accept_cancelled", {

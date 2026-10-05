@@ -132,7 +132,8 @@ async function notifyParcelRequested(parcel, userId) {
       adminIds,
       parcelId: parcel._id,
       fare: parcel.fare,
-      customerBody: `Your courier delivery request has been created. Searching for a nearby rider...`,
+      // No customerBody: the builder's parcel_request_created_body translation
+      // key covers this, so the customer gets it in their chosen language.
       adminBody: `Courier #${String(parcel._id).slice(-6)}${parcel.deliverySpeed === "express" ? " (EXPRESS)" : ""} booked for ₹${parcel.fare}. Open Courier Delivery to view.`,
       data: {
         parcelId: parcel._id,

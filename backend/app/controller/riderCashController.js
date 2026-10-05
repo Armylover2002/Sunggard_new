@@ -275,7 +275,8 @@ export const riderCheckCodQr = async (req, res) => {
       customerId: booking.customerId,
       parcelId: booking._id,
       status: "PAID_ONLINE",
-      body: `Your ₹${booking.codOnlineQr.amount / 100} payment was received — no cash needed at drop.`,
+      bodyKey: "payment_received_online",
+      bodyVars: { amount: booking.codOnlineQr.amount / 100 },
       data: { title: "Payment received", parcelId: String(booking._id), status: "PAID_ONLINE" },
     });
 
