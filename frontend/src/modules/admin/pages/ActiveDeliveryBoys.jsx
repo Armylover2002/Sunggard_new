@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import PageHeader from '@shared/components/ui/PageHeader';
@@ -432,7 +433,8 @@ return (
             />
         </div>
 
-        {/* Profile Detail Modal */}
+        {/* Profile Detail Modal — portaled to body so the page behind cannot take the scroll */}
+        {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
             {viewingRider && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -447,7 +449,7 @@ return (
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className="w-full max-w-2xl relative z-10 bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+                        className="w-full max-w-2xl relative z-10 bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain"
                     >
                         <div className="p-10">
                             <div className="flex justify-between items-start mb-10">
@@ -569,7 +571,9 @@ return (
                     </motion.div>
                 </div>
             )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+        )}
 
         {/* Onboard / Edit Modal */}
         <AnimatePresence>

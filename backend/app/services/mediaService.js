@@ -489,7 +489,49 @@ async function deleteMedia(publicId, userId, userModel) {
   await media.softDelete();
 }
 
+const LOCAL_UPLOAD_EXTENSIONS = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "application/pdf": "pdf",
+};
+
+/**
+ * Stores an upload on this server under uploads/<folder>/ and returns its URL.
+ * The API serves that folder at /uploads (see index.js). On the live server the
+ * folder is a bind mount of /var/www/uploads, which nginx serves directly.
+ * PUBLIC_UPLOAD_BASE_URL (e.g. https://couriergo.online) makes the URL absolute.
+ */
+async function saveUploadLocally(fileBuffer, folder = "media", options = {}) {
+  const fs = await import("fs/promises");
+  const path = await import("path");
+  const crypto = await import("crypto");
+
+  const safeFolder = String(folder || "media")
+    .replace(/[^a-zA-Z0-9_\-\/]/g, "")
+    .replace(/^\/+|\/+$/g, "");
+  const mime = String(options.mimeType || "").trim().toLowerCase();
+  const ext =
+    LOCAL_UPLOAD_EXTENSIONS[mime] ||
+    (mime.split("/")[1] || "bin").replace(/[^a-z0-9]/g, "") ||
+    "bin";
+
+  const dir = path.join(process.cwd(), "uploads", safeFolder);
+  await fs.mkdir(dir, { recursive: true });
+  const filename = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${ext}`;
+  await fs.writeFile(path.join(dir, filename), fileBuffer);
+
+  const base = String(process.env.PUBLIC_UPLOAD_BASE_URL || "").trim().replace(/\/+$/, "");
+  const relative = `/uploads/${safeFolder}/${filename}`;
+  return base ? `${base}${relative}` : relative;
+}
+
 async function uploadToCloudinary(fileBuffer, folder = "categories", options = {}) {
+  // STORAGE_PROVIDER=local keeps every image on this server instead of Cloudinary.
+  if (storageProvider() === "local") {
+    return saveUploadLocally(fileBuffer, folder, options);
+  }
   validateStorageConfig();
   configureCloudinary();
   const mimeType = String(options.mimeType || "").trim().toLowerCase();
