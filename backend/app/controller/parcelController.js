@@ -57,6 +57,7 @@ import {
   NORMAL_PICKUP_SLA_MINUTES,
 } from "../services/parcelLateRefundService.js";
 import { rebaseGstAfterDiscount } from "../utils/gst.js";
+import { resolvePickupSchedule } from "../utils/parcelSchedule.js";
 import { roundCurrency } from "../utils/money.js";
 import { recordParcelEvent, PARCEL_EVENT_ACTOR } from "../services/parcelEventService.js";
 import ParcelEvent from "../models/parcelEvent.js";
@@ -636,6 +637,7 @@ export const createParcel = async (req, res) => {
       customCourierName,
       destinationCity,
       preferredPickupDate,
+      pickupTime,
       pickupWindow,
       pickupWindowDays,
       deliverySpeed,
@@ -686,10 +688,8 @@ export const createParcel = async (req, res) => {
       return handleResponse(res, 400, "Please select the pickup city");
     }
 
-    const allowedWindows = ["today", "7_days", "15_days", "30_days", "custom_days", "specific"];
-    const windowValue = allowedWindows.includes(String(pickupWindow || "").trim())
-      ? String(pickupWindow).trim()
-      : "specific";
+    // One Day ("today") or Until a Date ("specific"); day-count options are retired.
+    const windowValue = String(pickupWindow || "").trim() || "specific";
 
     const windowDaysMap = {
       today: 0,
@@ -721,35 +721,19 @@ export const createParcel = async (req, res) => {
       resolvedWindowDays = windowDaysMap[windowValue] ?? 0;
     }
 
-    if (!preferredPickupDate && windowValue === "specific") {
-      return handleResponse(res, 400, "Please select preferred pickup date");
+    const schedule = resolvePickupSchedule({
+      pickupWindow: windowValue,
+      preferredPickupDate,
+      pickupTime,
+    });
+    if (schedule.error) {
+      return handleResponse(res, 400, schedule.error);
     }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    let pickupDate;
-    if (windowValue === "specific") {
-      pickupDate = new Date(preferredPickupDate);
-    } else {
-      pickupDate = preferredPickupDate
-        ? new Date(preferredPickupDate)
-        : new Date(today.getTime() + resolvedWindowDays * 24 * 60 * 60 * 1000);
-    }
-
-    if (Number.isNaN(pickupDate.getTime())) {
-      return handleResponse(res, 400, "Invalid preferred pickup date");
-    }
-    const pickupDay = new Date(pickupDate);
+    const scheduledPickupAt = schedule.scheduledPickupAt;
+    const scheduledPickupTime = schedule.pickupTime;
+    const pickupDate = scheduledPickupAt || new Date(schedule.pickupDate);
+    const pickupDay = new Date(schedule.pickupDate);
     pickupDay.setHours(0, 0, 0, 0);
-    if (pickupDay < today) {
-      return handleResponse(res, 400, "Preferred pickup date cannot be in the past");
-    }
-    const maxDay = new Date(today);
-    maxDay.setDate(maxDay.getDate() + 30);
-    if (pickupDay > maxDay) {
-      return handleResponse(res, 400, "Preferred pickup date cannot be more than 30 days ahead");
-    }
 
     const config = await ParcelConfig.getOrCreate();
     const maxWeightKg = config.maxWeightKg;
@@ -914,6 +898,8 @@ export const createParcel = async (req, res) => {
       destinationCity: city,
       preferredPickupDate: pickupDate,
       pickupWindow: windowValue,
+      scheduledPickupAt,
+      pickupTime: scheduledPickupTime,
       pickupWindowDays: resolvedWindowDays,
       weight,
       distance: distanceKm,

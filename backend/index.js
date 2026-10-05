@@ -35,6 +35,11 @@ import {
   isFirebaseTrackingCleanupJobEnabled,
 } from "./app/jobs/firebaseTrackingCleanupJob.js";
 import {
+  getScheduledParcelDispatchJobHandler,
+  getScheduledParcelDispatchJobInterval,
+  isScheduledParcelDispatchJobEnabled,
+} from "./app/jobs/scheduledParcelDispatchJob.js";
+import {
   getStalledAcceptedParcelJobHandler,
   getStalledAcceptedParcelJobInterval,
   isStalledAcceptedParcelJobEnabled,
@@ -353,6 +358,11 @@ async function startScheduler() {
       getAbandonedCheckoutJobInterval(),
       getAbandonedCheckoutJobHandler()
     );
+  }
+
+  // Courier requests booked for a later date and time go out at that time.
+  if (isScheduledParcelDispatchJobEnabled()) {
+    registerScheduledJob('scheduledParcelDispatchJob', getScheduledParcelDispatchJobInterval(), getScheduledParcelDispatchJobHandler());
   }
 
   // Rider accepted a courier request and never moved it forward. Cancels it

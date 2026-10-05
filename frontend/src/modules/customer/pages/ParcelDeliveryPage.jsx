@@ -84,38 +84,38 @@ const FALLBACK_COURIER_COMPANIES = [
 
 const BOOKING_DURATION_MODES = [
   { value: "one_day", label: "One day", helper: "Today only" },
-  { value: "custom_days", label: "Custom days", helper: "Set a count" },
-  { value: "by_date", label: "Until a date", helper: "Pick an end" },
+  { value: "by_date", label: "Until a date", helper: "Pick a date and time" },
 ];
 
 const MAX_BOOKING_DAYS = 30;
 
-const resolveBookingDurationParams = (
-  mode,
-  { customDaysInput, preferredPickupDate },
-) => {
+// Pickup schedule: One Day sends the request now; Until a date sends it at the chosen date and time.
+const pickupScheduleProblem = (dateInput, timeInput) => {
+  if (!dateInput) return "Pick the pickup date.";
+  if (!timeInput) return "Pick the pickup time.";
+  if (dateInput < todayDateInputValue()) return "The pickup date cannot be in the past.";
+  if (dateInput > addDaysToDateInput(MAX_BOOKING_DAYS))
+    return `The pickup date cannot be more than ${MAX_BOOKING_DAYS} days ahead.`;
+  const at = new Date(`${dateInput}T${timeInput}:00`);
+  if (at.getTime() - Date.now() < 10 * 60 * 1000)
+    return "Pick a pickup time at least 10 minutes from now.";
+  return null;
+};
+
+const resolveBookingDurationParams = (mode, { preferredPickupDate, pickupTime }) => {
   if (mode === "one_day") {
     return {
       pickupWindow: "today",
       pickupWindowDays: 0,
       preferredPickupDate: todayDateInputValue(),
-    };
-  }
-  if (mode === "custom_days") {
-    const days = Math.min(
-      MAX_BOOKING_DAYS,
-      Math.max(2, parseInt(String(customDaysInput).trim(), 10) || 0),
-    );
-    return {
-      pickupWindow: "custom_days",
-      pickupWindowDays: days,
-      preferredPickupDate: addDaysToDateInput(days),
+      pickupTime: "",
     };
   }
   return {
     pickupWindow: "specific",
     pickupWindowDays: null,
     preferredPickupDate,
+    pickupTime,
   };
 };
 
@@ -557,6 +557,7 @@ const ParcelDeliveryPage = () => {
   const [preferredPickupDate, setPreferredPickupDate] = useState(
     outstationDraft.preferredPickupDate || todayDateInputValue(),
   );
+  const [pickupTimeInput, setPickupTimeInput] = useState(outstationDraft.pickupTimeInput || "");
 
   // Waybill step state. Steps are navigable, not gated — tapping a node always
   // works; validation still runs on Continue and again on submit.
@@ -924,6 +925,7 @@ const ParcelDeliveryPage = () => {
             pickupWindow: bookingDurationParams.pickupWindow,
             pickupWindowDays: bookingDurationParams.pickupWindowDays,
             preferredPickupDate: bookingDurationParams.preferredPickupDate,
+            pickupTime: bookingDurationParams.pickupTime,
             deliverySpeed,
           });
           if (res.data && res.data.success) {
@@ -1016,6 +1018,7 @@ const ParcelDeliveryPage = () => {
         pickupWindow: bookingDurationParams.pickupWindow,
         pickupWindowDays: bookingDurationParams.pickupWindowDays,
         preferredPickupDate: bookingDurationParams.preferredPickupDate,
+        pickupTime: bookingDurationParams.pickupTime,
         deliverySpeed,
         couponCode: value,
       });
@@ -1099,11 +1102,8 @@ const ParcelDeliveryPage = () => {
         )
           return `Enter between 2 and ${MAX_BOOKING_DAYS} days.`;
         if (bookingDurationMode === "by_date") {
-          if (!preferredPickupDate) return "Pick the booking end date.";
-          if (preferredPickupDate < todayDateInputValue())
-            return "The booking end date cannot be in the past.";
-          if (preferredPickupDate > addDaysToDateInput(MAX_BOOKING_DAYS))
-            return `The booking end date cannot be more than ${MAX_BOOKING_DAYS} days ahead.`;
+          const problem = pickupScheduleProblem(preferredPickupDate, pickupTimeInput);
+          if (problem) return problem;
         }
         const receiverProblem = firstProblem(
           checkPersonName(receiverDetails.name, "Receiver name"),
@@ -1249,17 +1249,8 @@ const ParcelDeliveryPage = () => {
       }
     }
     if (bookingDurationMode === "by_date") {
-      if (!preferredPickupDate) {
-        return toast.error("Please select booking end date.");
-      }
-      if (preferredPickupDate < todayDateInputValue()) {
-        return toast.error("Booking end date cannot be in the past.");
-      }
-      if (preferredPickupDate > addDaysToDateInput(MAX_BOOKING_DAYS)) {
-        return toast.error(
-          `Booking end date cannot be more than ${MAX_BOOKING_DAYS} days ahead.`,
-        );
-      }
+      const problem = pickupScheduleProblem(preferredPickupDate, pickupTimeInput);
+      if (problem) return toast.error(problem);
     }
 
     setConfirmOpen(true);
@@ -2051,8 +2042,8 @@ const ParcelDeliveryPage = () => {
                                 exit={{ opacity: 0, y: -6 }}
                                 transition={{ duration: 0.18 }}>
                                 <Field
-                                  label="Book until"
-                                  hint="The last date you want daily pickup."
+                                  label="Pickup date"
+                                  hint="The date the rider should come for pickup."
                                   filled={Boolean(preferredPickupDate)}>
                                   <div className="relative">
                                     <CalendarDays
@@ -2075,6 +2066,17 @@ const ParcelDeliveryPage = () => {
                                       )}
                                     />
                                   </div>
+                                </Field>
+                                <Field
+                                  label="Pickup time"
+                                  hint="The rider's request goes out at this time."
+                                  filled={Boolean(pickupTimeInput)}>
+                                  <input
+                                    type="time"
+                                    value={pickupTimeInput}
+                                    onChange={(e) => setPickupTimeInput(e.target.value)}
+                                    className={cn(inputClass(Boolean(pickupTimeInput)), "pl-3")}
+                                  />
                                 </Field>
                               </motion.div>
                             )}

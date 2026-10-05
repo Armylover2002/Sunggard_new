@@ -452,7 +452,54 @@ export async function fetchParcelsForSeller(sellerId) {
   );
 }
 
+/** A booking whose pickup is still in the future waits for its time. */
+export function isHeldForScheduledPickup(parcelDoc, now = new Date()) {
+  const at = parcelDoc?.scheduledPickupAt ? new Date(parcelDoc.scheduledPickupAt) : null;
+  return Boolean(at && !Number.isNaN(at.getTime()) && at.getTime() > now.getTime());
+}
+
+/**
+ * Releases scheduled bookings whose pickup time has arrived. Runs every
+ * minute from the scheduler; each release goes through startParcelBroadcast.
+ */
+export async function dispatchDueScheduledParcels(now = new Date()) {
+  const due = await Parcel.find({
+    awaitingScheduledDispatch: true,
+    status: "REQUESTED",
+    deliveryPartnerId: null,
+    scheduledPickupAt: { $lte: now },
+  })
+    .limit(200)
+    .lean();
+
+  let released = 0;
+  for (const parcel of due) {
+    try {
+      // Claim first so two scheduler processes cannot release the same booking.
+      const claimed = await Parcel.updateOne(
+        { _id: parcel._id, awaitingScheduledDispatch: true },
+        { $set: { awaitingScheduledDispatch: false } },
+      );
+      if (!claimed.modifiedCount) continue;
+      await startParcelBroadcast(parcel);
+      released += 1;
+    } catch (err) {
+      console.warn("[scheduledDispatch] release failed", String(parcel._id), err?.message);
+    }
+  }
+  return { released };
+}
+
 export async function startParcelBroadcast(parcelDoc) {
+  // Not yet time: keep the paid booking on REQUESTED and let the scheduled sweep release it.
+  if (isHeldForScheduledPickup(parcelDoc)) {
+    await Parcel.updateOne(
+      { _id: parcelDoc._id, status: "REQUESTED" },
+      { $set: { awaitingScheduledDispatch: true } },
+    );
+    return parcelDoc;
+  }
+
   // Only local parcels attach to nearby seller hubs. Outstation parcels
   // already have their drop destination (the customer-selected courier
   // company) set at creation time — see createParcel in parcelController.js —

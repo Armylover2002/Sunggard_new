@@ -169,6 +169,21 @@ const parcelSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    /** Exact instant a scheduled (Until a Date) request goes out to riders; null = right away. */
+    scheduledPickupAt: {
+      type: Date,
+      default: null,
+    },
+    /** Pickup time the customer chose, HH:mm IST. */
+    pickupTime: {
+      type: String,
+      default: "",
+    },
+    /** Paid, but held until scheduledPickupAt; the scheduled sweep releases it. */
+    awaitingScheduledDispatch: {
+      type: Boolean,
+      default: false,
+    },
     weight: {
       type: Number,
       required: true,
