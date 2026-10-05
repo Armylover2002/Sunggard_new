@@ -1,13 +1,16 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-    User, MapPin, Package, CreditCard, Wallet, ChevronRight,
+    User, MapPin, Package, CreditCard, Wallet, ChevronRight, Globe,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell, History,
     ScrollText
     // CAR WASH DISABLED — Car, Sparkles, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
+import LanguagePicker from '@shared/components/LanguagePicker';
+import { languageLabel, DEFAULT_LANGUAGE_CODE } from '@shared/constants/languages';
+import { getPushLanguage } from '@shared/services/pushLanguageApi';
 import { customerApi } from '../services/customerApi';
 import { toast } from 'sonner';
 import {
@@ -20,6 +23,11 @@ const TEST_PUSH_STATUS_POLL_INTERVAL_MS = 1500;
 const TEST_PUSH_STATUS_MAX_ATTEMPTS = 20;
 
 const ProfilePage = () => {
+    const [notificationLanguage, setNotificationLanguage] = React.useState(DEFAULT_LANGUAGE_CODE);
+    const [languagePickerOpen, setLanguagePickerOpen] = React.useState(false);
+    React.useEffect(() => {
+        getPushLanguage().then(setNotificationLanguage).catch(() => {});
+    }, []);
     const navigate = useNavigate();
     const { user, role, logout } = useAuth();
     const { settings } = useSettings();
@@ -233,6 +241,14 @@ const ProfilePage = () => {
                         </div>
                         <div className="divide-y divide-slate-100">
                             <MenuItem
+                                icon={Globe}
+                                label="Notification language"
+                                sub={languageLabel(notificationLanguage)}
+                                color="#0ea5e9"
+                                bg="rgba(14,165,233,0.08)"
+                                onClick={() => setLanguagePickerOpen(true)}
+                            />
+                            <MenuItem
                                 icon={HelpCircle}
                                 label="Help & Support"
                                 path="/support"
@@ -300,8 +316,8 @@ const ProfilePage = () => {
     );
 };
 
-const MenuItem = ({ icon: Icon, label, sub, path, color = '#334155', bg = 'rgba(148,163,184,0.12)' }) => (
-    <Link to={path || '#'} className="px-4 py-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors group">
+const MenuItem = ({ icon: Icon, label, sub, path, color = '#334155', bg = 'rgba(148,163,184,0.12)', onClick }) => (
+    <Link to={path || '#'} onClick={onClick ? (e) => { e.preventDefault(); onClick(); } : undefined} className="px-4 py-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors group">
         <div className="flex items-center gap-3">
             <div
                 className="h-10 w-10 rounded-lg flex items-center justify-center"

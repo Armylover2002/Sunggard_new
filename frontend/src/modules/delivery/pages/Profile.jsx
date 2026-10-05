@@ -15,6 +15,7 @@ import {
   ChevronUp,
   Wallet,
   Banknote,
+  Globe,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Button from "@/shared/components/ui/Button";
@@ -24,9 +25,17 @@ import { useSupportUnread } from "@core/context/SupportUnreadContext";
 import axiosInstance from '@core/api/axios';
 import { useEffect } from 'react';
 import { toast } from "sonner";
+import LanguagePicker from "@shared/components/LanguagePicker";
+import { languageLabel, DEFAULT_LANGUAGE_CODE } from "@shared/constants/languages";
+import { getPushLanguage } from "@shared/services/pushLanguageApi";
 import { deliveryApi } from "../services/deliveryApi";
 
 const Profile = () => {
+  const [notificationLanguage, setNotificationLanguage] = useState(DEFAULT_LANGUAGE_CODE);
+  const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
+  useEffect(() => {
+    getPushLanguage().then(setNotificationLanguage).catch(() => {});
+  }, []);
   const navigate = useNavigate();
   const { logout, user, refreshUser } = useAuth();
   const { settings } = useSettings();
@@ -114,6 +123,13 @@ const Profile = () => {
 
   const menuItems = [
     {
+      icon: Globe,
+      label: "Notification language",
+      sub: languageLabel(notificationLanguage),
+      color: "text-sky-600 bg-sky-50",
+      onSelect: () => setLanguagePickerOpen(true),
+    },
+    {
       icon: Wallet,
       label: "Wallet",
       sub: earningsTotal > 0 || wallet
@@ -193,6 +209,7 @@ const Profile = () => {
 
   return (
     <div className="bg-gray-50/50 min-h-screen pb-24">
+      <LanguagePicker open={languagePickerOpen} value={notificationLanguage} onClose={() => setLanguagePickerOpen(false)} onChange={setNotificationLanguage} />
       {/* Header */}
       <div className="bg-primary pt-12 pb-24 px-6 rounded-b-[2.5rem] relative shadow-lg">
         <div className="flex justify-between items-center mb-6">
@@ -329,7 +346,7 @@ const Profile = () => {
             variants={itemVariants}
             className="w-full bg-white p-4 rounded-xl shadow-sm flex items-center justify-between hover:bg-gray-50 hover:shadow-md transition-all group"
             whileTap={{ scale: 0.98 }}
-            onClick={() => navigate(item.path)}>
+            onClick={() => (item.onSelect ? item.onSelect() : navigate(item.path))}>
             <div className="flex items-center">
               <div
                 className={`p-3 rounded-full mr-4 transition-colors relative ${item.color}`}>
