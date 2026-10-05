@@ -109,6 +109,7 @@ const ProfilePage = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 pb-24 md:pb-8 font-sans">
+            <LanguagePicker open={languagePickerOpen} value={notificationLanguage} onClose={() => setLanguagePickerOpen(false)} onChange={setNotificationLanguage} />
             <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-sm px-4 pt-4 pb-3 border-b border-slate-200/60 mb-4 flex items-center gap-2">
                 <button
                     onClick={() => navigate(-1)}
