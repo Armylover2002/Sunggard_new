@@ -305,7 +305,7 @@ const PorterCash = () => {
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
               <div className="flex items-center gap-1.5">
                 <Package size={12} className="text-gray-400" />
-                <p className="text-[11px] font-bold uppercase text-gray-500">Outstation</p>
+                <p className="text-[11px] font-bold uppercase text-gray-500">Courier</p>
               </div>
               <p className="text-lg font-bold text-gray-900">
                 {money(status?.heldOutstation)}

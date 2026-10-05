@@ -321,7 +321,7 @@ const PorterWallet = () => {
       icon: TrendingUp,
       color: "text-orange-600",
       bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
-      note: `Outstation ${rupees(revenue.pickup)} · Local ${rupees(revenue.city)}`,
+      note: `Courier ${rupees(revenue.pickup)} · Local ${rupees(revenue.city)}`,
     },
     {
       label: "Rider Earning",

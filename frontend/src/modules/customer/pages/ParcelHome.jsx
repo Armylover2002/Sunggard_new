@@ -114,7 +114,7 @@ const ParcelHome = () => {
         ) : active.length === 0 ? (
           <EmptyNote
             title="No shipments moving"
-            body="Book an outstation pickup and it will show up here."
+            body="Book a courier pickup and it will show up here."
           />
         ) : (
           active.map((parcel) => (

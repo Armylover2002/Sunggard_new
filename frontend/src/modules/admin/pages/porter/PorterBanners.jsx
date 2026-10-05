@@ -842,7 +842,7 @@ const PorterBanners = () => {
                     local bookings can no longer be created so a local-only banner would
                     never be seen. "all" is kept for existing banners saved with it. */}
                 <option value="all">All</option>
-                <option value="outstation">Outstation Only</option>
+                <option value="outstation">Courier Only</option>
               </select>
             </div>
 

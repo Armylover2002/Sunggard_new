@@ -50,7 +50,7 @@ import logger from "../logger.js";
 const BOOKINGS = {
   [PORTER_BOOKING_KIND.PARCEL]: {
     model: Parcel,
-    label: "Outstation courier",
+    label: "Courier",
     reference: (doc) => `PCL-${String(doc._id).slice(-6).toUpperCase()}`,
   },
 };

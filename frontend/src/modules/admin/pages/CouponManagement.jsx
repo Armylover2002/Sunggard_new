@@ -45,7 +45,7 @@ const CouponManagement = () => {
     // LOCAL CITY PARCEL DISABLED — "Local Delivery" scope removed from the
     // creation form; new coupons can only target outstation delivery.
     const APPLIES_TO_OPTIONS = [
-        { value: 'porter_outstation', label: 'Outstation Delivery' },
+        { value: 'porter_outstation', label: 'Courier Delivery' },
     ];
 
     // couponType strategies that only mean something against a product cart
@@ -258,7 +258,7 @@ const CouponManagement = () => {
         <div className="ds-section-spacing">
             <PageHeader
                 title="Delivery Coupons"
-                description="Discount codes for local and outstation delivery bookings."
+                description="Discount codes for local and courier delivery bookings."
                 actions={
                     <button
                         onClick={() => handleOpenModal()}
@@ -398,7 +398,7 @@ const CouponManagement = () => {
                                             <div className="flex flex-wrap gap-1 pt-1">
                                                 {(Array.isArray(c.appliesTo) && c.appliesTo.length > 0 ? c.appliesTo : ['order']).map((scope) => (
                                                     <Badge key={scope} variant="gray" className="text-[9px] px-1.5 py-0.5 font-bold">
-                                                        {scope === 'porter_local' ? 'Local' : scope === 'porter_outstation' ? 'Outstation' : 'Orders'}
+                                                        {scope === 'porter_local' ? 'Local' : scope === 'porter_outstation' ? 'Courier' : 'Orders'}
                                                     </Badge>
                                                 ))}
                                             </div>
@@ -565,7 +565,7 @@ const CouponManagement = () => {
                             ))}
                         </div>
                         <p className="text-[10px] text-slate-400">
-                            Pick which delivery bookings this coupon works on — local, outstation, or both together over the same date range.
+                            Pick which delivery bookings this coupon works on — local, courier, or both together over the same date range.
                         </p>
                     </div>
 

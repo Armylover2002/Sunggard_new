@@ -146,11 +146,11 @@ export const adminUpdateGstSettings = async (req, res) => {
 
     if (outstation) {
       const config = await ParcelConfig.getOrCreate();
-      const patch = validateGstPatch(outstation, "Outstation courier");
+      const patch = validateGstPatch(outstation, "Courier");
       const before = normalizeGstConfig(config.gst);
       const merged = { ...before, ...patch };
       if (merged.enabled && !(merged.percent > 0)) {
-        return handleResponse(res, 400, "Outstation courier: set a GST rate above zero before enabling it");
+        return handleResponse(res, 400, "Courier: set a GST rate above zero before enabling it");
       }
       config.gst = merged;
       await config.save();
@@ -163,8 +163,8 @@ export const adminUpdateGstSettings = async (req, res) => {
             actorId: req.user?.id || null,
             metadata: { before, after: results.outstation },
             note: results.outstation.enabled
-              ? `Outstation GST turned ON at ${results.outstation.percent}%`
-              : "Outstation GST turned OFF",
+              ? `Courier GST turned ON at ${results.outstation.percent}%`
+              : "Courier GST turned OFF",
           });
         } catch (err) {
           logger.error("gst_settings_audit_failed", { message: err?.message });

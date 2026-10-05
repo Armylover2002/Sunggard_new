@@ -254,7 +254,7 @@ const CashCollection = () => {
                     </h1>
                     <p className="ds-description mt-1">
                         Set how much COD cash each rider may hold. At the limit, they stop
-                        receiving local and outstation jobs until a deposit is approved.
+                        receiving local and courier jobs until a deposit is approved.
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -430,7 +430,7 @@ const CashCollection = () => {
                                                     {/* Which product the cash came from — an admin chasing a
                                                         balance needs to know where to look. */}
                                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">
-                                                        Local {rupees(rider.localCash)} • Outstation{' '}
+                                                        Local {rupees(rider.localCash)} • Courier{' '}
                                                         {rupees(rider.outstationCash)}
                                                     </p>
                                                 </div>
@@ -640,7 +640,7 @@ const CashCollection = () => {
                                 <Package className="h-4 w-4 text-brand-600" />
                                 <div>
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                        Outstation couriers
+                                        Couriers
                                     </p>
                                     <p className="text-sm font-black text-slate-900">
                                         {rupees(selectedRider.outstationCash)}
@@ -700,7 +700,7 @@ const CashCollection = () => {
                                     Enforce cash limits
                                 </p>
                                 <p className="text-xs text-slate-500 mt-1">
-                                    Riders at their limit stop receiving local and outstation jobs until a
+                                    Riders at their limit stop receiving local and courier jobs until a
                                     deposit is approved. Turning this on takes effect immediately.
                                 </p>
                             </div>

@@ -48,13 +48,13 @@ function validateCouponPayload(data, { isCreate }) {
         // predates this restriction; only NEW order-scoped coupons are
         // refused.
         if (isCreate && appliesTo.includes("order")) {
-            return "This admin only creates delivery (local/outstation) coupons — product-order coupons aren't supported here";
+            return "This admin only creates delivery (local/courier) coupons — product-order coupons aren't supported here";
         }
         const hasPorterScope = appliesTo.some((scope) => PORTER_SCOPES.includes(scope));
         const couponType = String(data.couponType || "generic").toLowerCase();
         if (hasPorterScope) {
             if (String(data.discountType || "").toLowerCase() === "free_delivery" || couponType === "free_delivery") {
-                return "Free delivery coupons cannot be used for local/outstation delivery bookings";
+                return "Free delivery coupons cannot be used for local/courier delivery bookings";
             }
             const porterOnly = !appliesTo.includes("order");
             if (porterOnly && data.couponType !== undefined && !PORTER_ALLOWED_COUPON_TYPES.includes(couponType)) {

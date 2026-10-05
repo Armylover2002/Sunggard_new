@@ -42,7 +42,7 @@ const rupees = (value) =>
 
 // LOCAL CITY PARCEL DISABLED — only the outstation rate card is editable.
 const PRODUCTS = [
-  { key: "outstation", label: "Outstation courier", icon: Package },
+  { key: "outstation", label: "Courier", icon: Package },
 ];
 
 const emptyGst = { enabled: false, percent: 18, inclusive: false, gstin: "", placeOfSupply: "" };
@@ -130,7 +130,7 @@ const PorterGst = () => {
         },
       });
       toast.success(
-        `${product === "local" ? "Local" : "Outstation"} GST saved — applies to new bookings`,
+        `${product === "local" ? "Local" : "Courier"} GST saved — applies to new bookings`,
       );
       await load();
     } catch (error) {
@@ -185,7 +185,7 @@ const PorterGst = () => {
       {/* Header */}
       <PageHeader
         title="GST"
-        description="Set the GST rate for outstation bookings, and see what it has brought in (local delivery is disabled)."
+        description="Set the GST rate for courier bookings, and see what it has brought in (local delivery is disabled)."
         icon={Receipt}
         actions={
           <div className="flex flex-wrap items-end gap-2">
@@ -417,7 +417,7 @@ const PorterGst = () => {
                   <div
                     className="h-full bg-amber-400"
                     style={{ width: `${(row.outstationGst / maxSeries) * 100}%` }}
-                    title={`Outstation ${rupees(row.outstationGst)}`}
+                    title={`Courier ${rupees(row.outstationGst)}`}
                   />
                 </div>
                 <span className="text-right font-mono text-xs font-bold text-slate-900 dark:text-white">
@@ -428,7 +428,7 @@ const PorterGst = () => {
           </div>
           <div className="mt-3 flex gap-4 text-[11px] text-slate-500">
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-amber-400" /> Outstation
+              <span className="h-2.5 w-2.5 rounded-sm bg-amber-400" /> Courier
             </span>
           </div>
         </Card>
@@ -446,7 +446,7 @@ const PorterGst = () => {
           <div className="flex gap-1.5">
             {[
               ["all", "All"],
-              ["outstation", "Outstation"],
+              ["outstation", "Courier"],
             ].map(([key, text]) => (
               <button
                 key={key}

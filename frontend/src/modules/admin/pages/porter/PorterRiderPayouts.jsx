@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 
 const FILTERS = [
     { key: "", label: "All" },
-    { key: "parcel", label: "Outstation" },
+    { key: "parcel", label: "Courier" },
 ];
 
 const rupees = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;

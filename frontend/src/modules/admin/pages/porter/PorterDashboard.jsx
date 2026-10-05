@@ -242,7 +242,7 @@ const PorterDashboard = () => {
                             Courier operations
                         </h1>
                         <p className="max-w-xl text-sm text-slate-300 md:text-base">
-                            Outstation courier bookings for the last {days} days.
+                            Courier bookings for the last {days} days.
                         </p>
                     </div>
 

@@ -900,7 +900,7 @@ const DeliveryLayout = () => {
                       id="delivery-parcel-offer-title"
                       className="text-xl font-black text-slate-900 mb-1">
                       New courier request
-                      Outstation Courier Request
+                      Courier Request
                     </h2>
                     <p className="text-xs text-slate-500 font-bold mb-3">
                       ID: {displayIdOf(activeParcelOffer.parcelId)}

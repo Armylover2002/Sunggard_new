@@ -76,7 +76,7 @@ export async function getRiderCodSummary(riderId) {
     ...parcels.map((doc) => ({
       kind: "parcel",
       refId: String(doc._id),
-      label: `Outstation · ${String(doc._id).slice(-6).toUpperCase()}`,
+      label: `Courier · ${String(doc._id).slice(-6).toUpperCase()}`,
       amount: parcelHeldAmount(doc),
       collectedAt: doc.codSettlement?.riderCollectedAt || doc.createdAt,
       status: doc.status,

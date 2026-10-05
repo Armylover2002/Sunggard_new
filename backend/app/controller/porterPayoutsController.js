@@ -23,7 +23,7 @@ const PORTER_EARNING_KINDS = ["parcel"];
 
 /** Human labels for those stamps, so the UI never renders a raw enum. */
 const KIND_LABELS = {
-  parcel: "Outstation",
+  parcel: "Courier",
 };
 
 const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;

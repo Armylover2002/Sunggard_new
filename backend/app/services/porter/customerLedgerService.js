@@ -170,7 +170,7 @@ export async function recordPorterPaymentCaptured(payment) {
       method: payment.instrument?.method || "",
       gatewayPaymentId: payment.gatewayPaymentId || "",
       gstAmount: payment.taxSnapshot?.gstAmount || 0,
-      note: "Outstation courier booking",
+      note: "Courier booking",
       at: payment.capturedAt || new Date(),
     }),
     recordPorterLedgerEntry({
