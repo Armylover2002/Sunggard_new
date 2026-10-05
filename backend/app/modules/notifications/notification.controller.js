@@ -190,14 +190,31 @@ export const removePushToken = async (req, res) => {
     if (!userId || !role) {
       return handleResponse(res, 401, "Unauthorized");
     }
+    // A missing token used to mean "delete every token for this user+role" —
+    // one logout call (or a client bug that forgets to pass the token) would
+    // silently wipe every OTHER device's registration too, with no trace
+    // left to diagnose it by. Removing a device's push access now always
+    // names that device's token.
+    if (!token) {
+      return handleResponse(res, 400, "token is required");
+    }
 
-    const filter = token
-      ? { userId, role, token }
-      : { userId, role };
-    const result = await PushToken.deleteMany(filter);
+    // Soft-deactivate rather than delete, the same as an FCM-rejected token —
+    // if push ever silently stops reaching this device again, the row (and
+    // when/why) is still here to look at instead of having vanished.
+    const result = await PushToken.updateMany(
+      { userId, role, token, isActive: true },
+      {
+        $set: {
+          isActive: false,
+          invalidReason: "REMOVED_BY_CLIENT",
+          invalidatedAt: new Date(),
+        },
+      },
+    );
 
     return handleResponse(res, 200, "Push token removed successfully", {
-      deletedTokens: Number(result.deletedCount || 0),
+      deletedTokens: Number(result.modifiedCount || 0),
     });
   } catch (error) {
     return handleResponse(res, 500, error.message);
