@@ -415,11 +415,6 @@ const PorterGst = () => {
                 <span className="font-mono text-[11px] text-slate-500">{row.period}</span>
                 <div className="flex h-5 overflow-hidden rounded-md bg-slate-100 dark:bg-slate-800">
                   <div
-                    className="h-full bg-primary"
-                    style={{ width: `${(row.localGst / maxSeries) * 100}%` }}
-                    title={`Local ${rupees(row.localGst)}`}
-                  />
-                  <div
                     className="h-full bg-amber-400"
                     style={{ width: `${(row.outstationGst / maxSeries) * 100}%` }}
                     title={`Outstation ${rupees(row.outstationGst)}`}
@@ -432,9 +427,6 @@ const PorterGst = () => {
             ))}
           </div>
           <div className="mt-3 flex gap-4 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-primary" /> Local
-            </span>
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-sm bg-amber-400" /> Outstation
             </span>
@@ -454,7 +446,6 @@ const PorterGst = () => {
           <div className="flex gap-1.5">
             {[
               ["all", "All"],
-              ["local", "Local"],
               ["outstation", "Outstation"],
             ].map(([key, text]) => (
               <button
