@@ -226,7 +226,10 @@ async function localizeForRecipient(raw) {
   const { titleKey, titleVars, bodyKey, bodyVars, ...rest } = raw;
   const title = titleKey ? translate(lang, titleKey, titleVars) : raw.title;
   const body = bodyKey ? translate(lang, bodyKey, bodyVars) : raw.body;
-  return { ...rest, title, body, message: body };
+  // The push client reads title/body from `data` first, so the copies there
+  // must carry the translated text too, not the English the caller passed.
+  const data = rest.data ? { ...rest.data, title, body } : rest.data;
+  return { ...rest, title, body, message: body, ...(data ? { data } : {}) };
 }
 
 export async function notify(eventType, payload = {}) {
