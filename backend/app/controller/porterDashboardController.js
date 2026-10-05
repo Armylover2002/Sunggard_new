@@ -170,7 +170,7 @@ export const adminGetPorterDashboard = async (req, res) => {
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 8);
 
-    return handleResponse(res, 200, "Porter dashboard", {
+    return handleResponse(res, 200, "Courier dashboard", {
       range: { days, from, to: new Date() },
       overview: {
         totalParcels: pickupTotal,

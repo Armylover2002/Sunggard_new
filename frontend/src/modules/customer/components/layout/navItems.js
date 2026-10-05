@@ -11,7 +11,7 @@ export const navItems = [
     { label: 'Home', icon: Home, path: '/' },
     // LOCAL CITY PARCEL DISABLED — was '/parcel/local'; now lands on the hub,
     // which only offers outstation booking.
-    { label: 'Parcel', icon: Package, path: '/parcel' },
+    { label: 'Courier', icon: Package, path: '/parcel' },
     { label: 'History', icon: History, path: '/profile/parcel-history' },
     { label: 'Profile', icon: User, path: '/profile' },
 ];

@@ -61,7 +61,7 @@ const reconcile = async () => {
         if (result.changed) changed += 1;
       } catch (err) {
         errored += 1;
-        logger.error("Porter payment reconcile failed for one payment", {
+        logger.error("Courier payment reconcile failed for one payment", {
           jobName: "reconcilePorterPaymentsJob",
           paymentId: String(payment._id),
           error: err?.message,
@@ -70,7 +70,7 @@ const reconcile = async () => {
     }
 
     if (stale.length) {
-      logger.info("Porter payment reconciliation sweep", {
+      logger.info("Courier payment reconciliation sweep", {
         jobName: "reconcilePorterPaymentsJob",
         checked: stale.length,
         changed,
@@ -79,7 +79,7 @@ const reconcile = async () => {
       });
     }
   } catch (err) {
-    logger.error("Porter payment reconciliation sweep failed", {
+    logger.error("Courier payment reconciliation sweep failed", {
       jobName: "reconcilePorterPaymentsJob",
       error: err?.message,
       stack: err?.stack,

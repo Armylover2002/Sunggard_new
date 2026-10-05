@@ -84,7 +84,7 @@ const PorterCustomers = () => {
         if (data.stats) setStats(data.stats);
       } catch (err) {
         console.error(err);
-        toast.error(err?.response?.data?.message || "Failed to load porter customers");
+        toast.error(err?.response?.data?.message || "Failed to load courier customers");
       } finally {
         setLoading(false);
       }
@@ -100,7 +100,7 @@ const PorterCustomers = () => {
 
   const statCards = useMemo(
     () => [
-      { label: "Porter Customers", value: stats.totalPorterCustomers, icon: Users, color: "text-slate-600", bg: "bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700" },
+      { label: "Courier Customers", value: stats.totalPorterCustomers, icon: Users, color: "text-slate-600", bg: "bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700" },
       { label: "Active", value: stats.active, icon: UserCheck, color: "text-orange-600", bg: "bg-orange-50 border border-orange-200 dark:bg-orange-950/40 dark:border-orange-800" },
       { label: "Inactive", value: stats.inactive, icon: UserX, color: "text-rose-600", bg: "bg-rose-50 border border-rose-200 dark:bg-rose-950/40 dark:border-rose-800" },
       { label: "Total Bookings", value: stats.totalBookings, icon: Package, color: "text-orange-600", bg: "bg-orange-50 border border-orange-200 dark:bg-orange-950/40 dark:border-orange-800" },
@@ -132,9 +132,9 @@ const PorterCustomers = () => {
     <div className="space-y-6 pb-20">
       {/* Header */}
       <PageHeader
-        title="Porter Customers"
-        description="Customers who have booked pickup or city parcels, with real booking counts and spend. Deactivating an account here blocks that customer from logging in or booking again."
-        badge={<Badge variant="info">Porter Ops</Badge>}
+        title="Courier Customers"
+        description="Customers who have booked pickup or city couriers, with real booking counts and spend. Deactivating an account here blocks that customer from logging in or booking again."
+        badge={<Badge variant="info">Courier Ops</Badge>}
       />
 
       {/* Stat Cards */}
@@ -228,7 +228,7 @@ const PorterCustomers = () => {
                       title={
                         search || statusFilter !== "all"
                           ? "No customers match your filters"
-                          : "No customer has booked a Porter delivery yet"
+                          : "No customer has booked a Courier delivery yet"
                       }
                     />
                   </td>
@@ -344,8 +344,8 @@ const PorterCustomers = () => {
         title={statusTarget?.isActive ? "Deactivate customer?" : "Activate customer?"}
         message={
           statusTarget?.isActive
-            ? `${statusTarget?.name || "This customer"} will not be able to log in or place new Porter bookings until reactivated.`
-            : `${statusTarget?.name || "This customer"} will be able to log in and book Porter deliveries again.`
+            ? `${statusTarget?.name || "This customer"} will not be able to log in or place new Courier bookings until reactivated.`
+            : `${statusTarget?.name || "This customer"} will be able to log in and book Courier deliveries again.`
         }
         confirmLabel={updatingStatus ? "Updating..." : statusTarget?.isActive ? "Deactivate" : "Activate"}
         cancelLabel="Cancel"

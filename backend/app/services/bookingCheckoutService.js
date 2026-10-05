@@ -119,7 +119,7 @@ export async function sweepAbandonedCheckouts({ limit = 200 } = {}) {
       result.parcels = deletedCount || 0;
     }
   } catch (err) {
-    logger.error("Abandoned parcel checkout sweep failed", {
+    logger.error("Abandoned courier checkout sweep failed", {
       error: err?.message,
     });
   }

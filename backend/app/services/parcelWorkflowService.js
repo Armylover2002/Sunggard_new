@@ -82,7 +82,7 @@ async function assertRiderWithinPickupRadius(deliveryOid, parcelId) {
   const radiusKm = settings.deliveryRadiusKm;
   if (distanceMeters(pickupLat, pickupLng, lat, lng) > radiusKm * 1000) {
     const err = new Error(
-      `You must be within ${radiusKm} km of the pickup location to accept this parcel`,
+      `You must be within ${radiusKm} km of the pickup location to accept this courier`,
     );
     err.statusCode = 403;
     throw err;
@@ -627,7 +627,7 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
   }
 
   if (!partner.isParcelService) {
-    const err = new Error("Parcel delivery service is not enabled on your account.");
+    const err = new Error("Courier delivery service is not enabled on your account.");
     err.statusCode = 403;
     throw err;
   }
@@ -725,28 +725,28 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
   if (!updated) {
     const existing = await Parcel.findById(parcelId).lean();
     if (!existing) {
-      const err = new Error("Parcel not found");
+      const err = new Error("Courier not found");
       err.statusCode = 404;
       throw err;
     }
-    let msg = "Parcel already assigned or not available";
+    let msg = "Courier already assigned or not available";
     if (existing.searchExpiresAt && new Date(existing.searchExpiresAt) <= now) {
-      msg = "Accept window has expired. Wait for the next parcel request.";
+      msg = "Accept window has expired. Wait for the next courier request.";
     } else if (existing.deliveryPartnerId) {
-      msg = "Another rider already accepted this parcel.";
+      msg = "Another rider already accepted this courier.";
     } else if (
       (existing.skippedBy || []).some(
         (id) => id.toString() === deliveryOid.toString(),
       )
     ) {
-      msg = "You rejected this parcel earlier.";
+      msg = "You rejected this courier earlier.";
     } else if (existing.status !== "SEARCHING") {
-      msg = "This parcel is no longer open for acceptance.";
+      msg = "This courier is no longer open for acceptance.";
     } else if (
       existing.searchMeta?.offeredTo &&
       String(existing.searchMeta.offeredTo) !== String(deliveryOid)
     ) {
-      msg = "This parcel is currently offered to another rider.";
+      msg = "This courier is currently offered to another rider.";
     }
     const err = new Error(msg);
     err.statusCode = 409;
@@ -788,14 +788,14 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
   emitNotificationEvent(NOTIFICATION_EVENTS.PARCEL_ASSIGNED, {
     deliveryId: deliveryOid,
     parcelId: String(parcelId),
-    body: `Parcel accepted — pickup at ${updated.pickupAddress?.fullAddress || "pickup location"}.`,
+    body: `Courier accepted — pickup at ${updated.pickupAddress?.fullAddress || "pickup location"}.`,
   });
 
   emitNotificationEvent(NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE, {
     userId: updated.customerId?._id || updated.customerId,
     customerId: updated.customerId?._id || updated.customerId,
     parcelId: String(parcelId),
-    body: `Delivery partner ${partner.name} has accepted your parcel.`,
+    body: `Delivery partner ${partner.name} has accepted your courier.`,
   });
 
   if (idempotencyKey) {

@@ -31,9 +31,9 @@ export const adminListPorterCustomers = async (req, res) => {
       sortDir,
     });
 
-    return handleResponse(res, 200, "Porter customers fetched successfully", data);
+    return handleResponse(res, 200, "Courier customers fetched successfully", data);
   } catch (error) {
-    return handleResponse(res, 500, error.message || "Failed to fetch porter customers");
+    return handleResponse(res, 500, error.message || "Failed to fetch courier customers");
   }
 };
 

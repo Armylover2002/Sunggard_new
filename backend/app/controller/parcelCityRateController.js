@@ -61,7 +61,7 @@ export const adminUploadCityRates = async (req, res) => {
       return handleResponse(
         res,
         400,
-        "None of the file's columns match an existing courier company name. Column headers must exactly match a courier company's name (see /admin/parcels/couriers), e.g. 'Blue Dart', 'Other'.",
+        "None of the file's columns match an existing courier company name. Column headers must exactly match a courier company's name (see /admin/couriers/couriers), e.g. 'Blue Dart', 'Other'.",
       );
     }
 

@@ -51,9 +51,9 @@ const PorterRiderPayouts = () => {
                 });
                 if (res.data.success) setData(res.data.result);
             } catch (error) {
-                console.error("Porter payouts error:", error);
+                console.error("Courier payouts error:", error);
                 toast.error(
-                    error?.response?.data?.message || "Couldn't load porter payouts",
+                    error?.response?.data?.message || "Couldn't load courier payouts",
                 );
             } finally {
                 setLoading(false);
@@ -86,7 +86,7 @@ const PorterRiderPayouts = () => {
             icon: Users,
             color: "text-orange-600",
             bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
-            note: "With at least one porter job",
+            note: "With at least one courier job",
         },
         {
             label: "Held back",
@@ -102,7 +102,7 @@ const PorterRiderPayouts = () => {
         <div className="space-y-6">
             <PageHeader
                 title="Rider Payouts"
-                description="Earnings from parcel jobs only. Withdrawals stay under Money Requests — riders draw against one balance shared with grocery work, so a withdrawal can't be split by service."
+                description="Earnings from courier jobs only. Withdrawals stay under Money Requests — riders draw against one balance shared with grocery work, so a withdrawal can't be split by service."
                 icon={Receipt}
                 actions={
                     <button
@@ -183,15 +183,15 @@ const PorterRiderPayouts = () => {
                 ) : items.length === 0 ? (
                     <EmptyState
                         icon={Banknote}
-                        title="No porter settlements"
-                        description="No porter settlements in this view."
+                        title="No courier settlements"
+                        description="No courier settlements in this view."
                     />
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/50">
                                 <tr>
-                                    {["Rider", "Service", "Parcel", "Amount", "Status", "Date"].map(
+                                    {["Rider", "Service", "Courier", "Amount", "Status", "Date"].map(
                                         (head) => (
                                             <th
                                                 key={head}

@@ -96,7 +96,6 @@ const packageDetailsSchema = new mongoose.Schema({
   weight: {
     type: Number,
     required: true,
-    max: 50,
   },
   description: {
     type: String,
@@ -173,7 +172,6 @@ const parcelSchema = new mongoose.Schema(
     weight: {
       type: Number,
       required: true,
-      max: 50,
     },
     distance: {
       type: Number,

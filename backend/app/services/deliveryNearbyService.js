@@ -96,7 +96,7 @@ export async function getParcelRiderIdsNearPickup(
 
     return filterByHaversine(candidates, lat, lng, maxDistanceM, zone);
   } catch (e) {
-    console.warn("[deliveryNearby] parcel radius scan failed:", e.message);
+    console.warn("[deliveryNearby] courier radius scan failed:", e.message);
     return [];
   }
 }
@@ -142,7 +142,7 @@ export async function getParcelRidersNearPickupSortedByDistance(
       (a, b) => a.distanceM - b.distanceM,
     );
   } catch (e) {
-    console.warn("[deliveryNearby] parcel nearest-sorted scan failed:", e.message);
+    console.warn("[deliveryNearby] courier nearest-sorted scan failed:", e.message);
     return [];
   }
 }
@@ -158,7 +158,7 @@ export async function getAllEligibleParcelRiderIds() {
       .lean();
     return riders.map((r) => String(r._id));
   } catch (e) {
-    console.warn("[deliveryNearby] all parcel riders failed:", e.message);
+    console.warn("[deliveryNearby] all courier riders failed:", e.message);
     return [];
   }
 }

@@ -176,7 +176,7 @@ const WalletPage = () => {
       color: "text-emerald-600 bg-emerald-50",
     },
     {
-      label: "Parcel Cash",
+      label: "Courier Cash",
       sub: "Deposit to admin",
       icon: Banknote,
       path: "/delivery/porter-cash",
@@ -347,7 +347,7 @@ const WalletPage = () => {
                   txn.type === "Incentive" || txn.type === "Bonus"
                     ? txn.type
                     : txn?.meta?.kind === "parcel"
-                      ? "Parcel Earning"
+                      ? "Courier Earning"
                       : "Delivery Earning";
                 const orderRef =
                   txn?.order?.orderId ||

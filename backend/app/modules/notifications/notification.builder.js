@@ -104,23 +104,23 @@ function eventDefinition(eventType) {
             role: NOTIFICATION_ROLES.CUSTOMER,
             recipientIds: (payload) =>
               normalizeIdList(payload.userId || payload.customerId),
-            title: () => "Parcel Request Created",
+            title: () => "Courier Request Created",
             body: (payload) =>
               payload.customerBody ||
               payload.body ||
-              "Your parcel request has been created.",
+              "Your courier request has been created.",
           },
           {
             role: NOTIFICATION_ROLES.ADMIN,
             recipientIds: (payload) => normalizeIdList(payload.adminIds),
-            title: () => "New Parcel Request 📦",
+            title: () => "New Courier Request 📦",
             body: (payload) =>
               payload.adminBody ||
               (payload.parcelId
-                ? `Parcel #${String(payload.parcelId).slice(-6)} booked for ₹${
+                ? `Courier #${String(payload.parcelId).slice(-6)} booked for ₹${
                     Number(payload.fare) || 0
                   }. Tap to view.`
-                : "A customer placed a new parcel delivery request."),
+                : "A customer placed a new courier delivery request."),
           },
         ],
       };
@@ -128,39 +128,39 @@ function eventDefinition(eventType) {
       return {
         role: NOTIFICATION_ROLES.DELIVERY,
         recipientIds: (payload) => normalizeIdList(payload.deliveryIds),
-        title: () => "New Parcel Request 📦",
+        title: () => "New Courier Request 📦",
         body: (payload) =>
           payload.parcelId
-            ? `Parcel #${String(payload.parcelId).slice(-6)} is available nearby.`
-            : "A new parcel delivery request is available nearby.",
+            ? `Courier #${String(payload.parcelId).slice(-6)} is available nearby.`
+            : "A new courier delivery request is available nearby.",
       };
     case NOTIFICATION_EVENTS.PARCEL_ASSIGNED:
       return {
         role: NOTIFICATION_ROLES.DELIVERY,
         recipientIds: (payload) => normalizeIdList(payload.deliveryId),
-        title: () => "New Parcel Assigned",
-        body: (payload) => payload.body || "You have been assigned a new parcel delivery.",
+        title: () => "New Courier Assigned",
+        body: (payload) => payload.body || "You have been assigned a new courier delivery.",
       };
     case NOTIFICATION_EVENTS.PARCEL_SEARCH_CANCELLED:
       return {
         role: NOTIFICATION_ROLES.DELIVERY,
         recipientIds: (payload) => normalizeIdList(payload.deliveryIds),
-        title: () => "Parcel request no longer available",
-        body: () => "This parcel request was cancelled or taken by another rider.",
+        title: () => "Courier request no longer available",
+        body: () => "This courier request was cancelled or taken by another rider.",
       };
     case NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE:
       return {
         role: NOTIFICATION_ROLES.CUSTOMER,
         recipientIds: (payload) => normalizeIdList(payload.userId || payload.customerId),
-        title: () => "Parcel Status Update",
-        body: (payload) => payload.body || "Your parcel status has been updated.",
+        title: () => "Courier Status Update",
+        body: (payload) => payload.body || "Your courier status has been updated.",
       };
     case NOTIFICATION_EVENTS.PARCEL_DELIVERED:
       return {
         role: NOTIFICATION_ROLES.CUSTOMER,
         recipientIds: (payload) => normalizeIdList(payload.userId || payload.customerId),
-        title: () => "Parcel Delivered",
-        body: (payload) => payload.body || "Your parcel has been delivered successfully.",
+        title: () => "Courier Delivered",
+        body: (payload) => payload.body || "Your courier has been delivered successfully.",
       };
 
     default:

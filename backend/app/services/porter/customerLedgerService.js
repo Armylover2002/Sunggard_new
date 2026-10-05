@@ -110,7 +110,7 @@ export async function pushCustomerTransaction(customerId, entry) {
 export async function recordPorterLedgerEntry({
   customerId,
   reference,
-  type = "Parcel Payment",
+  type = "Courier Payment",
   amount,
   status = "Settled",
   meta = {},
@@ -170,13 +170,13 @@ export async function recordPorterPaymentCaptured(payment) {
       method: payment.instrument?.method || "",
       gatewayPaymentId: payment.gatewayPaymentId || "",
       gstAmount: payment.taxSnapshot?.gstAmount || 0,
-      note: "Outstation parcel booking",
+      note: "Outstation courier booking",
       at: payment.capturedAt || new Date(),
     }),
     recordPorterLedgerEntry({
       customerId: payment.customerId,
       reference,
-      type: "Parcel Payment",
+      type: "Courier Payment",
       amount: rupees,
       status: "Settled",
       meta: {
@@ -230,7 +230,7 @@ export async function recordPorterCodCollected({
     recordPorterLedgerEntry({
       customerId,
       reference,
-      type: "Parcel Payment",
+      type: "Courier Payment",
       amount: rupees,
       status: "Settled",
       meta: {
@@ -275,7 +275,7 @@ export async function recordPorterRefund(payment, refundAmountPaise, reason = ""
     recordPorterLedgerEntry({
       customerId: payment.customerId,
       reference,
-      type: "Parcel Refund",
+      type: "Courier Refund",
       amount: -rupees,
       status: "Settled",
       meta: {

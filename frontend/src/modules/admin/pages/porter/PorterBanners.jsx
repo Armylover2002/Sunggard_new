@@ -357,9 +357,9 @@ const PorterBanners = () => {
     <div className="space-y-6 pb-20">
       {/* Header */}
       <PageHeader
-        title="Porter App Banners"
-        description='Create promotional or informational banners displayed above "Start a Shipment" on the Porter app.'
-        badge={<Badge variant="warning">Porter Ops</Badge>}
+        title="Courier App Banners"
+        description='Create promotional or informational banners displayed above "Start a Shipment" on the Courier app.'
+        badge={<Badge variant="warning">Courier Ops</Badge>}
         actions={
           <Button onClick={handleOpenCreate} icon={Plus} className="shrink-0 bg-primary text-white">
             Add New Banner
@@ -463,7 +463,7 @@ const PorterBanners = () => {
             description={
               search || statusFilter !== "all"
                 ? "Try adjusting your filters or search terms."
-                : "Get started by creating your first banner for the Porter home screen."
+                : "Get started by creating your first banner for the Courier home screen."
             }
             action={
               <Button onClick={handleOpenCreate} icon={Plus} className="bg-primary text-white">

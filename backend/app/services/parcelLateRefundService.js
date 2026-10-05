@@ -86,12 +86,12 @@ export function getParcelLatePickupSummary(parcel, at = new Date()) {
 }
 
 export function canCustomerRequestLateRefund(parcel, at = new Date()) {
-  if (!parcel) return { ok: false, message: "Parcel not found" };
+  if (!parcel) return { ok: false, message: "Courier not found" };
   if (String(parcel.customerId?._id || parcel.customerId) === "") {
-    return { ok: false, message: "Invalid parcel" };
+    return { ok: false, message: "Invalid courier" };
   }
   if (parcel.status === "CANCELLED") {
-    return { ok: false, message: "Cancelled parcels cannot request late refund" };
+    return { ok: false, message: "Cancelled couriers cannot request late refund" };
   }
   if (!parcel.acceptedAt || !parcel.deliveryPartnerId) {
     return { ok: false, message: "Refund is available only after a captain accepts" };
@@ -110,7 +110,7 @@ export function canCustomerRequestLateRefund(parcel, at = new Date()) {
     return { ok: false, message: "A late refund request is already pending admin review" };
   }
   if (status === "approved") {
-    return { ok: false, message: "A late refund was already approved for this parcel" };
+    return { ok: false, message: "A late refund was already approved for this courier" };
   }
   return { ok: true };
 }
@@ -122,7 +122,7 @@ export async function creditLateRefundToCustomerWallet(parcel, amount, adminId) 
   }
   const customerId = parcel.customerId?._id || parcel.customerId;
   if (!customerId) {
-    throw Object.assign(new Error("Customer missing on parcel"), { statusCode: 400 });
+    throw Object.assign(new Error("Customer missing on courier"), { statusCode: 400 });
   }
 
   await creditWallet({
@@ -132,7 +132,7 @@ export async function creditLateRefundToCustomerWallet(parcel, amount, adminId) 
     ledgerType: LEDGER_TRANSACTION_TYPE.WALLET_REFUND,
     ledgerStatus: LEDGER_STATUS.COMPLETED,
     ledgerReference: `PCL-LATE-REFUND-${String(parcel._id)}`,
-    ledgerDescription: `Admin late-pickup refund for parcel #${String(parcel._id).slice(-6)}`,
+    ledgerDescription: `Admin late-pickup refund for courier #${String(parcel._id).slice(-6)}`,
     metadata: {
       kind: "parcel_late_refund",
       parcelId: String(parcel._id),

@@ -61,6 +61,13 @@ const parcelConfigSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    /** Heaviest package a customer may book, in kg. Enforced on every booking and quote. */
+    maxWeightKg: {
+      type: Number,
+      default: 50,
+      min: 0.1,
+      max: 1000,
+    },
     /** Per-km rate paid to the rider for the pickup leg (see riderAcceptLocation on Parcel). */
     riderPerKmRate: {
       type: Number,
@@ -170,7 +177,6 @@ const LEGACY_FIELDS = [
   "riderSharePercent",
   "riderBaseFareSharePercent",
   "riderDistanceFareSharePercent",
-  "maxWeightKg",
   "packageDescriptionPlaceholder",
   "expressCharge",
 ];
@@ -237,6 +243,7 @@ parcelConfigSchema.statics.getPublicBookingConfig = async function () {
       ? packageTypes
       : DEFAULT_PACKAGE_TYPES.map(({ value, label }) => ({ value, label })),
     packageCategories,
+    maxWeightKg: config.maxWeightKg,
   };
 };
 

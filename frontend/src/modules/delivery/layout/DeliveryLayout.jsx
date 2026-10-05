@@ -641,7 +641,7 @@ const DeliveryLayout = () => {
         setIsAcceptingOrder(false);
         stopOrderRingtone();
         setActiveParcelOffer(null);
-        toast.info("Another rider accepted this parcel.");
+        toast.info("Another rider accepted this courier.");
       }
     });
   }, [canReceiveParcelBroadcast, shouldBlockIncomingOffers]);
@@ -655,7 +655,7 @@ const DeliveryLayout = () => {
       setActiveParcel(null);
       setActiveParcelOffer(null);
       stopOrderRingtone();
-      toast.success("Parcel assigned. Continue with pickup workflow.");
+      toast.success("Courier assigned. Continue with pickup workflow.");
       navigate(`/delivery/parcel-task/${parcelId}`);
     });
   }, [canReceiveParcelBroadcast, navigate]);
@@ -788,9 +788,9 @@ const DeliveryLayout = () => {
       );
       stopOrderRingtone();
       await refreshUser().catch(() => {});
-      toast.info("Parcel offer skipped");
+      toast.info("Courier offer skipped");
     } catch (error) {
-      console.error("Parcel offer skip failed:", error);
+      console.error("Courier offer skip failed:", error);
       stopOrderRingtone();
       await refreshUser().catch(() => {});
     }
@@ -802,7 +802,7 @@ const DeliveryLayout = () => {
     if (left <= 0) {
       if (!acceptInFlightRef.current) {
         skipParcelOffer();
-        toast.error("Parcel request timed out");
+        toast.error("Courier request timed out");
       }
       return undefined;
     }
@@ -817,7 +817,7 @@ const DeliveryLayout = () => {
         clearInterval(timer);
         if (!acceptInFlightRef.current) {
           skipParcelOffer();
-          toast.error("Parcel request timed out");
+          toast.error("Courier request timed out");
         }
       }
     }, 1000);
@@ -828,7 +828,7 @@ const DeliveryLayout = () => {
     const offer = activeParcelOfferRef.current;
     if (!offer || acceptInFlightRef.current) return;
     if (offer.expiresAt && secondsLeftUntilParcelExpiry(offer.expiresAt) <= 0) {
-      toast.error("This parcel request has expired.");
+      toast.error("This courier request has expired.");
       stopOrderRingtone();
       setActiveParcelOffer(null);
       return;
@@ -860,7 +860,7 @@ const DeliveryLayout = () => {
       const msg =
         error.response?.data?.message ||
         (typeof error.response?.data === "string" ? error.response.data : null);
-      toast.error(msg || "Failed to accept parcel");
+      toast.error(msg || "Failed to accept courier");
       stopOrderRingtone();
     } finally {
       acceptInFlightRef.current = false;
@@ -895,8 +895,8 @@ const DeliveryLayout = () => {
                     <h2
                       id="delivery-parcel-offer-title"
                       className="text-xl font-black text-slate-900 mb-1">
-                      New parcel request
-                      Outstation Parcel Request
+                      New courier request
+                      Outstation Courier Request
                     </h2>
                     {activeParcelOffer.deliverySpeed === "express" ? (
                       <span className="mb-3 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-800">
@@ -1056,7 +1056,7 @@ const DeliveryLayout = () => {
                     <h2
                       id="delivery-parcel-alert-title"
                       className="text-xl font-black text-slate-900 mb-1">
-                      New Parcel Assigned!
+                      New Courier Assigned!
                     </h2>
                     {activeParcel.deliverySpeed === "express" ? (
                       <span className="mb-2 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-800">
@@ -1168,14 +1168,14 @@ const DeliveryLayout = () => {
                               status: "ACCEPTED",
                             });
                             if (res.data?.success) {
-                              toast.success("Parcel task accepted!");
+                              toast.success("Courier task accepted!");
                               navigate(
                                 `/delivery/parcel-task/${activeParcel._id}`,
                               );
                             }
                           } catch (err) {
                             // Already assigned: open task directly (cancel after accept is not allowed).
-                            toast.success("Opening assigned parcel task");
+                            toast.success("Opening assigned courier task");
                             navigate(
                               `/delivery/parcel-task/${activeParcel._id}`,
                             );

@@ -42,7 +42,7 @@ const rupees = (value) =>
 
 // LOCAL CITY PARCEL DISABLED — only the outstation rate card is editable.
 const PRODUCTS = [
-  { key: "outstation", label: "Outstation parcel", icon: Package },
+  { key: "outstation", label: "Outstation courier", icon: Package },
 ];
 
 const emptyGst = { enabled: false, percent: 18, inclusive: false, gstin: "", placeOfSupply: "" };

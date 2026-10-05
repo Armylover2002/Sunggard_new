@@ -171,8 +171,8 @@ const ProfilePage = () => {
                             */}
                             <MenuItem
                                 icon={History}
-                                label="Parcel History"
-                                sub="Track parcel deliveries & past requests"
+                                label="Courier History"
+                                sub="Track courier deliveries & past requests"
                                 path="/profile/parcel-history"
                                 color="#0ea5e9"
                                 bg="rgba(14,165,233,0.10)"

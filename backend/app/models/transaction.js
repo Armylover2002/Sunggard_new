@@ -60,8 +60,8 @@ const transactionSchema = new mongoose.Schema(
                 // any ledger the admin could read, so porter revenue was
                 // invisible next to marketplace revenue. Written by
                 // services/porter/customerLedgerService.js.
-                "Parcel Payment",
-                "Parcel Refund",
+                "Courier Payment",
+                "Courier Refund",
             ],
             required: true,
         },

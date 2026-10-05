@@ -21,7 +21,7 @@ function ReviewCard({ review }) {
         ))}
       </div>
       <p className="text-sm text-slate-700 font-medium leading-relaxed">
-        {review.comment ? `“${review.comment}”` : "Rated the parcel service."}
+        {review.comment ? `“${review.comment}”` : "Rated the courier service."}
       </p>
       <div className="mt-3 flex items-center justify-between gap-2">
         <p className="text-xs font-bold text-slate-800 truncate">
@@ -106,7 +106,7 @@ export default function ParcelReviewsSection() {
               Ratings & reviews
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              What other users say about our parcel service
+              What other users say about our courier service
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -166,7 +166,7 @@ export default function ParcelReviewsSection() {
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label="All parcel reviews"
+            aria-label="All courier reviews"
           >
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
               <div>

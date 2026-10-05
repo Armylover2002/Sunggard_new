@@ -9,7 +9,7 @@ const settingSchema = new mongoose.Schema(
         // General
         appName: {
             type: String,
-            default: "Appzeto Porter",
+            default: "Appzeto Courier",
         },
         supportEmail: {
             type: String,

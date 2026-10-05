@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 
 const COMPLAINT_CATEGORIES = [
   { id: 'order', label: 'Order issue', icon: Package, subject: 'Order complaint' },
-  { id: 'parcel', label: 'Parcel delivery', icon: Truck, subject: 'Parcel complaint' },
+  { id: 'parcel', label: 'Courier delivery', icon: Truck, subject: 'Courier complaint' },
   { id: 'payment', label: 'Payment / refund', icon: CreditCard, subject: 'Payment complaint' },
   { id: 'delivery', label: 'Delivery partner', icon: Truck, subject: 'Delivery complaint' },
   { id: 'product', label: 'Product quality', icon: AlertTriangle, subject: 'Product quality complaint' },
@@ -167,7 +167,7 @@ const SupportPage = () => {
               </p>
               <p className="text-lg font-black mt-1">Tell admin what went wrong</p>
               <p className="text-xs text-white/80 mt-1 font-medium">
-                Order, parcel, payment, delivery — anything. Admin will reply.
+                Order, courier, payment, delivery — anything. Admin will reply.
               </p>
             </div>
             <div className="h-12 w-12 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
@@ -375,7 +375,7 @@ const SupportPage = () => {
                   {ticketData.category === 'parcel' && (
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                        Parcel ID (optional)
+                        Courier ID (optional)
                       </label>
                       <input
                         type="text"
@@ -383,7 +383,7 @@ const SupportPage = () => {
                         onChange={(e) =>
                           setTicketData({ ...ticketData, relatedParcelId: e.target.value })
                         }
-                        placeholder="Parcel ID ending digits are fine"
+                        placeholder="Courier ID ending digits are fine"
                         className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3.5 text-sm font-bold outline-none ring-1 ring-transparent focus:ring-primary/20 transition-all"
                       />
                     </div>
@@ -415,7 +415,7 @@ const SupportPage = () => {
                       required
                       value={ticketData.description}
                       onChange={(e) => setTicketData({ ...ticketData, description: e.target.value })}
-                      placeholder="Explain your complaint clearly. Include order/parcel details if useful."
+                      placeholder="Explain your complaint clearly. Include order/courier details if useful."
                       className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold min-h-[140px] outline-none ring-1 ring-transparent focus:ring-primary/20 transition-all"
                     />
                   </div>

@@ -57,7 +57,7 @@ const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
 
 const navItems = [
   {
-    label: "Porter Dashboard",
+    label: "Courier Dashboard",
     path: "/admin/porter",
     icon: Boxes,
     color: "cyan",
@@ -79,7 +79,7 @@ const navItems = [
     group: "porter",
   },
   {
-    label: "Porter Wallet",
+    label: "Courier Wallet",
     path: "/admin/porter/wallet",
     icon: Wallet,
     color: "purple",
@@ -107,14 +107,14 @@ const navItems = [
     group: "porter",
   },
   {
-    label: "Porter Support",
+    label: "Courier Support",
     path: "/admin/porter/support",
     icon: LifeBuoy,
     color: "rose",
     group: "porter",
   },
   {
-    label: "Porter Customers",
+    label: "Courier Customers",
     path: "/admin/porter/customers",
     icon: Users,
     color: "sky",
@@ -133,14 +133,14 @@ const navItems = [
     ],
   },
   {
-    label: "Parcel Delivery",
+    label: "Courier Delivery",
     icon: Package,
     color: "cyan",
     group: "porter",
     children: [
       { label: "All Bookings", path: "/admin/parcels/all" },
       { label: "Active Deliveries", path: "/admin/parcels/active" },
-      { label: "Parcel Settings", path: "/admin/parcels/pricing" },
+      { label: "Courier Settings", path: "/admin/parcels/pricing" },
       { label: "Couriers", path: "/admin/parcels/couriers" },
       { label: "City Rates", path: "/admin/parcels/cityRates" },
       { label: "Reviews", path: "/admin/parcels/reviews" },

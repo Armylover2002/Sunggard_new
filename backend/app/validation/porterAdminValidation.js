@@ -82,6 +82,12 @@ export const adminUpdateCourierSchema = Joi.object({
 export const adminUpdateParcelPricingSchema = Joi.object({
   fixedDeliveryCharge: money(),
   weightCharge: money(),
+  // Heaviest bookable package (kg). Without this key stripUnknown drops it silently.
+  maxWeightKg: Joi.number().min(0.1).max(1000).messages({
+    "number.base": "Max weight must be a number",
+    "number.min": "Max weight must be at least 0.1 KG",
+    "number.max": "Max weight cannot exceed 1000 KG",
+  }),
   deliveryRadiusKm: Joi.number().min(1).max(100),
   riderPerKmRate: money(10000),
   // Passed through: the controller owns their shape, and stripping unknown

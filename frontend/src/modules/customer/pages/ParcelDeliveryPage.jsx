@@ -152,7 +152,7 @@ const formatInr = (value) => `₹${Number(value || 0).toFixed(2)}`;
 const STEPS = [
   { key: "from", label: "From", heading: "Where do we collect it?" },
   { key: "to", label: "To", heading: "Which counter does it go to?" },
-  { key: "what", label: "What", heading: "What's in the parcel?" },
+  { key: "what", label: "What", heading: "What's in the courier?" },
   { key: "pay", label: "Pay", heading: "Check the fare and book" },
 ];
 
@@ -521,10 +521,9 @@ const ParcelDeliveryPage = () => {
       .filter(Boolean)
       .join(", ");
 
-  // Matches the server's hard cap (Parcel.packageDetails.weight schema max /
-  // the `const maxWeightKg = 50` in calculateFare/createParcel) — weight is
-  // priced per kg now, not admin-capped, so there's no config value to fetch.
-  const [maxWeightKg] = useState(50);
+  // Admin-set cap from the booking config. 50 is only the pre-load fallback;
+  // the server enforces the real value on every quote and booking.
+  const [maxWeightKg, setMaxWeightKg] = useState(50);
   const [expressCharge, setExpressCharge] = useState(0);
   const [packageDescriptionPlaceholder, setPackageDescriptionPlaceholder] =
     useState("E.g. keys, critical document papers...");
@@ -866,12 +865,9 @@ const ParcelDeliveryPage = () => {
       // Courier companies are no longer set from the unfiltered booking
       // config — they're fetched zone-filtered against the pickup point
       // instead (see the getCouriersForLocation effect above).
-      // Weight is priced per kg now (ParcelConfig.weightCharge), not capped
-      // by admin — maxWeightKg was removed from the config, so this no
-      // longer comes back from the API. maxWeightKg state stays at its
-      // initial 50 (matching the server's hard schema cap).
+      if (Number(cfg.maxWeightKg) > 0) setMaxWeightKg(Number(cfg.maxWeightKg));
     } catch (error) {
-      console.error("Failed to load parcel booking config", error);
+      console.error("Failed to load courier booking config", error);
     }
   }, []);
 
@@ -1354,7 +1350,7 @@ const ParcelDeliveryPage = () => {
               amount: razorpay.amount,
               currency: razorpay.currency || "INR",
               name: appName,
-              description: `Parcel delivery · ₹${createdParcel.fare}`,
+              description: `Courier delivery · ₹${createdParcel.fare}`,
               prefill: {
                 name: pickupDetails.name || user?.name || "",
                 email: user?.email || "",
@@ -1379,7 +1375,7 @@ const ParcelDeliveryPage = () => {
           } catch (payError) {
             if (payError?.message === "Payment cancelled") {
               toast.info(
-                "Payment cancelled. You can retry from parcel history.",
+                "Payment cancelled. You can retry from courier history.",
               );
             } else {
               toast.error(
@@ -1456,7 +1452,7 @@ const ParcelDeliveryPage = () => {
             counter queue.
           </h1>
           <p className="text-[15px] text-slate-500 font-medium mt-3 max-w-md leading-relaxed">
-            A rider collects your parcel from your door and hands it to the
+            A rider collects your courier from your door and hands it to the
             courier company you choose. You fill this waybill once.
           </p>
         </div>
@@ -1769,7 +1765,7 @@ const ParcelDeliveryPage = () => {
                             filled={Boolean(selectedCourier)}
                             hint={
                               selectedCourier && !isOtherCourier
-                                ? "Our rider will drop your parcel here in person."
+                                ? "Our rider will drop your courier here in person."
                                 : courierLoading
                                   ? "Finding couriers that serve your area…"
                                   : "Whoever you normally post with."
@@ -2167,7 +2163,7 @@ const ParcelDeliveryPage = () => {
                                         if (weightUnit === "gm") {
                                           next = next
                                             .replace(/\D/g, "")
-                                            .slice(0, 4);
+                                            .slice(0, String(Math.round(maxWeightKg * 1000)).length);
                                         } else {
                                           next = next.replace(/[^\d.]/g, "");
                                           const parts = next.split(".");

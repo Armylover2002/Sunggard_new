@@ -253,7 +253,7 @@ const PorterWallet = () => {
       const res = await adminPorterApi.getWalletOverview();
       if (res.data.success) setOverview(res.data.result);
     } catch (error) {
-      console.error("Porter wallet overview error:", error);
+      console.error("Courier wallet overview error:", error);
       toast.error(error?.response?.data?.message || "Couldn't load wallet overview");
     } finally {
       setOverviewLoading(false);
@@ -270,7 +270,7 @@ const PorterWallet = () => {
       });
       if (res.data.success) setWithdrawals(res.data.result);
     } catch (error) {
-      console.error("Porter wallet withdrawals error:", error);
+      console.error("Courier wallet withdrawals error:", error);
       toast.error(error?.response?.data?.message || "Couldn't load withdrawal requests");
     } finally {
       setWithdrawalsLoading(false);
@@ -316,7 +316,7 @@ const PorterWallet = () => {
 
   const moneyStats = [
     {
-      label: "Porter Revenue",
+      label: "Courier Revenue",
       value: rupees(revenue.total),
       icon: TrendingUp,
       color: "text-orange-600",
@@ -329,7 +329,7 @@ const PorterWallet = () => {
       icon: Users,
       color: "text-orange-600",
       bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
-      note: `${riderEarning.riders || 0} riders earned from porter jobs`,
+      note: `${riderEarning.riders || 0} riders earned from courier jobs`,
     },
     {
       label: "Admin Earning",
@@ -337,7 +337,7 @@ const PorterWallet = () => {
       icon: Wallet,
       color: "text-orange-600",
       bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
-      note: `${adminEarning.marginPercent || 0}% margin on porter revenue`,
+      note: `${adminEarning.marginPercent || 0}% margin on courier revenue`,
     },
     {
       label: "Held Back",
@@ -356,7 +356,7 @@ const PorterWallet = () => {
       icon: Wallet,
       color: "text-slate-600",
       bg: "bg-slate-500/10 border border-slate-200 dark:border-slate-700",
-      note: "All services, not porter alone",
+      note: "All services, not courier alone",
     },
     {
       label: "Ready to Pay",
@@ -380,9 +380,9 @@ const PorterWallet = () => {
     <div className="space-y-6 pb-20">
       {/* Header */}
       <PageHeader
-        title="Porter Wallet"
-        description="What porter earned, what riders earned, what the platform keeps, and who still needs to be paid."
-        badge={<Badge variant="info">Porter Ops</Badge>}
+        title="Courier Wallet"
+        description="What courier earned, what riders earned, what the platform keeps, and who still needs to be paid."
+        badge={<Badge variant="info">Courier Ops</Badge>}
         actions={
           <button
             onClick={handleRefresh}
@@ -419,7 +419,7 @@ const PorterWallet = () => {
       <div>
         <div className="mb-3 flex items-center gap-2 px-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
           <Info className="h-3.5 w-3.5" />
-          Rider wallets pool porter and grocery earnings together — these three figures cover riders who do porter work, not porter money alone.
+          Rider wallets pool courier and grocery earnings together — these three figures cover riders who do courier work, not courier money alone.
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {walletStats.map((stat) => (
@@ -441,8 +441,8 @@ const PorterWallet = () => {
         <Card
           className="overflow-hidden lg:col-span-2"
           contentClassName="p-0"
-          title="Top Porter Riders"
-          subtitle="By lifetime porter earning"
+          title="Top Courier Riders"
+          subtitle="By lifetime courier earning"
         >
           <div className="max-h-[480px] overflow-y-auto">
             {overviewLoading ? (
@@ -450,7 +450,7 @@ const PorterWallet = () => {
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : riders.length === 0 ? (
-              <EmptyState icon={Users} title="No porter riders yet" />
+              <EmptyState icon={Users} title="No courier riders yet" />
             ) : (
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {riders.map((rider) => (

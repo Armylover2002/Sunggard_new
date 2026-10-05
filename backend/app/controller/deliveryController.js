@@ -66,7 +66,7 @@ function mapParcelForDeliveryHistory(parcel, deliveryBoyId, settings) {
           phone: parcel.pickupAddress?.phone || "",
         },
     seller: {
-      shopName: sellerDoc?.shopName || sellerDoc?.name || "Parcel hub",
+      shopName: sellerDoc?.shopName || sellerDoc?.name || "Courier hub",
       address: sellerDoc?.address || "",
     },
     pickupAddress: parcel.pickupAddress,
@@ -365,7 +365,7 @@ export const updateDeliveryLocation = async (req, res) => {
                 .lean();
 
             if (!parcel) {
-                return handleResponse(res, 404, "Parcel not found");
+                return handleResponse(res, 404, "Courier not found");
             }
 
             const assignedRiderId = parcel.deliveryPartnerId
@@ -375,7 +375,7 @@ export const updateDeliveryLocation = async (req, res) => {
                 return handleResponse(
                     res,
                     403,
-                    "Parcel is not assigned to this delivery partner"
+                    "Courier is not assigned to this delivery partner"
                 );
             }
 

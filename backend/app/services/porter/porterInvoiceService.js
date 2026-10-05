@@ -198,7 +198,7 @@ async function timelineFor(kind, bookingId) {
 function parcelInvoiceBody(booking) {
   return {
     invoiceNo: `PCL-${String(booking._id).slice(-6).toUpperCase()}`,
-    serviceName: "Outstation parcel",
+    serviceName: "Outstation courier",
     parties: {
       billedTo: {
         name: booking.customerId?.name || booking.pickupAddress?.name || "Customer",

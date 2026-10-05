@@ -130,10 +130,10 @@ export const adminUpdateGstSettings = async (req, res) => {
 
     if (outstation) {
       const config = await ParcelConfig.getOrCreate();
-      const patch = validateGstPatch(outstation, "Outstation parcel");
+      const patch = validateGstPatch(outstation, "Outstation courier");
       const merged = { ...normalizeGstConfig(config.gst), ...patch };
       if (merged.enabled && !(merged.percent > 0)) {
-        return handleResponse(res, 400, "Outstation parcel: set a GST rate above zero before enabling it");
+        return handleResponse(res, 400, "Outstation courier: set a GST rate above zero before enabling it");
       }
       config.gst = merged;
       await config.save();

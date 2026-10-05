@@ -18,8 +18,8 @@ export async function openParcelRazorpayCheckout({
   orderId,
   amount,
   currency = "INR",
-  name = "Parcel Delivery",
-  description = "Parcel delivery payment",
+  name = "Courier Delivery",
+  description = "Courier delivery payment",
   prefill = {},
 }) {
   return openRazorpayCheckout({

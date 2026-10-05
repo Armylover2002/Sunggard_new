@@ -123,8 +123,8 @@ const Header = () => {
 
                     {/* Desktop Navigation */}
                     <nav className="hidden md:flex items-center gap-6">
-                        <Link to="/parcel" className="text-sm font-semibold transition-colors hover:text-[var(--primary)] text-slate-700">Book Parcel</Link>
-                        <Link to="/profile/parcel-history" className="text-sm font-semibold transition-colors hover:text-[var(--primary)] text-slate-700">Parcel History</Link>
+                        <Link to="/parcel" className="text-sm font-semibold transition-colors hover:text-[var(--primary)] text-slate-700">Book Courier</Link>
+                        <Link to="/profile/parcel-history" className="text-sm font-semibold transition-colors hover:text-[var(--primary)] text-slate-700">Courier History</Link>
                         {/* QUICK COMMERCE DISABLED
                         <Link to="/" className="text-sm font-medium transition-colors hover:text-[var(--primary)]">Home</Link>
                         <Link to="/categories" className="text-sm font-medium transition-colors hover:text-[var(--primary)]">Categories</Link>

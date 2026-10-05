@@ -21,7 +21,7 @@ function getRazorpayClient() {
 export function fareToPaise(fare) {
   const rupees = Number(fare);
   if (!Number.isFinite(rupees) || rupees <= 0) {
-    const err = new Error("Invalid parcel fare for payment");
+    const err = new Error("Invalid courier fare for payment");
     err.statusCode = 400;
     throw err;
   }

@@ -253,7 +253,7 @@ const AdminAuth = () => {
                                             Sign in
                                         </h1>
                                         <p className="mt-1 text-[13px] leading-snug text-slate-500">
-                                            This desk manages parcels, partners and payouts.
+                                            This desk manages couriers, partners and payouts.
                                         </p>
                                     </motion.div>
 

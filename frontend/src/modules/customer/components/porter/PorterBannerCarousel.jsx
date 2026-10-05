@@ -120,7 +120,7 @@ export const PorterBannerCarousel = ({ service = "all", className = "" }) => {
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src =
-                  "https://placehold.co/824x380/1e293b/ffffff?text=Porter+Special+Offer";
+                  "https://placehold.co/824x380/1e293b/ffffff?text=Courier+Special+Offer";
               }}
             />
 

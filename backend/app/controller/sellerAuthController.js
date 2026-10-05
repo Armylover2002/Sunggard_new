@@ -29,7 +29,7 @@ const resolveSellerServiceFlags = (body) => {
     const isParcelService = hasParcel ? parseBool(body.isParcelService) : true;
 
     if (!isParcelService) {
-        return { error: "Parcel delivery service is required." };
+        return { error: "Courier delivery service is required." };
     }
 
     return { isParcelService: true };

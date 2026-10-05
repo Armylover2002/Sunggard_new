@@ -452,7 +452,7 @@ const CustomerAuth = () => {
                                         <span className="font-semibold text-slate-900">
                                             +91 {formatPhone(phone)}
                                         </span>
-                                        . Open one and you can send your first parcel in a
+                                        . Open one and you can send your first courier in a
                                         minute.
                                     </>
                                 ) : (

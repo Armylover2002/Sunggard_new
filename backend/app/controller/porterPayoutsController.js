@@ -63,7 +63,7 @@ export const adminGetPorterRiderPayouts = async (req, res) => {
       count: row.count,
     }));
 
-    return handleResponse(res, 200, "Porter rider payouts", {
+    return handleResponse(res, 200, "Courier rider payouts", {
       summary: {
         totalPaid: round2(modules.reduce((sum, m) => sum + m.amount, 0)),
         entries: total,
@@ -225,7 +225,7 @@ export const adminGetPorterWalletOverview = async (req, res) => {
     const pendingWithdrawalTotal = round2(riderRows.reduce((sum, r) => sum + r.pendingWithdrawal, 0));
     const paidOutTotal = round2(riderAgg.reduce((sum, r) => sum + (r.withdrawnSettled || 0), 0));
 
-    return handleResponse(res, 200, "Porter wallet overview", {
+    return handleResponse(res, 200, "Courier wallet overview", {
       revenue: {
         total: revenue,
         pickup: round2(pickupRevenue[0]?.amount || 0),
@@ -243,7 +243,7 @@ export const adminGetPorterWalletOverview = async (req, res) => {
         totalBalance: walletBalanceTotal,
         pendingWithdrawals: pendingWithdrawalTotal,
         paidOut: paidOutTotal,
-        scopeNote: "Wallet balance and withdrawals pool every job a rider has done, not porter jobs alone.",
+        scopeNote: "Wallet balance and withdrawals pool every job a rider has done, not courier jobs alone.",
       },
       riders: riderRows.slice(0, 100),
       syncedAt: new Date(),
@@ -268,7 +268,7 @@ export const adminGetPorterWalletWithdrawals = async (req, res) => {
 
     const riderIds = await getPorterRiderIds();
     if (!riderIds.length) {
-      return handleResponse(res, 200, "Porter rider withdrawals", {
+      return handleResponse(res, 200, "Courier rider withdrawals", {
         items: [],
         page,
         limit,
@@ -299,7 +299,7 @@ export const adminGetPorterWalletWithdrawals = async (req, res) => {
       Transaction.countDocuments(match),
     ]);
 
-    return handleResponse(res, 200, "Porter rider withdrawals", {
+    return handleResponse(res, 200, "Courier rider withdrawals", {
       items: rows.map((row) => ({
         id: String(row._id),
         rider: row.user?.name || "Rider",

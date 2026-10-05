@@ -145,7 +145,7 @@ export async function resetBookingsAndFreeRiders(options = {}) {
     const issues = [];
     if (!r.isOnline) issues.push("Rider is OFFLINE (needs isOnline: true)");
     if (!r.isVerified) issues.push("Rider is UNVERIFIED (needs isVerified: true)");
-    if (!r.isParcelService) issues.push("Parcel service disabled (needs isParcelService: true)");
+    if (!r.isParcelService) issues.push("Courier service disabled (needs isParcelService: true)");
     if (r.isBusy) issues.push("Rider is marked BUSY");
     if (!hasValidLocation) issues.push("Location coordinates are [0, 0] or unset");
 

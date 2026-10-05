@@ -88,7 +88,7 @@ const PorterTickets = () => {
                     setTickets(res.data.result?.items || []);
                 }
             } catch (error) {
-                console.error("Porter tickets error:", error);
+                console.error("Courier tickets error:", error);
                 toast.error(
                     error?.response?.data?.message || "Couldn't load tickets",
                 );
@@ -153,7 +153,7 @@ const PorterTickets = () => {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="Porter Support"
+                title="Courier Support"
                 description="Complaints raised by customers and delivery partners land here."
                 icon={LifeBuoy}
                 actions={

@@ -50,7 +50,7 @@ import logger from "../logger.js";
 const BOOKINGS = {
   [PORTER_BOOKING_KIND.PARCEL]: {
     model: Parcel,
-    label: "Outstation parcel",
+    label: "Outstation courier",
     reference: (doc) => `PCL-${String(doc._id).slice(-6).toUpperCase()}`,
   },
 };
@@ -58,7 +58,7 @@ const BOOKINGS = {
 function bookingAccessor(kind) {
   const entry = BOOKINGS[kind];
   if (!entry) {
-    const err = new Error(`Unknown porter booking kind: ${kind}`);
+    const err = new Error(`Unknown courier booking kind: ${kind}`);
     err.statusCode = 400;
     throw err;
   }

@@ -237,6 +237,7 @@ const AdminParcelDashboard = () => {
   const [pricing, setPricing] = useState({
     fixedDeliveryCharge: 0,
     weightCharge: 0,
+    maxWeightKg: 50,
     deliveryRadiusKm: 5,
     riderPerKmRate: 0,
     packageCategories: [],
@@ -334,6 +335,7 @@ const AdminParcelDashboard = () => {
       setPricing({
         fixedDeliveryCharge: cfg.fixedDeliveryCharge ?? 0,
         weightCharge: cfg.weightCharge ?? 0,
+        maxWeightKg: cfg.maxWeightKg ?? 50,
         deliveryRadiusKm: cfg.deliveryRadiusKm ?? 5,
         riderPerKmRate: cfg.riderPerKmRate ?? 0,
         packageCategories: Array.isArray(cfg.packageCategories)
@@ -420,7 +422,7 @@ const AdminParcelDashboard = () => {
   useEffect(() => {
     const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_ADMIN);
     const unsubscribe = onParcelNew(getToken, (newParcel) => {
-      console.log("[AdminParcelDashboard] Real-time new parcel:", newParcel);
+      console.log("[AdminParcelDashboard] Real-time new courier:", newParcel);
 
       // Update parcels state: prepend newParcel if not already present
       setParcels((prev) => {
@@ -434,7 +436,7 @@ const AdminParcelDashboard = () => {
         totalDeliveries: (prev.totalDeliveries || 0) + 1,
       }));
 
-      toast.info(`New parcel request #${String(newParcel._id).slice(-6)}`);
+      toast.info(`New courier request #${String(newParcel._id).slice(-6)}`);
       setSelectedParcel(newParcel);
 
       // Immediately fetch fully populated data in background
@@ -456,7 +458,7 @@ const AdminParcelDashboard = () => {
         setSelectedParcel(res.data.result);
       }
     } catch (error) {
-      console.error("Failed to refresh parcel detail:", error);
+      console.error("Failed to refresh courier detail:", error);
     } finally {
       setSelectedParcelLoading(false);
     }
@@ -534,6 +536,7 @@ const AdminParcelDashboard = () => {
       const payload = {
         fixedDeliveryCharge: Number(pricing.fixedDeliveryCharge) || 0,
         weightCharge: Number(pricing.weightCharge) || 0,
+        maxWeightKg: Number(pricing.maxWeightKg),
         deliveryRadiusKm: Number(pricing.deliveryRadiusKm) || 5,
         riderPerKmRate: Number(pricing.riderPerKmRate) || 0,
         packageCategories: pricing.packageCategories,
@@ -545,13 +548,14 @@ const AdminParcelDashboard = () => {
           ...prev,
           fixedDeliveryCharge: cfg.fixedDeliveryCharge ?? prev.fixedDeliveryCharge,
           weightCharge: cfg.weightCharge ?? prev.weightCharge,
+          maxWeightKg: cfg.maxWeightKg ?? prev.maxWeightKg,
           deliveryRadiusKm: cfg.deliveryRadiusKm ?? prev.deliveryRadiusKm,
           riderPerKmRate: cfg.riderPerKmRate ?? prev.riderPerKmRate,
           packageCategories: Array.isArray(cfg.packageCategories)
             ? cfg.packageCategories
             : prev.packageCategories,
         }));
-        toast.success("Parcel settings saved");
+        toast.success("Courier settings saved");
       } else {
         toast.error(res.data?.message || "Failed to update settings");
       }
@@ -867,8 +871,8 @@ const AdminParcelDashboard = () => {
         <PageHeader
           className="p-0"
           icon={Truck}
-          title="Parcel Delivery Panel"
-          description="Manage parcel delivery bookings, configure global rates, assign riders, and monitor operations."
+          title="Courier Delivery Panel"
+          description="Manage courier delivery bookings, configure global rates, assign riders, and monitor operations."
         />
 
         {/* Tab Controls */}
@@ -876,7 +880,7 @@ const AdminParcelDashboard = () => {
           {[
             { id: "all", label: "All Bookings", icon: ClipboardList },
             { id: "active", label: "Active Deliveries", icon: Activity },
-            { id: "pricing", label: "Parcel Settings", icon: Settings },
+            { id: "pricing", label: "Courier Settings", icon: Settings },
             { id: "couriers", label: "Couriers", icon: Building2 },
             { id: "cityRates", label: "City Rates", icon: Route },
             { id: "reviews", label: "Reviews", icon: Star },
@@ -919,7 +923,7 @@ const AdminParcelDashboard = () => {
 
               {parcels.length === 0 ? (
                 <div className="p-12 text-center text-slate-400">
-                  No parcel bookings registered in the system yet.
+                  No courier bookings registered in the system yet.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -1044,7 +1048,7 @@ const AdminParcelDashboard = () => {
                               parcel.status !== "CANCELLED" &&
                               parcel.status !== "DELIVERED" && (
                                 <div className="text-[11px] text-amber-700 font-bold mt-1">
-                                  Auto broadcasting to nearby parcel riders
+                                  Auto broadcasting to nearby courier riders
                                 </div>
                               )
                             )}
@@ -1081,7 +1085,7 @@ const AdminParcelDashboard = () => {
 
                 {getActiveParcels().length === 0 ? (
                   <div className="p-12 text-center text-slate-400">
-                    No active parcel deliveries currently.
+                    No active courier deliveries currently.
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100">
@@ -1148,7 +1152,7 @@ const AdminParcelDashboard = () => {
                   {riders.map((rider) => {
                     const statusConfig = !rider.isParcelService
                       ? {
-                          text: "No Parcel Service",
+                          text: "No Courier Service",
                           style: "bg-red-50 text-red-700",
                         }
                       : !rider.isOnline
@@ -1257,6 +1261,30 @@ const AdminParcelDashboard = () => {
                         weight charge.
                       </p>
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">
+                        Max Weight (kg)
+                      </label>
+                      <input
+                        type="number"
+                        min="0.1"
+                        max="1000"
+                        step="0.1"
+                        required
+                        value={pricing.maxWeightKg}
+                        onChange={(e) =>
+                          setPricing((p) => ({
+                            ...p,
+                            maxWeightKg: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-primary"
+                      />
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Heaviest package a customer can book. Weights
+                        above this are rejected on the booking form.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -1267,7 +1295,7 @@ const AdminParcelDashboard = () => {
                       Partner Search Radius
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">
-                      Decide how far nearby parcel riders are notified when a
+                      Decide how far nearby courier riders are notified when a
                       booking starts.
                     </p>
                   </div>
@@ -1493,7 +1521,7 @@ const AdminParcelDashboard = () => {
                   disabled={pricingSaving}
                   className="w-full bg-[color:var(--primary)] hover:opacity-90 disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all">
                   <Save size={16} />
-                  {pricingSaving ? "Saving..." : "Save parcel settings"}
+                  {pricingSaving ? "Saving..." : "Save courier settings"}
                 </button>
               </form>
             </div>
@@ -1512,7 +1540,7 @@ const AdminParcelDashboard = () => {
                       Add Courier Company
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">
-                      Riders drop parcels with this courier after pickup. No
+                      Riders drop couriers with this courier after pickup. No
                       office address needed — just name, contact and the zones
                       it serves.
                     </p>
@@ -2001,10 +2029,10 @@ const AdminParcelDashboard = () => {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-black text-slate-800">
-                    Parcel Reviews
+                    Courier Reviews
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Ratings submitted after completed parcel deliveries
+                    Ratings submitted after completed courier deliveries
                   </p>
                 </div>
                 <button
@@ -2021,7 +2049,7 @@ const AdminParcelDashboard = () => {
                 </div>
               ) : parcelReviews.length === 0 ? (
                 <div className="bg-white rounded-3xl border border-slate-100 p-10 text-center text-sm text-slate-400">
-                  No parcel reviews yet.
+                  No courier reviews yet.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -2070,7 +2098,7 @@ const AdminParcelDashboard = () => {
                             ? new Date(review.createdAt).toLocaleString("en-IN")
                             : ""}
                           {review.parcelId?._id
-                            ? ` · Parcel #${String(review.parcelId._id).slice(-6)}`
+                            ? ` · Courier #${String(review.parcelId._id).slice(-6)}`
                             : ""}
                         </p>
                       </div>
@@ -2170,7 +2198,7 @@ const AdminParcelDashboard = () => {
                   Financial Insights
                 </h3>
                 <p className="text-xs text-slate-400 font-medium">
-                  Summary calculations based on all completed parcel deliveries.
+                  Summary calculations based on all completed courier deliveries.
                 </p>
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100 text-xs">
                   <div className="bg-slate-50 p-4 rounded-2xl">
@@ -2258,7 +2286,7 @@ const AdminParcelDashboard = () => {
               <div>
                 <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
                   <Package className="text-primary" size={20} />
-                  Parcel Request Details
+                  Courier Request Details
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
                   Full logs, addresses, OTP validation, and uploaded proofs for

@@ -79,7 +79,7 @@ const ParcelHome = () => {
       {/* ---- in-transit count ---- */}
       <Card className="mt-4 p-5">
         <div className="flex items-start justify-between">
-          <Label>Parcels In Transit</Label>
+          <Label>Couriers In Transit</Label>
           <Shield className="h-4 w-4 text-sg-ink-3" />
         </div>
         <Data className="mt-1 block text-[38px] font-bold leading-none text-sg-ink">

@@ -116,9 +116,9 @@ const PorterDashboard = () => {
                 const res = await adminPorterApi.getPorterDashboard({ days });
                 if (res.data.success) setData(res.data.result);
             } catch (error) {
-                console.error("Porter dashboard error:", error);
+                console.error("Courier dashboard error:", error);
                 toast.error(
-                    error?.response?.data?.message || "Failed to load porter data",
+                    error?.response?.data?.message || "Failed to load courier data",
                 );
             } finally {
                 setLoading(false);
@@ -137,7 +137,7 @@ const PorterDashboard = () => {
             <div className="flex h-[70vh] flex-col items-center justify-center gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
                 <p className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                    Loading porter desk…
+                    Loading courier desk…
                 </p>
             </div>
         );
@@ -169,14 +169,14 @@ const PorterDashboard = () => {
 
     const kpis = [
         {
-            label: "Total Parcels",
+            label: "Total Couriers",
             value: Number(overview.totalParcels || 0).toLocaleString("en-IN"),
             icon: Package,
             tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
             note: `${overview.activeParcels || 0} still in flight`,
         },
         {
-            label: "Today's Parcels",
+            label: "Today's Couriers",
             value: Number(overview.todayParcels || 0).toLocaleString("en-IN"),
             icon: CalendarCheck,
             tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
@@ -222,7 +222,7 @@ const PorterDashboard = () => {
             value: rupees(overview.riderPayout),
             icon: CircleDollarSign,
             tint: "bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-200 dark:border-fuchsia-900",
-            note: "Paid out to porters",
+            note: "Paid out to couriers",
         },
     ];
 
@@ -236,13 +236,13 @@ const PorterDashboard = () => {
                     <div className="space-y-2.5">
                         <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-bold backdrop-blur-md">
                             <Boxes className="h-4 w-4 text-primary" />
-                            <span>Porter Desk</span>
+                            <span>Courier Desk</span>
                         </div>
                         <h1 className="text-2xl font-black tracking-tight text-white md:text-4xl">
-                            Parcel operations
+                            Courier operations
                         </h1>
                         <p className="max-w-xl text-sm text-slate-300 md:text-base">
-                            Outstation parcel bookings for the last {days} days.
+                            Outstation courier bookings for the last {days} days.
                         </p>
                     </div>
 
@@ -361,7 +361,7 @@ const PorterDashboard = () => {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
                 {[
                     {
-                        label: "Total Porters",
+                        label: "Total Couriers",
                         value: Number(overview.fleet?.total || 0).toLocaleString("en-IN"),
                         icon: Users,
                         tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
@@ -374,7 +374,7 @@ const PorterDashboard = () => {
                         tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
                         note: overview.fleet?.total
                             ? `${Math.round(((overview.fleet?.verified || 0) / overview.fleet.total) * 100)}% of fleet KYC-verified`
-                            : "No porters yet",
+                            : "No couriers yet",
                     },
                     {
                         label: "Customer Rating",
@@ -417,7 +417,7 @@ const PorterDashboard = () => {
                             Bookings & revenue
                         </h3>
                         <p className="mt-1 text-xs text-slate-500 md:text-sm">
-                            Daily parcel volume
+                            Daily courier volume
                         </p>
                     </div>
 
@@ -627,7 +627,7 @@ const PorterDashboard = () => {
                         <MapPin className="h-5 w-5 text-primary" />
                         Top Areas by Bookings
                     </h3>
-                    <p className="mt-1 text-xs text-slate-500 md:text-sm">Zones ranked by parcels in this window</p>
+                    <p className="mt-1 text-xs text-slate-500 md:text-sm">Zones ranked by couriers in this window</p>
 
                     <div className="mt-5 space-y-4">
                         {topAreas.length === 0 ? (
@@ -672,7 +672,7 @@ const PorterDashboard = () => {
                     <div>
                         <h3 className="flex items-center gap-2.5 text-lg font-extrabold text-slate-900 dark:text-white">
                             <Package className="h-5 w-5 text-primary" />
-                            Latest parcels
+                            Latest couriers
                         </h3>
                         <p className="mt-1 text-xs text-slate-500 md:text-sm">
                             Newest bookings
@@ -701,7 +701,7 @@ const PorterDashboard = () => {
                                     <td colSpan={5}>
                                         <EmptyState
                                             icon={Package}
-                                            title="No parcels booked in this window"
+                                            title="No couriers booked in this window"
                                             description="Try a wider date range or check back later."
                                         />
                                     </td>

@@ -31,7 +31,7 @@ const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
 const formatServiceTypes = (rider) => {
     const services = [];
-    if (rider.isParcelService) services.push("Parcel");
+    if (rider.isParcelService) services.push("Courier");
     // CAR WASH DISABLED
     // if (rider.isCarWashService) services.push("Car Wash");
     return services.length ? services.join(" · ") : "Not specified";
@@ -419,7 +419,7 @@ return (
                                                     )}
                                                     */}
                                                     {rider.isParcelService && (
-                                                        <Badge variant="primary" className="text-[8px] font-black uppercase px-1.5 py-0.5">Parcel</Badge>
+                                                        <Badge variant="primary" className="text-[8px] font-black uppercase px-1.5 py-0.5">Courier</Badge>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-1">
@@ -550,7 +550,7 @@ return (
                                     <p className="text-xs font-bold text-slate-700">{viewingRider.serviceLabel}</p>
                                     <div className="flex flex-wrap gap-1.5 mt-2">
                                         {viewingRider.isParcelService && (
-                                            <Badge variant="primary" className="text-[9px] font-black uppercase">Parcel Delivery</Badge>
+                                            <Badge variant="primary" className="text-[9px] font-black uppercase">Courier Delivery</Badge>
                                         )}
                                         {/* CAR WASH DISABLED
                                         {viewingRider.isCarWashService && (

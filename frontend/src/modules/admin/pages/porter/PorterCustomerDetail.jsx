@@ -120,7 +120,7 @@ const PorterCustomerDetail = () => {
           onClick={() => navigate("/admin/porter/customers")}
           className="text-sm font-semibold text-primary hover:underline"
         >
-          Back to Porter Customers
+          Back to Courier Customers
         </button>
       </div>
     );
@@ -179,7 +179,7 @@ const PorterCustomerDetail = () => {
       {/* Stats + Revenue */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="overflow-hidden rounded-xl border-none bg-[color:var(--primary)] p-6 text-white shadow-lg lg:col-span-1">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-white/60">Lifetime Spend on Porter</p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-white/60">Lifetime Spend on Courier</p>
           <h2 className="mt-1 text-3xl font-black">{formatMoney(customer.totalSpent)}</h2>
           <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-white/80">
             <Package className="h-4 w-4" />
@@ -212,8 +212,8 @@ const PorterCustomerDetail = () => {
         <Card
           className="overflow-hidden lg:col-span-2"
           contentClassName="p-0"
-          title="Recent Porter Bookings"
-          subtitle="Pickup and city-parcel bookings, most recent first"
+          title="Recent Courier Bookings"
+          subtitle="Pickup and city-courier bookings, most recent first"
         >
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -229,7 +229,7 @@ const PorterCustomerDetail = () => {
                 {(customer.recentBookings || []).length === 0 ? (
                   <tr>
                     <td colSpan={4} className="p-0">
-                      <EmptyState title="No bookings yet" description="This customer hasn't placed a Porter booking yet." />
+                      <EmptyState title="No bookings yet" description="This customer hasn't placed a Courier booking yet." />
                     </td>
                   </tr>
                 ) : (
@@ -251,7 +251,7 @@ const PorterCustomerDetail = () => {
                           </div>
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                              {b.source === "city" ? "City Parcel" : "Pickup Parcel"}
+                              {b.source === "city" ? "City Courier" : "Pickup Courier"}
                               {b.referenceId ? ` · ${b.referenceId}` : ""}
                             </p>
                             <p className="max-w-[220px] truncate text-[11px] text-slate-400">
@@ -306,7 +306,7 @@ const PorterCustomerDetail = () => {
           <Card className="border-none bg-[color:var(--primary)] text-white" title={<span className="text-white/70">Account Control</span>}>
             <p className="text-xs text-white/60">
               {customer.isActive
-                ? "This customer can currently log in and book Porter deliveries."
+                ? "This customer can currently log in and book Courier deliveries."
                 : "This customer is deactivated: they cannot log in or place new bookings."}
             </p>
             <button
@@ -332,8 +332,8 @@ const PorterCustomerDetail = () => {
         title={customer.isActive ? "Deactivate customer?" : "Activate customer?"}
         message={
           customer.isActive
-            ? `${customer.name} will not be able to log in or place new Porter bookings until reactivated.`
-            : `${customer.name} will be able to log in and book Porter deliveries again.`
+            ? `${customer.name} will not be able to log in or place new Courier bookings until reactivated.`
+            : `${customer.name} will be able to log in and book Courier deliveries again.`
         }
         confirmLabel={updatingStatus ? "Updating..." : customer.isActive ? "Deactivate" : "Activate"}
         cancelLabel="Cancel"

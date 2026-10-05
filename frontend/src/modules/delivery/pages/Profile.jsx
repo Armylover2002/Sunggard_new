@@ -148,7 +148,7 @@ const Profile = () => {
     },
     {
       icon: Banknote,
-      label: "Parcel Cash Deposit",
+      label: "Courier Cash Deposit",
       sub: "Hand back COD cash you collected",
       color: "text-amber-600 bg-amber-50",
       path: "/delivery/porter-cash",

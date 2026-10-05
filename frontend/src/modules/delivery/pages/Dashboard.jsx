@@ -125,7 +125,7 @@ const Dashboard = () => {
       await refreshUser(); // Refresh global auth state
       setIsOnline(newStatus);
       if (newStatus) {
-        toast.success("You are now ONLINE. Finding parcel jobs...");
+        toast.success("You are now ONLINE. Finding courier jobs...");
       } else {
         toast.info("You are now OFFLINE. No new jobs.");
       }
@@ -281,11 +281,11 @@ const Dashboard = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-wider text-brand-600">
-                  Active Parcel Task
+                  Active Courier Task
                 </p>
                 <div className="flex items-center gap-2 mb-0.5">
                   <p className="text-[10px] font-black uppercase tracking-wider text-brand-600">
-                    Active Parcel Task
+                    Active Courier Task
                   </p>
                   {assignedParcel.courierCompanyId?.name ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
@@ -298,7 +298,7 @@ const Dashboard = () => {
                   )}
                 </div>
                 <p className="text-sm font-bold text-slate-900">
-                  Continue parcel workflow
+                  Continue courier workflow
                 </p>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Status: {assignedParcel.status}
@@ -424,7 +424,7 @@ const Dashboard = () => {
               </div>
               <h3 className="ds-h3 mb-2">You are Offline</h3>
               <p className="text-sm text-gray-500 max-w-[250px] mx-auto">
-                Go online to start receiving parcel jobs and earning money.
+                Go online to start receiving courier jobs and earning money.
               </p>
             </motion.div>
           ) : !assignedParcel ? (
@@ -444,10 +444,10 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <h3 className="ds-h3 mb-2 text-gray-800">
-                  Searching for Parcel Jobs...
+                  Searching for Courier Jobs...
                 </h3>
                 <p className="text-sm text-gray-500 max-w-[220px] mx-auto mb-6">
-                  We're looking for parcel jobs in your area. Stay online!
+                  We're looking for courier jobs in your area. Stay online!
                 </p>
               </div>
             </motion.div>

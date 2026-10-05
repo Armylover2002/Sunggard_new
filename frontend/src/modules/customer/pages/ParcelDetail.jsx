@@ -390,7 +390,7 @@ const ParcelDetail = () => {
             </div>
             <Data className="text-[24px] tracking-[0.3em] text-sg-ink">{parcel.otp}</Data>
             <p className="mt-1 text-[12px] text-sg-ink-3">
-              Share this with the rider only when they collect the parcel.
+              Share this with the rider only when they collect the courier.
             </p>
           </Card>
         )}

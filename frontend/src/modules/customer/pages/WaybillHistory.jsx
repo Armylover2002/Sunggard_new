@@ -236,13 +236,13 @@ const WaybillHistory = () => {
             }
             body={
               tab === "active"
-                ? "Book a parcel and it will show up here."
+                ? "Book a courier and it will show up here."
                 : "Completed waybills collect here."
             }
             action={
               tab === "active" ? (
                 <PrimaryButton onClick={() => navigate("/parcel/outstation")}>
-                  Book a parcel
+                  Book a courier
                 </PrimaryButton>
               ) : null
             }

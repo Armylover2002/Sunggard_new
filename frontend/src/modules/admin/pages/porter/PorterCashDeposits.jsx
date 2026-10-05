@@ -173,7 +173,7 @@ const PorterCashDeposits = () => {
       <PageHeader
         title="Rider Cash Deposits"
         description="COD cash riders collected at pickup. Online deposits clear automatically the moment payment is verified."
-        badge={<Badge variant="info">Porter Ops</Badge>}
+        badge={<Badge variant="info">Courier Ops</Badge>}
         actions={
           <button
             onClick={handleRefresh}

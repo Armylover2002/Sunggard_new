@@ -243,7 +243,7 @@ const DeliveryZones = () => {
         <div className="space-y-6">
             <PageHeader
                 title="Delivery Zones"
-                description="Draw the areas the porter fleet serves."
+                description="Draw the areas the courier fleet serves."
                 icon={Layers}
                 actions={
                     <Button onClick={openCreate} className="gap-2">
@@ -300,7 +300,7 @@ const DeliveryZones = () => {
                     <EmptyState
                         icon={MapIcon}
                         title="No zones yet"
-                        description="Draw your first serviceable area on the map to start routing porter parcels by zone."
+                        description="Draw your first serviceable area on the map to start routing courier couriers by zone."
                         action={
                             <Button onClick={openCreate} className="gap-2">
                                 <Plus className="h-4 w-4" /> Create a zone
@@ -464,7 +464,7 @@ const DeliveryZones = () => {
                             className="h-4 w-4 accent-primary"
                         />
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                            Zone is active and accepting parcels
+                            Zone is active and accepting couriers
                         </span>
                     </label>
                 </div>
@@ -516,7 +516,7 @@ const DeliveryZones = () => {
             <ConfirmDialog
                 isOpen={Boolean(deleteTarget)}
                 title="Delete this zone?"
-                message={`"${deleteTarget?.name}" will be removed permanently. Parcels already booked are not affected.`}
+                message={`"${deleteTarget?.name}" will be removed permanently. Couriers already booked are not affected.`}
                 confirmLabel="Delete zone"
                 variant="danger"
                 loading={deleting}

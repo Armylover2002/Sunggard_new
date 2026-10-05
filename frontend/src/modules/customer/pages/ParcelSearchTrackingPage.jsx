@@ -72,23 +72,23 @@ function getStatusUi(status) {
       };
     case "PICKED_UP":
       return {
-        title: "Parcel collected",
-        subtitle: "Captain collected your parcel. Live tracking has ended.",
+        title: "Courier collected",
+        subtitle: "Captain collected your courier. Live tracking has ended.",
       };
     case "OUT_FOR_DELIVERY":
       return {
-        title: "Parcel collected",
-        subtitle: "Your parcel is with the captain. Live tracking has ended.",
+        title: "Courier collected",
+        subtitle: "Your courier is with the captain. Live tracking has ended.",
       };
     case "DELIVERED":
       return {
         title: "Completed",
-        subtitle: "Your parcel request is complete.",
+        subtitle: "Your courier request is complete.",
       };
     case "CANCELLED":
       return {
         title: "Cancelled",
-        subtitle: "This parcel request was cancelled.",
+        subtitle: "This courier request was cancelled.",
       };
     default:
       return {
@@ -182,10 +182,10 @@ const ParcelSearchTrackingPage = () => {
       if (response.data?.success) {
         setParcel(response.data.result);
       } else if (!silent) {
-        toast.error("Could not load parcel details");
+        toast.error("Could not load courier details");
       }
     } catch {
-      if (!silent) toast.error("Failed to load parcel");
+      if (!silent) toast.error("Failed to load courier");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -498,13 +498,13 @@ const ParcelSearchTrackingPage = () => {
               ? "Live tracking"
               : POST_PICKUP_STATUSES.has(parcel.status)
                 ? "Tracking ended"
-                : "Parcel pickup"}
+                : "Courier pickup"}
           </p>
           <p className="text-sm font-bold text-slate-800 truncate max-w-[200px]">
             {trackingActive && captainAwayText && riderPoint
               ? `Captain is ${captainAwayText}`
               : POST_PICKUP_STATUSES.has(parcel.status)
-                ? "Parcel handed to captain"
+                ? "Courier handed to captain"
                 : parcel.pickupAddress?.fullAddress}
           </p>
         </div>
@@ -592,7 +592,7 @@ const ParcelSearchTrackingPage = () => {
 
               <div className="mt-3.5 rounded-2xl bg-slate-100 p-3 flex items-center justify-between text-xs font-black text-slate-700 uppercase tracking-wider">
                 <div className="flex items-center gap-2"><Zap size={14} className="text-emerald-500" /> Fast Dispatch</div>
-                <div className="flex items-center gap-2"><ShieldCheck size={14} className="text-blue-600" /> Parcel Safety</div>
+                <div className="flex items-center gap-2"><ShieldCheck size={14} className="text-blue-600" /> Courier Safety</div>
               </div>
             </>
           ) : (
@@ -636,7 +636,7 @@ const ParcelSearchTrackingPage = () => {
                     )}
                     {POST_PICKUP_STATUSES.has(parcel.status) && (
                       <p className="text-xs text-emerald-600 font-bold mt-1">
-                        Parcel collected · live tracking ended
+                        Courier collected · live tracking ended
                       </p>
                     )}
                   </div>
@@ -656,7 +656,7 @@ const ParcelSearchTrackingPage = () => {
                     {parcel.otp}
                   </p>
                   <p className="text-[11px] text-emerald-700 font-semibold mt-1">
-                    Share this OTP only with your delivery captain when they collect the parcel.
+                    Share this OTP only with your delivery captain when they collect the courier.
                   </p>
                 </div>
               )}
@@ -736,7 +736,7 @@ const ParcelSearchTrackingPage = () => {
               }
               className="w-full mt-4 py-3 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-wider"
             >
-              {TERMINAL_STATUSES.has(parcel.status) ? "Back to Parcel" : "Open Parcel History"}
+              {TERMINAL_STATUSES.has(parcel.status) ? "Back to Courier" : "Open Courier History"}
             </button>
           )}
           </div>

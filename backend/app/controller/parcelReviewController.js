@@ -29,7 +29,7 @@ export const submitParcelReview = async (req, res) => {
     const { parcelId, rating, comment = "" } = req.body || {};
 
     if (!parcelId) {
-      return handleResponse(res, 400, "Parcel ID is required");
+      return handleResponse(res, 400, "Courier ID is required");
     }
 
     const ratingNum = Number(rating);
@@ -39,18 +39,18 @@ export const submitParcelReview = async (req, res) => {
 
     const parcel = await Parcel.findById(parcelId).select("customerId status");
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
     if (String(parcel.customerId) !== String(customerId)) {
-      return handleResponse(res, 403, "You can only review your own parcels");
+      return handleResponse(res, 403, "You can only review your own couriers");
     }
     if (parcel.status !== "DELIVERED") {
-      return handleResponse(res, 409, "You can rate only after the parcel is completed");
+      return handleResponse(res, 409, "You can rate only after the courier is completed");
     }
 
     const existing = await ParcelReview.findOne({ parcelId });
     if (existing) {
-      return handleResponse(res, 400, "You have already reviewed this parcel", existing);
+      return handleResponse(res, 400, "You have already reviewed this courier", existing);
     }
 
     const review = await ParcelReview.create({
@@ -73,7 +73,7 @@ export const submitParcelReview = async (req, res) => {
     );
   } catch (error) {
     if (error?.code === 11000) {
-      return handleResponse(res, 400, "You have already reviewed this parcel");
+      return handleResponse(res, 400, "You have already reviewed this courier");
     }
     return handleResponse(res, 500, error.message);
   }
@@ -85,7 +85,7 @@ export const getMyParcelReview = async (req, res) => {
     const customerId = req.user.id;
     const { parcelId } = req.params;
     const review = await ParcelReview.findOne({ parcelId, customerId }).lean();
-    return handleResponse(res, 200, "Parcel review fetched", review || null);
+    return handleResponse(res, 200, "Courier review fetched", review || null);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }
@@ -122,7 +122,7 @@ export const listPublicParcelReviews = async (req, res) => {
 
     const stats = agg[0] || { avgRating: 0, count: 0 };
 
-    return handleResponse(res, 200, "Parcel reviews fetched", {
+    return handleResponse(res, 200, "Courier reviews fetched", {
       items: items.map(serializePublicReview),
       page,
       limit,
@@ -160,7 +160,7 @@ export const adminListParcelReviews = async (req, res) => {
       ParcelReview.countDocuments(query),
     ]);
 
-    return handleResponse(res, 200, "Admin parcel reviews fetched", {
+    return handleResponse(res, 200, "Admin courier reviews fetched", {
       items,
       page,
       limit,

@@ -127,7 +127,7 @@ const resolveServiceFlags = (body) => {
     const isParcelService = hasParcel ? parseBool(body.isParcelService) : true;
 
     if (!isParcelService) {
-        return { error: "Parcel delivery service is required." };
+        return { error: "Courier delivery service is required." };
     }
 
     return { isParcelService: true };
@@ -650,7 +650,7 @@ export const updateDeliveryProfile = async (req, res) => {
             return handleResponse(
                 res,
                 400,
-                "Parcel service must remain enabled.",
+                "Courier service must remain enabled.",
             );
         }
 

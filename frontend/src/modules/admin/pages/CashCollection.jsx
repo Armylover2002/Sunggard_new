@@ -640,7 +640,7 @@ const CashCollection = () => {
                                 <Package className="h-4 w-4 text-brand-600" />
                                 <div>
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                        Outstation parcels
+                                        Outstation couriers
                                     </p>
                                     <p className="text-sm font-black text-slate-900">
                                         {rupees(selectedRider.outstationCash)}

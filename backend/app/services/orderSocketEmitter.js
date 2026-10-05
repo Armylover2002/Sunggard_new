@@ -243,8 +243,8 @@ export async function emitParcelBroadcast(
       ids.map((id) => ({
         recipient: new mongoose.Types.ObjectId(id),
         recipientModel: "Delivery",
-        title: "New parcel delivery",
-        message: `Parcel #${String(payload.parcelId || "").slice(-6)} nearby — tap Accept on the alert.`,
+        title: "New courier delivery",
+        message: `Courier #${String(payload.parcelId || "").slice(-6)} nearby — tap Accept on the alert.`,
         type: "parcel",
         data: {
           parcelId: payload.parcelId,

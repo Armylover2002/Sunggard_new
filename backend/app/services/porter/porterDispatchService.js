@@ -50,8 +50,8 @@ async function activateOutstationParcel(booking) {
       adminIds: (admins || []).map((a) => a?._id).filter(Boolean),
       parcelId: booking._id,
       fare: booking.fare,
-      customerBody: `Your parcel booking is confirmed. Searching for a nearby rider...`,
-      adminBody: `Parcel #${String(booking._id).slice(-6)} booked for ₹${booking.fare}.`,
+      customerBody: `Your courier booking is confirmed. Searching for a nearby rider...`,
+      adminBody: `Courier #${String(booking._id).slice(-6)} booked for ₹${booking.fare}.`,
       data: { parcelId: booking._id, fare: booking.fare },
     });
   } catch (error) {

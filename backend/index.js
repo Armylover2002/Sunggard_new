@@ -203,7 +203,7 @@ function createApp() {
     res.status(200).json({
       success: true,
       error: false,
-      message: "SunGguard Porter API",
+      message: "SunGguard Courier API",
       result: {
         version: "1.0.0",
         status: "running",

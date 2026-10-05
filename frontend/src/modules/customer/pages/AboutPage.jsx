@@ -66,7 +66,7 @@ const AboutPage = () => {
                                 <h3 className="text-base font-semibold text-slate-800">Our Mission</h3>
                             </div>
                             <p className="text-slate-600 leading-relaxed text-sm">
-                                To revolutionize parcel delivery by providing the fastest, most reliable courier service, ensuring quality and convenience for every customer.
+                                To revolutionize courier delivery by providing the fastest, most reliable courier service, ensuring quality and convenience for every customer.
                             </p>
                         </div>
 

@@ -245,7 +245,7 @@ export const riderCheckCodQr = async (req, res) => {
       return handleResponse(
         res,
         400,
-        "This payment window has closed — the parcel was already picked up for cash",
+        "This payment window has closed — the courier was already picked up for cash",
       );
     }
 

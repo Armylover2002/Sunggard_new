@@ -133,17 +133,17 @@ const ParcelTaskPage = () => {
         ttl: 30000,
         forceRefresh: force,
       });
-      if (!res.data?.success) throw new Error("Failed to load assigned parcels");
+      if (!res.data?.success) throw new Error("Failed to load assigned couriers");
       const list = res.data.results || res.data.result || [];
       const match = list.find((p) => String(p._id) === String(parcelId));
       if (!match) {
-        if (!silent) toast.error("Parcel task not found or no longer assigned.");
+        if (!silent) toast.error("Courier task not found or no longer assigned.");
         navigate("/delivery/dashboard");
         return;
       }
       setParcel(match);
     } catch (error) {
-      if (!silent) toast.error("Failed to load parcel task");
+      if (!silent) toast.error("Failed to load courier task");
       navigate("/delivery/dashboard");
     } finally {
       assignedRequestRef.current.inFlight = false;
@@ -418,7 +418,7 @@ const ParcelTaskPage = () => {
         // to the dashboard right after a status change could still show the
         // parcel at its previous status until that cache naturally expired.
         invalidateCache("/parcel/rider/assigned");
-        toast.success("Parcel status updated");
+        toast.success("Courier status updated");
       } else {
         toast.error(res.data?.message || "Failed to update status");
       }
@@ -456,7 +456,7 @@ const ParcelTaskPage = () => {
         // now), so the dashboard's active-task card must not still find it
         // through a stale cached list.
         invalidateCache("/parcel/rider/assigned");
-        toast.success("Pickup confirmed — parcel delivered");
+        toast.success("Pickup confirmed — courier delivered");
         navigate("/delivery/dashboard");
       } else {
         toast.error(res.data?.message || "Invalid OTP");
@@ -469,7 +469,7 @@ const ParcelTaskPage = () => {
   };
 
   if (loading || !parcel) {
-    return <div className="p-6 text-sm font-semibold text-slate-500">Loading parcel task...</div>;
+    return <div className="p-6 text-sm font-semibold text-slate-500">Loading courier task...</div>;
   }
 
   return (
@@ -572,7 +572,7 @@ const ParcelTaskPage = () => {
 
       <div className="absolute top-4 left-4 right-4 z-20 rounded-2xl bg-white/90 backdrop-blur-md px-4 py-3 shadow">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Parcel Task</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Courier Task</p>
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">
             📦 Drop at Courier
           </span>
@@ -596,7 +596,7 @@ const ParcelTaskPage = () => {
         </div>
         <p className="text-[11px] font-semibold text-slate-500 mt-1">
           {goingToCustomer
-            ? `Go to customer · collect parcel${distanceLabel ? ` · ${distanceLabel}` : ""}`
+            ? `Go to customer · collect courier${distanceLabel ? ` · ${distanceLabel}` : ""}`
             : `Drop at ${courierName || "courier company"}`}
           {parcel.deliverySpeed === "express" ? " · 10 min" : " · 30 min"}
         </p>
@@ -623,7 +623,7 @@ const ParcelTaskPage = () => {
               ₹{codAmount.toFixed(2)}
             </p>
             <p className="text-[10px] font-semibold text-amber-700/80">
-              Collect at customer pickup, then deposit the cash from Profile → Parcel Cash Deposit
+              Collect at customer pickup, then deposit the cash from Profile → Courier Cash Deposit
             </p>
             {goingToCustomer && (
               <button
@@ -761,7 +761,7 @@ const ParcelTaskPage = () => {
 
           {!pickupPoint && (
             <div className="rounded-xl border border-amber-100 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-900">
-              Customer location is missing for this parcel, so the map cannot navigate to the user.
+              Customer location is missing for this courier, so the map cannot navigate to the user.
             </div>
           )}
           {goingToCustomer && pickupPoint && !riderLocation && (
@@ -779,7 +779,7 @@ const ParcelTaskPage = () => {
               </p>
               <ParcelProofCapture
                 label="Pickup photo proof"
-                hint="Photo of parcel with customer / at pickup point"
+                hint="Photo of courier with customer / at pickup point"
                 value={pickupProofUrl}
                 onChange={setPickupProofUrl}
                 disabled={saving}

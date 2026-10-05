@@ -110,7 +110,7 @@ export default function ParcelReviewPrompt({ parcelId, onSubmitted, compact = fa
             “{existing.comment}”
           </p>
         ) : !compact ? (
-          <p className="text-xs text-slate-500 mt-1">Thanks for rating our parcel service.</p>
+          <p className="text-xs text-slate-500 mt-1">Thanks for rating our courier service.</p>
         ) : null}
       </div>
     );
@@ -154,7 +154,7 @@ export default function ParcelReviewPrompt({ parcelId, onSubmitted, compact = fa
           Rate your experience
         </p>
         <p className={`font-bold text-slate-800 mt-0.5 ${compact ? "text-xs" : "text-sm"}`}>
-          How was your parcel experience?
+          How was your courier experience?
         </p>
       </div>
 

@@ -131,8 +131,8 @@ async function notifyParcelRequested(parcel, userId) {
       adminIds,
       parcelId: parcel._id,
       fare: parcel.fare,
-      customerBody: `Your parcel delivery request has been created. Searching for a nearby rider...`,
-      adminBody: `Parcel #${String(parcel._id).slice(-6)}${parcel.deliverySpeed === "express" ? " (EXPRESS)" : ""} booked for ₹${parcel.fare}. Open Parcel Delivery to view.`,
+      customerBody: `Your courier delivery request has been created. Searching for a nearby rider...`,
+      adminBody: `Courier #${String(parcel._id).slice(-6)}${parcel.deliverySpeed === "express" ? " (EXPRESS)" : ""} booked for ₹${parcel.fare}. Open Courier Delivery to view.`,
       data: {
         parcelId: parcel._id,
         fare: parcel.fare,
@@ -142,7 +142,7 @@ async function notifyParcelRequested(parcel, userId) {
       },
     });
   } catch (notifyErr) {
-    console.error("Failed to notify customer/admins for parcel request:", notifyErr);
+    console.error("Failed to notify customer/admins for courier request:", notifyErr);
   }
 }
 
@@ -219,7 +219,7 @@ async function resolveFirstMile({ lat, lng, isOutstation }) {
     const nearest = await findNearestParcelSellerWithDistance(lat, lng);
     if (!nearest) {
       return {
-        error: "No parcel hub seller is available near your pickup location",
+        error: "No courier hub seller is available near your pickup location",
       };
     }
     return { distanceKm: nearest.distanceKm, nearest };
@@ -286,9 +286,8 @@ export const calculateFare = async (req, res) => {
     }
 
     const config = await ParcelConfig.getOrCreate();
-    // Weight no longer prices anything (flat delivery charge), just a sanity
-    // bound matching packageDetails.weight's schema cap.
-    const maxWeightKg = 50;
+    // Cap is admin-set (ParcelConfig.maxWeightKg); the customer form reads the same value.
+    const maxWeightKg = config.maxWeightKg;
     const pkgWeight = Number(weight || 0.1);
     if (pkgWeight <= 0 || pkgWeight > maxWeightKg) {
       return handleResponse(
@@ -343,7 +342,7 @@ export const calculateFare = async (req, res) => {
     const priced = applyBillableDaysToFare(daily, billableDays, config.gst);
 
     const sellerName =
-      nearest?.seller?.shopName || nearest?.seller?.name || "Parcel hub";
+      nearest?.seller?.shopName || nearest?.seller?.name || "Courier hub";
 
     return handleResponse(res, 200, "Fare calculated successfully", {
       distance: distanceKm,
@@ -436,7 +435,7 @@ export const validateBookingCoupon = async (req, res) => {
     }
 
     const config = await ParcelConfig.getOrCreate();
-    const maxWeightKg = 50;
+    const maxWeightKg = config.maxWeightKg;
     const pkgWeight = Number(weight || 0.1);
     if (pkgWeight <= 0 || pkgWeight > maxWeightKg) {
       return handleResponse(
@@ -750,7 +749,7 @@ export const createParcel = async (req, res) => {
     }
 
     const config = await ParcelConfig.getOrCreate();
-    const maxWeightKg = 50;
+    const maxWeightKg = config.maxWeightKg;
     const weight = Number(packageDetails.weight || 0);
     if (weight <= 0 || weight > maxWeightKg) {
       return handleResponse(
@@ -1057,7 +1056,7 @@ export const createParcel = async (req, res) => {
         });
         parcel.razorpayOrderId = checkout.orderId;
         await parcel.save();
-        return handleResponse(res, 201, "Complete UPI payment to confirm parcel", {
+        return handleResponse(res, 201, "Complete UPI payment to confirm courier", {
           parcel,
           requiresPayment: true,
           // The shape the existing booking screens already read, kept
@@ -1100,7 +1099,7 @@ export const createParcel = async (req, res) => {
     const resultParcel = await activateParcelAfterPayment(parcel);
     await notifyParcelRequested(resultParcel, req.user.id);
 
-    return handleResponse(res, 201, "Parcel request created successfully", {
+    return handleResponse(res, 201, "Courier request created successfully", {
       parcel: resultParcel,
       requiresPayment: false,
     });
@@ -1122,31 +1121,31 @@ export const verifyParcelPayment = async (req, res) => {
     } = req.body || {};
 
     if (!parcelId) {
-      return handleResponse(res, 400, "Parcel ID is required");
+      return handleResponse(res, 400, "Courier ID is required");
     }
 
     const parcel = await Parcel.findById(parcelId);
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
 
     if (String(parcel.customerId) !== String(req.user.id)) {
-      return handleResponse(res, 403, "You are not authorized for this parcel");
+      return handleResponse(res, 403, "You are not authorized for this courier");
     }
 
     if (String(parcel.paymentMethod).toUpperCase() !== "UPI") {
-      return handleResponse(res, 400, "This parcel does not require UPI payment");
+      return handleResponse(res, 400, "This courier does not require UPI payment");
     }
 
     if (parcel.paymentStatus === "PAID") {
-      return handleResponse(res, 200, "Parcel already paid", {
+      return handleResponse(res, 200, "Courier already paid", {
         parcel,
         requiresPayment: false,
       });
     }
 
     if (parcel.razorpayOrderId && parcel.razorpayOrderId !== razorpayOrderId) {
-      return handleResponse(res, 400, "This payment belongs to another parcel");
+      return handleResponse(res, 400, "This payment belongs to another courier");
     }
 
     /**
@@ -1204,7 +1203,7 @@ export const getParcelHistory = async (req, res) => {
       .limit(200)
       .lean();
 
-    return handleResponse(res, 200, "Parcel history retrieved successfully", parcels);
+    return handleResponse(res, 200, "Courier history retrieved successfully", parcels);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }
@@ -1219,7 +1218,7 @@ export const trackParcel = async (req, res) => {
       .populate("courierCompanyId", "name phone");
 
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
 
     /**
@@ -1238,7 +1237,7 @@ export const trackParcel = async (req, res) => {
     const isStaff = ["admin", "parcel_admin"].includes(viewerRole);
 
     if (!isStaff && viewerId !== ownerId && viewerId !== riderId) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
 
     const plain = parcel.toObject ? parcel.toObject() : { ...parcel };
@@ -1270,7 +1269,7 @@ export const trackParcel = async (req, res) => {
       .sort({ at: 1 })
       .lean();
 
-    return handleResponse(res, 200, "Parcel details retrieved successfully", {
+    return handleResponse(res, 200, "Courier details retrieved successfully", {
       ...plain,
       timeline,
     });
@@ -1283,16 +1282,16 @@ export const cancelParcelByCustomer = async (req, res) => {
   try {
     const { parcelId } = req.params;
     if (!parcelId) {
-      return handleResponse(res, 400, "Parcel ID is required");
+      return handleResponse(res, 400, "Courier ID is required");
     }
 
     const parcel = await Parcel.findById(parcelId);
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
 
     if (String(parcel.customerId) !== String(req.user.id)) {
-      return handleResponse(res, 403, "You are not authorized for this parcel");
+      return handleResponse(res, 403, "You are not authorized for this courier");
     }
 
     // Once a delivery partner has accepted, cancel is not allowed.
@@ -1300,7 +1299,7 @@ export const cancelParcelByCustomer = async (req, res) => {
       return handleResponse(
         res,
         409,
-        "Parcel cannot be cancelled after a delivery partner has accepted the request",
+        "Courier cannot be cancelled after a delivery partner has accepted the request",
       );
     }
 
@@ -1308,7 +1307,7 @@ export const cancelParcelByCustomer = async (req, res) => {
       return handleResponse(
         res,
         409,
-        "Parcel cannot be cancelled after a delivery partner has accepted the request",
+        "Courier cannot be cancelled after a delivery partner has accepted the request",
       );
     }
 
@@ -1334,7 +1333,7 @@ export const cancelParcelByCustomer = async (req, res) => {
       return handleResponse(
         res,
         409,
-        "Parcel cannot be cancelled after a delivery partner has accepted the request",
+        "Courier cannot be cancelled after a delivery partner has accepted the request",
       );
     }
 
@@ -1400,7 +1399,7 @@ export const cancelParcelByCustomer = async (req, res) => {
     const payload = responseParcel.toObject ? responseParcel.toObject() : responseParcel;
     payload.refund = refund;
 
-    return handleResponse(res, 200, "Parcel search cancelled successfully", payload);
+    return handleResponse(res, 200, "Courier search cancelled successfully", payload);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }
@@ -1461,7 +1460,7 @@ export const adminGetParcels = async (req, res) => {
       );
     });
 
-    return handleResponse(res, 200, "Parcels retrieved successfully", enriched);
+    return handleResponse(res, 200, "Couriers retrieved successfully", enriched);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }
@@ -1478,7 +1477,7 @@ export const adminGetParcelById = async (req, res) => {
       .populate("courierCompanyId", "name phone");
 
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
 
     const plain = parcel.toObject ? parcel.toObject() : { ...parcel };
@@ -1507,7 +1506,7 @@ export const adminGetParcelById = async (req, res) => {
     const riderEarningBreakdown = computeRiderParcelEarningBreakdown(plain, settings);
     if (settledAmount != null) riderEarningBreakdown.earning = settledAmount;
 
-    return handleResponse(res, 200, "Parcel retrieved successfully", {
+    return handleResponse(res, 200, "Courier retrieved successfully", {
       ...plain,
       timeline,
       riderEarningBreakdown,
@@ -1525,10 +1524,10 @@ export const requestParcelLateRefund = async (req, res) => {
 
     const parcel = await Parcel.findById(parcelId);
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
     if (String(parcel.customerId) !== String(req.user.id)) {
-      return handleResponse(res, 403, "You are not authorized for this parcel");
+      return handleResponse(res, 403, "You are not authorized for this courier");
     }
 
     const gate = canCustomerRequestLateRefund(parcel);
@@ -1586,10 +1585,10 @@ export const adminApproveParcelLateRefund = async (req, res) => {
     const { parcelId } = req.params;
     const parcel = await Parcel.findById(parcelId);
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
     if (String(parcel.lateRefundRequest?.status || "none") !== "requested") {
-      return handleResponse(res, 400, "No pending late refund request for this parcel");
+      return handleResponse(res, 400, "No pending late refund request for this courier");
     }
 
     const fare = roundCurrency(Number(parcel.fare) || 0);
@@ -1658,10 +1657,10 @@ export const adminRejectParcelLateRefund = async (req, res) => {
     const { parcelId } = req.params;
     const parcel = await Parcel.findById(parcelId);
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
     if (String(parcel.lateRefundRequest?.status || "none") !== "requested") {
-      return handleResponse(res, 400, "No pending late refund request for this parcel");
+      return handleResponse(res, 400, "No pending late refund request for this courier");
     }
 
     parcel.lateRefundRequest.status = "rejected";
@@ -1702,16 +1701,16 @@ export const adminAssignRider = async (req, res) => {
     const { parcelId, riderId } = req.body;
 
     if (!parcelId || !riderId) {
-      return handleResponse(res, 400, "Parcel ID and Rider ID are required");
+      return handleResponse(res, 400, "Courier ID and Rider ID are required");
     }
 
     const parcel = await Parcel.findById(parcelId);
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
 
     if (parcel.deliveryPartnerId) {
-      return handleResponse(res, 409, "Parcel already has a rider assigned");
+      return handleResponse(res, 409, "Courier already has a rider assigned");
     }
 
     if (parcel.status === "SEARCHING") {
@@ -1763,7 +1762,7 @@ export const adminAssignRider = async (req, res) => {
       parcel.customerId,
       "customer",
       "Rider Assigned",
-      `Delivery partner ${rider.name} has been assigned to your parcel.`,
+      `Delivery partner ${rider.name} has been assigned to your courier.`,
       NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
       parcel._id
     );
@@ -1772,8 +1771,8 @@ export const adminAssignRider = async (req, res) => {
     await sendParcelNotification(
       riderId,
       "delivery",
-      "New Parcel Delivery Assigned",
-      `You have been assigned a new parcel delivery from ${parcel.pickupAddress.fullAddress} to ${parcel.dropAddress.fullAddress}.`,
+      "New Courier Delivery Assigned",
+      `You have been assigned a new courier delivery from ${parcel.pickupAddress.fullAddress} to ${parcel.dropAddress.fullAddress}.`,
       NOTIFICATION_EVENTS.PARCEL_ASSIGNED,
       parcel._id
     );
@@ -1807,7 +1806,7 @@ export const getBookingConfig = async (req, res) => {
   try {
     const config = await ParcelConfig.getPublicBookingConfig();
     const courierCompanies = await CourierCompany.listActiveForBooking();
-    return handleResponse(res, 200, "Parcel booking config retrieved", {
+    return handleResponse(res, 200, "Courier booking config retrieved", {
       ...config,
       courierCompanies: (courierCompanies || []).map((c) => ({
         id: String(c._id),
@@ -1826,6 +1825,7 @@ export const adminUpdatePricingConfig = async (req, res) => {
     const {
       fixedDeliveryCharge,
       weightCharge,
+      maxWeightKg,
       riderPerKmRate,
       deliveryRadiusKm,
       packageTypes,
@@ -1838,6 +1838,13 @@ export const adminUpdatePricingConfig = async (req, res) => {
     }
     if (weightCharge !== undefined) {
       config.weightCharge = Math.max(0, Number(weightCharge) || 0);
+    }
+    if (maxWeightKg !== undefined) {
+      const cap = Number(maxWeightKg);
+      if (!(cap >= 0.1) || cap > 1000) {
+        return handleResponse(res, 400, "Max weight must be between 0.1 and 1000 KG");
+      }
+      config.maxWeightKg = cap;
     }
     if (riderPerKmRate !== undefined) {
       config.riderPerKmRate = Math.max(0, Number(riderPerKmRate) || 0);
@@ -1854,7 +1861,7 @@ export const adminUpdatePricingConfig = async (req, res) => {
 
     await config.save();
     const fresh = await ParcelConfig.findById(config._id).select(
-      "fixedDeliveryCharge weightCharge riderPerKmRate deliveryRadiusKm packageTypes packageCategories gst createdAt updatedAt",
+      "fixedDeliveryCharge weightCharge maxWeightKg riderPerKmRate deliveryRadiusKm packageTypes packageCategories gst createdAt updatedAt",
     );
     return handleResponse(
       res,
@@ -2003,12 +2010,12 @@ export const adminResetAllParcelData = async (req, res) => {
       return handleResponse(
         res,
         400,
-        'Send { "confirm": "RESET_PARCEL" } to wipe all parcel data.',
+        'Send { "confirm": "RESET_PARCEL" } to wipe all courier data.',
       );
     }
 
     const summary = await resetAllParcelData();
-    return handleResponse(res, 200, "All parcel data cleared successfully", summary);
+    return handleResponse(res, 200, "All courier data cleared successfully", summary);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }
@@ -2056,7 +2063,7 @@ export const riderGetAssignedParcels = async (req, res) => {
     const settings = await ParcelConfig.getSearchSettings();
     const withEarnings = parcels.map((p) => withRiderEarningBreakdown(p, settings));
 
-    return handleResponse(res, 200, "Assigned parcels retrieved successfully", withEarnings);
+    return handleResponse(res, 200, "Assigned couriers retrieved successfully", withEarnings);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }
@@ -2085,11 +2092,11 @@ export const getParcelRoute = async (req, res) => {
       .populate("courierCompanyId", "name phone")
       .lean();
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
 
     if (String(parcel.deliveryPartnerId) !== String(req.user.id)) {
-      return handleResponse(res, 403, "You are not authorized for this parcel");
+      return handleResponse(res, 403, "You are not authorized for this courier");
     }
 
     const pickup = {
@@ -2147,11 +2154,11 @@ export const riderUpdateStatus = async (req, res) => {
 
     const parcel = await Parcel.findById(parcelId);
     if (!parcel) {
-      return handleResponse(res, 404, "Parcel not found");
+      return handleResponse(res, 404, "Courier not found");
     }
 
     if (String(parcel.deliveryPartnerId) !== String(req.user.id)) {
-      return handleResponse(res, 403, "You are not authorized for this parcel");
+      return handleResponse(res, 403, "You are not authorized for this courier");
     }
 
     const validTransitions = ["ACCEPTED", "RIDER_ASSIGNED", "PICKUP_REACHED", "PICKED_UP", "OUT_FOR_DELIVERY", "CANCELLED"];
@@ -2164,7 +2171,7 @@ export const riderUpdateStatus = async (req, res) => {
       return handleResponse(
         res,
         409,
-        "Parcel cannot be cancelled after a delivery partner has accepted the request",
+        "Courier cannot be cancelled after a delivery partner has accepted the request",
       );
     }
 
@@ -2175,7 +2182,7 @@ export const riderUpdateStatus = async (req, res) => {
      * it had already arrived.
      */
     if (parcel.status === status) {
-      return handleResponse(res, 200, "Parcel status already up to date", parcel);
+      return handleResponse(res, 200, "Courier status already up to date", parcel);
     }
 
     /**
@@ -2203,7 +2210,7 @@ export const riderUpdateStatus = async (req, res) => {
         return handleResponse(
           res,
           400,
-          "Enter the customer OTP to confirm parcel pickup",
+          "Enter the customer OTP to confirm courier pickup",
         );
       }
       if (providedOtp !== String(parcel.otp || "").trim()) {
@@ -2298,7 +2305,7 @@ export const riderUpdateStatus = async (req, res) => {
       try {
         await applyParcelDeliveredRiderEarning(parcel);
       } catch (earnErr) {
-        console.error("[parcel] rider earning credit failed:", earnErr?.message || earnErr);
+        console.error("[courier] rider earning credit failed:", earnErr?.message || earnErr);
       }
 
       const populated = await Parcel.findById(parcel._id)
@@ -2333,10 +2340,10 @@ export const riderUpdateStatus = async (req, res) => {
       await sendParcelNotification(
         parcel.customerId,
         "customer",
-        "Parcel delivered",
+        "Courier delivered",
         isParcelCod(parcel)
-          ? `Your parcel was picked up and delivered. COD ₹${getParcelCollectAmount(parcel)} was collected at pickup.`
-          : "Your parcel was picked up and delivered successfully.",
+          ? `Your courier was picked up and delivered. COD ₹${getParcelCollectAmount(parcel)} was collected at pickup.`
+          : "Your courier was picked up and delivered successfully.",
         NOTIFICATION_EVENTS.PARCEL_DELIVERED,
         parcel._id
       );
@@ -2345,7 +2352,7 @@ export const riderUpdateStatus = async (req, res) => {
       const resultPayload = resultDoc.toObject ? resultDoc.toObject() : { ...resultDoc };
       delete resultPayload.otp;
 
-      return handleResponse(res, 200, "Parcel picked up and delivered successfully", resultPayload);
+      return handleResponse(res, 200, "Courier picked up and delivered successfully", resultPayload);
     }
 
     parcel.status = status;
@@ -2390,20 +2397,20 @@ export const riderUpdateStatus = async (req, res) => {
 
     // Map status to customer-friendly notification descriptions
     let msg = "";
-    if (status === "ACCEPTED") msg = "Your parcel delivery request has been accepted by the rider.";
-    else if (status === "RIDER_ASSIGNED") msg = "Rider is on the way to pick up your parcel.";
+    if (status === "ACCEPTED") msg = "Your courier delivery request has been accepted by the rider.";
+    else if (status === "RIDER_ASSIGNED") msg = "Rider is on the way to pick up your courier.";
     else if (status === "PICKUP_REACHED") {
       msg = `Rider has reached your pickup location. Share pickup OTP ${parcel.otp} with the captain.`;
     }
-    else if (status === "OUT_FOR_DELIVERY") msg = "Your parcel has been collected and is on its way to our hub.";
-    else if (status === "CANCELLED") msg = "Your parcel delivery was cancelled by the rider.";
+    else if (status === "OUT_FOR_DELIVERY") msg = "Your courier has been collected and is on its way to our hub.";
+    else if (status === "CANCELLED") msg = "Your courier delivery was cancelled by the rider.";
 
     await sendParcelNotification(
       parcel.customerId,
       "customer",
       status === "PICKUP_REACHED"
         ? "Share pickup OTP with captain"
-        : `Parcel status: ${status}`,
+        : `Courier status: ${status}`,
       msg,
       NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
       parcel._id,
@@ -2415,7 +2422,7 @@ export const riderUpdateStatus = async (req, res) => {
     // Never expose OTP to the delivery partner response payload.
     delete resultPayload.otp;
 
-    return handleResponse(res, 200, "Parcel status updated successfully", resultPayload);
+    return handleResponse(res, 200, "Courier status updated successfully", resultPayload);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }
@@ -2465,7 +2472,7 @@ export const riderGetAvailableParcels = async (req, res) => {
     return handleResponse(
       res,
       200,
-      withEarnings.length ? "Available parcels fetched" : "No parcels found",
+      withEarnings.length ? "Available couriers fetched" : "No couriers found",
       withEarnings,
     );
   } catch (error) {
@@ -2479,7 +2486,7 @@ export const riderAcceptParcel = async (req, res) => {
     const idempotencyKey = req.headers?.["idempotency-key"] || req.body?.idempotencyKey;
 
     if (!parcelId) {
-      return handleResponse(res, 400, "Parcel ID is required");
+      return handleResponse(res, 400, "Courier ID is required");
     }
 
     const { parcel, duplicate } = await parcelAcceptAtomic(
@@ -2497,7 +2504,7 @@ export const riderAcceptParcel = async (req, res) => {
     return handleResponse(
       res,
       200,
-      duplicate ? "Parcel already accepted" : "Parcel accepted successfully",
+      duplicate ? "Courier already accepted" : "Courier accepted successfully",
       withRiderEarningBreakdown(parcel, settings),
     );
   } catch (error) {
@@ -2509,11 +2516,11 @@ export const riderRejectParcel = async (req, res) => {
   try {
     const { parcelId } = req.params;
     if (!parcelId) {
-      return handleResponse(res, 400, "Parcel ID is required");
+      return handleResponse(res, 400, "Courier ID is required");
     }
 
     await parcelRejectAtomic(req.user.id, parcelId);
-    return handleResponse(res, 200, "Parcel offer skipped");
+    return handleResponse(res, 200, "Courier offer skipped");
   } catch (error) {
     return handleResponse(res, error.statusCode || 500, error.message);
   }
@@ -2523,7 +2530,7 @@ export const riderRejectParcel = async (req, res) => {
 export const sellerGetParcels = async (req, res) => {
   try {
     const parcels = await fetchParcelsForSeller(req.user.id);
-    return handleResponse(res, 200, "Seller parcels retrieved", parcels);
+    return handleResponse(res, 200, "Seller couriers retrieved", parcels);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }
@@ -2531,7 +2538,7 @@ export const sellerGetParcels = async (req, res) => {
 
 function assertSellerOwnsParcel(parcel, sellerId) {
   if (!parcel?.sellerId || String(parcel.sellerId) !== String(sellerId)) {
-    const err = new Error("You are not assigned to this parcel");
+    const err = new Error("You are not assigned to this courier");
     err.statusCode = 403;
     throw err;
   }
@@ -2542,14 +2549,14 @@ export const sellerConfirmCodReceived = async (req, res) => {
   try {
     const { parcelId } = req.body;
     const parcel = await Parcel.findById(parcelId);
-    if (!parcel) return handleResponse(res, 404, "Parcel not found");
+    if (!parcel) return handleResponse(res, 404, "Courier not found");
     assertSellerOwnsParcel(parcel, req.user.id);
 
     if (!isParcelCod(parcel)) {
-      return handleResponse(res, 400, "This parcel is not COD");
+      return handleResponse(res, 400, "This courier is not COD");
     }
     if (parcel.status !== "DELIVERED") {
-      return handleResponse(res, 400, "Parcel must be delivered before confirming COD cash");
+      return handleResponse(res, 400, "Courier must be delivered before confirming COD cash");
     }
 
     if (!parcel.codSettlement) parcel.codSettlement = {};
@@ -2573,14 +2580,14 @@ export const sellerCreateCodRemitPayment = async (req, res) => {
   try {
     const { parcelId } = req.body;
     const parcel = await Parcel.findById(parcelId);
-    if (!parcel) return handleResponse(res, 404, "Parcel not found");
+    if (!parcel) return handleResponse(res, 404, "Courier not found");
     assertSellerOwnsParcel(parcel, req.user.id);
 
     if (!isParcelCod(parcel)) {
-      return handleResponse(res, 400, "This parcel is not COD");
+      return handleResponse(res, 400, "This courier is not COD");
     }
     if (parcel.status !== "DELIVERED") {
-      return handleResponse(res, 400, "Parcel must be delivered before remitting COD");
+      return handleResponse(res, 400, "Courier must be delivered before remitting COD");
     }
     if (parcel.codSettlement?.status === "REMITTED_TO_ADMIN" || parcel.paymentStatus === "PAID") {
       return handleResponse(res, 400, "COD already remitted to admin");
@@ -2627,11 +2634,11 @@ export const sellerVerifyCodRemitPayment = async (req, res) => {
     } = req.body;
 
     const parcel = await Parcel.findById(parcelId);
-    if (!parcel) return handleResponse(res, 404, "Parcel not found");
+    if (!parcel) return handleResponse(res, 404, "Courier not found");
     assertSellerOwnsParcel(parcel, req.user.id);
 
     if (!isParcelCod(parcel)) {
-      return handleResponse(res, 400, "This parcel is not COD");
+      return handleResponse(res, 400, "This courier is not COD");
     }
     if (parcel.codSettlement?.status === "REMITTED_TO_ADMIN" && parcel.paymentStatus === "PAID") {
       return handleResponse(res, 200, "COD already remitted", parcel);

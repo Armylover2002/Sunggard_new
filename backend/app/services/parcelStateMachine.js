@@ -78,11 +78,11 @@ export function nextStatuses(from) {
 export function transitionRefusal(from, to) {
   if (isTerminal(from)) {
     return from === "DELIVERED"
-      ? "This parcel has already been dropped at the hub."
-      : "This parcel was cancelled.";
+      ? "This courier has already been dropped at the hub."
+      : "This courier was cancelled.";
   }
   if (from === to) return null;
-  return `This parcel is ${String(from || "")
+  return `This courier is ${String(from || "")
     .toLowerCase()
     .replace(/_/g, " ")} — confirm the steps in order before moving it there.`;
 }
