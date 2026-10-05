@@ -19,7 +19,7 @@ import {
   LANGUAGES,
   isSupportedLanguage,
 } from "./notification.i18n.js";
-import { getUserLanguage, setCachedLanguage } from "./notification.language.js";
+import { getUserLanguage } from "./notification.language.js";
 import { NOTIFICATION_EVENTS } from "./notification.constants.js";
 
 function resolveRole(req) {
@@ -460,7 +460,6 @@ export const setPushLanguage = async (req, res) => {
       return handleResponse(res, 404, "Account not found");
     }
 
-    setCachedLanguage(role, userId, language);
     return handleResponse(res, 200, "Language updated", { language });
   } catch (error) {
     return handleResponse(res, 500, error.message);
