@@ -35,6 +35,11 @@ import {
   isFirebaseTrackingCleanupJobEnabled,
 } from "./app/jobs/firebaseTrackingCleanupJob.js";
 import {
+  getStalledAcceptedParcelJobHandler,
+  getStalledAcceptedParcelJobInterval,
+  isStalledAcceptedParcelJobEnabled,
+} from "./app/jobs/stalledAcceptedParcelJob.js";
+import {
   getAbandonedCheckoutJobHandler,
   getAbandonedCheckoutJobInterval,
   isAbandonedCheckoutJobEnabled,
@@ -347,6 +352,16 @@ async function startScheduler() {
       'abandonedCheckoutJob',
       getAbandonedCheckoutJobInterval(),
       getAbandonedCheckoutJobHandler()
+    );
+  }
+
+  // Rider accepted a courier request and never moved it forward. Cancels it
+  // after 3 hours with no status change and refunds any online payment.
+  if (isStalledAcceptedParcelJobEnabled()) {
+    registerScheduledJob(
+      'stalledAcceptedParcelJob',
+      getStalledAcceptedParcelJobInterval(),
+      getStalledAcceptedParcelJobHandler()
     );
   }
 

@@ -82,6 +82,7 @@ const AdminParcelDashboard = () => {
   const [riders, setRiders] = useState([]);
   const [selectedParcel, setSelectedParcel] = useState(null);
   const [selectedParcelLoading, setSelectedParcelLoading] = useState(false);
+  const [pickupProofPreview, setPickupProofPreview] = useState(null);
   const [lateRefundAmount, setLateRefundAmount] = useState("");
   const [lateRefundSaving, setLateRefundSaving] = useState(false);
   const [parcelReviews, setParcelReviews] = useState([]);
@@ -2773,7 +2774,7 @@ const AdminParcelDashboard = () => {
                   ) : null}
                 </h4>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-1.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                       Pickup at Customer
@@ -2783,13 +2784,8 @@ const AdminParcelDashboard = () => {
                         <img
                           src={selectedParcel.pickupProofImage}
                           alt="Pickup Proof"
-                          className="h-full w-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                          onClick={() =>
-                            window.open(
-                              selectedParcel.pickupProofImage,
-                              "_blank",
-                            )
-                          }
+                          className="h-full w-full object-cover cursor-zoom-in hover:scale-105 transition-transform"
+                          onClick={() => setPickupProofPreview(selectedParcel.pickupProofImage)}
                           onError={(e) => {
                             e.currentTarget.style.display = "none";
                             const fallback = e.currentTarget.nextElementSibling;
@@ -2806,41 +2802,31 @@ const AdminParcelDashboard = () => {
                       </div>
                     )}
                   </div>
-
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Hub Drop Proof
-                    </span>
-                    {selectedParcel.deliveryProofImage ? (
-                      <div className="h-40 w-full rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
-                        <img
-                          src={selectedParcel.deliveryProofImage}
-                          alt="Hub Drop Proof"
-                          className="h-full w-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                          onClick={() =>
-                            window.open(
-                              selectedParcel.deliveryProofImage,
-                              "_blank",
-                            )
-                          }
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                            const fallback = e.currentTarget.nextElementSibling;
-                            if (fallback) fallback.classList.remove("hidden");
-                          }}
-                        />
-                        <div className="hidden h-full w-full flex items-center justify-center p-3 text-[10px] text-rose-500 font-semibold text-center">
-                          Image failed to load
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-40 w-full rounded-2xl border border-dashed border-slate-200 flex items-center justify-center text-center p-3 text-[10px] text-slate-400 bg-slate-50/50">
-                        No hub drop proof uploaded
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
+
+              {pickupProofPreview &&
+                createPortal(
+                  <div
+                    className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/80 p-4"
+                    onClick={() => setPickupProofPreview(null)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setPickupProofPreview(null)}
+                      className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"
+                    >
+                      <XCircle size={22} />
+                    </button>
+                    <img
+                      src={pickupProofPreview}
+                      alt="Pickup proof"
+                      className="max-h-[90vh] max-w-full rounded-2xl object-contain"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>,
+                  document.body,
+                )}
 
               {/* Event Log — the document only ever holds the current
                   status; this is what actually answers "what happened to

@@ -9,6 +9,10 @@ import {
 } from "../services/porter/porterInvoiceService.js";
 import { getBookingPaymentHistory } from "../services/porter/porterPaymentService.js";
 import { PORTER_BOOKING_KIND, ALL_PORTER_BOOKING_KINDS } from "../constants/porterPayment.js";
+import { FINANCE_AUDIT_ACTION } from "../constants/finance.js";
+import FinanceAuditLog from "../models/financeAuditLog.js";
+import { createFinanceAuditLog } from "../services/finance/auditLogService.js";
+import logger from "../services/logger.js";
 
 /**
  * The porter desk's money surfaces: GST configuration and reporting, booking
@@ -47,9 +51,21 @@ function parseKind(value) {
 export const adminGetGstSettings = async (req, res) => {
   try {
     const parcelConfig = await ParcelConfig.getOrCreate();
+    // Every save of the rate is logged, so the page can show when GST was on
+    // and at what rate, instead of only the current setting.
+    const changes = await FinanceAuditLog.find({ action: FINANCE_AUDIT_ACTION.GST_SETTINGS_UPDATED })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
 
     return handleResponse(res, 200, "GST settings", {
       outstation: normalizeGstConfig(parcelConfig.gst),
+      history: changes.map((c) => ({
+        at: c.createdAt,
+        actorId: c.actorId ? String(c.actorId) : null,
+        before: c.metadata?.before,
+        after: c.metadata?.after,
+      })),
     });
   } catch (error) {
     return fail(res, error);
@@ -131,13 +147,29 @@ export const adminUpdateGstSettings = async (req, res) => {
     if (outstation) {
       const config = await ParcelConfig.getOrCreate();
       const patch = validateGstPatch(outstation, "Outstation courier");
-      const merged = { ...normalizeGstConfig(config.gst), ...patch };
+      const before = normalizeGstConfig(config.gst);
+      const merged = { ...before, ...patch };
       if (merged.enabled && !(merged.percent > 0)) {
         return handleResponse(res, 400, "Outstation courier: set a GST rate above zero before enabling it");
       }
       config.gst = merged;
       await config.save();
       results.outstation = normalizeGstConfig(config.gst);
+
+      if (JSON.stringify(before) !== JSON.stringify(results.outstation)) {
+        try {
+          await createFinanceAuditLog({
+            action: FINANCE_AUDIT_ACTION.GST_SETTINGS_UPDATED,
+            actorId: req.user?.id || null,
+            metadata: { before, after: results.outstation },
+            note: results.outstation.enabled
+              ? `Outstation GST turned ON at ${results.outstation.percent}%`
+              : "Outstation GST turned OFF",
+          });
+        } catch (err) {
+          logger.error("gst_settings_audit_failed", { message: err?.message });
+        }
+      }
     }
 
     return handleResponse(res, 200, "GST settings updated", results);

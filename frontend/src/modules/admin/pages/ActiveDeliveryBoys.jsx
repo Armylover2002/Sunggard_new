@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import Pagination from '@shared/components/ui/Pagination';
 import { adminApi } from '../services/adminApi';
 import { formatZoneLabel } from '@shared/utils/zoneGeometry';
+import { mapDeliveryPartner, DetailField, DOC_LABELS } from '../utils/riderProfile';
 
 /** Mongo's 24-char hex id isn't something anyone reads at a glance — show
  *  the last 6 characters, which is plenty to tell riders apart on screen. */
@@ -120,7 +121,31 @@ const filteredRiders = useMemo(() => {
 
 const handleAction = async (type, rider) => {
     if (type === 'view') {
-        setViewingRider(rider);
+        // The list row only carries summary fields; the full onboarding record
+        // comes from the same by-id endpoint the Pending screen uses.
+        try {
+            const response = await adminApi.getDeliveryPartnerById(rider.id);
+            const partner = response.data?.result;
+            if (!partner) throw new Error('Rider not found');
+            const mapped = mapDeliveryPartner(partner);
+            setViewingRider({
+                ...mapped,
+                id: rider.id,
+                avatar: rider.avatar,
+                isActive: rider.isActive,
+                status: rider.status,
+                totalOrders: rider.totalOrders,
+                joinDate: rider.joinDate,
+                vehicle: mapped.vehicle,
+                vehicleNum: mapped.vehicleNumber,
+                location: mapped.address || rider.location,
+                zoneName: rider.zoneName,
+                zoneCity: rider.zoneCity,
+            });
+        } catch (error) {
+            console.error('Fetch rider details error:', error);
+            toast.error('Could not load rider details');
+        }
     } else if (type === 'edit') {
         setFormState(rider);
         setSelectedRider(rider);
@@ -422,7 +447,7 @@ return (
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className="w-full max-w-2xl relative z-10 bg-white rounded-2xl shadow-2xl overflow-hidden"
+                        className="w-full max-w-2xl relative z-10 bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
                     >
                         <div className="p-10">
                             <div className="flex justify-between items-start mb-10">
@@ -495,6 +520,38 @@ return (
                                     <span className="text-lg font-black text-slate-900 capitalize">{viewingRider.isActive ? viewingRider.status : 'Deactivated'}</span>
                                 </div>
                             </div>
+
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                                <DetailField label="Permanent Address" value={viewingRider.address} />
+                                <DetailField label="Service" value={viewingRider.serviceLabel} />
+                                <DetailField label="Experience" value={viewingRider.experience} />
+                                <DetailField label="Plate Number" value={viewingRider.vehicleNumber} mono />
+                                <DetailField label="Driving License" value={viewingRider.drivingLicenseNumber} mono />
+                                <DetailField label="Aadhar" value={viewingRider.aadharNumber} mono />
+                                <DetailField label="PAN" value={viewingRider.panNumber} mono />
+                                <DetailField label="Account Holder" value={viewingRider.accountHolder} />
+                                <DetailField label="Account Number" value={viewingRider.accountNumber} mono />
+                                <DetailField label="IFSC Code" value={viewingRider.ifsc} mono />
+                            </div>
+
+                            {viewingRider.documents?.length > 0 && (
+                                <div className="space-y-4 mb-10">
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Submitted Documents ({viewingRider.documents.length})</h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {viewingRider.documents.map((doc) => {
+                                            const docUrl = viewingRider.documentsRaw?.[doc] || '';
+                                            return (
+                                                <a key={doc} href={docUrl} target="_blank" rel="noreferrer" className="relative aspect-[4/3] bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                                                    {docUrl && <img src={docUrl} alt={DOC_LABELS[doc] || doc} className="w-full h-full object-cover" />}
+                                                    <span className="absolute inset-x-0 bottom-0 bg-slate-900/60 py-1.5 px-3 text-[9px] font-black text-white uppercase">
+                                                        {DOC_LABELS[doc] || doc.toUpperCase()}
+                                                    </span>
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             <button
                                 onClick={() => handleAction('toggle-active', viewingRider)}

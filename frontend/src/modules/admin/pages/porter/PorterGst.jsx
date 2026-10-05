@@ -48,6 +48,8 @@ const PRODUCTS = [
 const emptyGst = { enabled: false, percent: 18, inclusive: false, gstin: "", placeOfSupply: "" };
 
 /** The first and last day of the current month, as yyyy-mm-dd. */
+const gstState = (g) => (g?.enabled ? `ON ${g.percent}%` : "OFF");
+
 function currentMonth() {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -60,6 +62,7 @@ const PorterGst = () => {
   const [settings, setSettings] = useState({ local: emptyGst, outstation: emptyGst });
   const [draft, setDraft] = useState({ local: emptyGst, outstation: emptyGst });
   const [report, setReport] = useState(null);
+  const [history, setHistory] = useState([]);
   const [ledger, setLedger] = useState({ items: [], total: 0, page: 1, totalPages: 1 });
   const [window, setWindow] = useState(currentMonth);
   const [ledgerSource, setLedgerSource] = useState("all");
@@ -88,6 +91,7 @@ const PorterGst = () => {
       };
       setSettings(next);
       setDraft(next);
+      setHistory(settingsRes.data?.result?.history || []);
       setReport(reportRes.data?.result || null);
       setLedger(ledgerRes.data?.result || { items: [], total: 0, page: 1, totalPages: 1 });
     } catch (error) {
@@ -368,6 +372,29 @@ const PorterGst = () => {
                   Save {label.toLowerCase()} GST
                 </button>
               </div>
+              {key === "outstation" && (
+                <div className="mt-5 border-t border-slate-100 pt-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                    Change history
+                  </p>
+                  {history.length === 0 ? (
+                    <p className="text-xs text-slate-400">No changes recorded yet.</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {history.map((h, i) => (
+                        <li key={i} className="text-xs text-slate-600">
+                          <span className="font-semibold">{new Date(h.at).toLocaleString("en-IN")}</span>
+                          {" · "}
+                          {gstState(h.before)} → {gstState(h.after)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="text-[10px] text-slate-400 mt-2">
+                    Bookings keep the GST they were charged at the time, so a change here only affects new bookings.
+                  </p>
+                </div>
+              )}
             </Card>
           );
         })}
