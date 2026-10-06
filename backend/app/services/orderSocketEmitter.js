@@ -10,6 +10,7 @@ import { getParcelSellerIdsNearPickup } from "./sellerNearbyService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 import { translate, normalizeLanguage } from "../modules/notifications/notification.i18n.js";
+import { offerDeadlineFields } from "./offerDeadline.js";
 
 let _getIo = null;
 
@@ -120,9 +121,7 @@ export function emitToOrder(orderId, { event, payload }) {
  */
 function offerPushData(payload = {}) {
   const preview = payload.preview || {};
-  const expiresAt = payload.deliverySearchExpiresAt || payload.searchExpiresAt;
-  const deadline = expiresAt ? new Date(expiresAt) : null;
-  const hasDeadline = deadline && !Number.isNaN(deadline.getTime());
+  const deadlineFields = offerDeadlineFields(payload);
   return {
     role: "delivery",
     displayId: payload.displayId,
@@ -143,10 +142,7 @@ function offerPushData(payload = {}) {
     // isn't known until the rider's accept location is).
     fare: preview.fare,
     total: preview.fare,
-    acceptanceDeadlineAt: hasDeadline ? deadline.toISOString() : undefined,
-    timeoutSeconds: hasDeadline
-      ? Math.max(0, Math.round((deadline.getTime() - Date.now()) / 1000))
-      : undefined,
+    ...deadlineFields,
   };
 }
 
@@ -206,9 +202,12 @@ export async function emitParcelBroadcast(
     return { ids: [] };
   }
 
+  // Same countdown fields as the push, computed at this emit, so the in-app
+  // dialog starts at the real remaining time instead of falling back to 60s.
   const body = {
     ...payload,
     at: new Date().toISOString(),
+    ...offerDeadlineFields(payload),
   };
 
   if (s) {
