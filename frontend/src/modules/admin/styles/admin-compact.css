@@ -66,7 +66,22 @@
 /* Text case. Labels set in all caps are shown as sentence case, and every
    text block starts with a capital letter, so "ram" reads "Ram" and "PENDING
    REVIEW" reads "Pending review". Acronyms are lowercased too. */
-.admin-compact .uppercase { text-transform: lowercase; }
+/* Every word starts with a capital; the uppercase class no longer shouts. */
+.admin-compact .uppercase { text-transform: capitalize; }
+
+/* Status badges: readable size, one line, inside their pill. Beats the
+   arbitrary text-[10px] size the pages set on them. */
+.admin-compact [data-slot="badge"],
+.admin-compact [data-slot="badge"][class*="text-"] {
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  letter-spacing: 0;
+}
 /* Inline text-only spans (badges, pills, labels) need to be block-level for
    ::first-letter to apply to them. */
 .admin-compact span:not(:has(*)) { display: inline-block; }
