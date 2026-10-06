@@ -21,10 +21,11 @@ import {
     OWNER_TYPE,
 } from "../constants/finance.js";
 import { getCustomerBalance } from "../services/finance/walletService.js";
+import { claimRoleSession } from "../services/sessionService.js";
 
 const generateToken = (customer) =>
     jwt.sign(
-        { id: customer._id, role: "customer" },
+        { id: customer._id, role: "customer", sv: customer.sessionVersion || 0 },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
     );
@@ -117,6 +118,7 @@ export const verifyCustomerOTP = async (req, res) => {
             otp: payload.otp,
             ipAddress: req.ip,
         });
+        await claimRoleSession("customer", customer.phone);
         const token = generateToken(customer);
 
         return handleResponse(

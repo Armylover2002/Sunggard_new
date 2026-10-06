@@ -145,6 +145,18 @@ axiosInstance.interceptors.response.use(
             return axiosInstance(originalRequest);
         }
 
+        // Same number logged in as the other role somewhere else. The stored
+        // session is no longer valid, so tell the auth layer to sign out.
+        const replacedCode =
+            error.response?.data?.result?.code || error.response?.data?.code;
+        if (replacedCode === 'SESSION_REPLACED') {
+            window.dispatchEvent(
+                new CustomEvent('auth:session-replaced', {
+                    detail: error.response?.data?.message,
+                })
+            );
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             const hasStoredRoleToken = ROLE_STORAGE_KEYS.some((key) => Boolean(rawGet(key)));

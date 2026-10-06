@@ -246,7 +246,7 @@ async function fallBackToManualAssignment(parcelId, customerId) {
   await Parcel.findOneAndUpdate(
     { _id: parcelId, status: "SEARCHING" },
     {
-      $set: { status: "REQUESTED" },
+      $set: { status: "REQUESTED", searchFallbackAt: new Date() },
       $unset: { searchExpiresAt: 1, searchMeta: 1 },
     },
   );
@@ -583,6 +583,49 @@ export async function processParcelSearchTimeout(parcelId) {
   }
 
   await offerParcelToNextRider(parcelId);
+}
+
+/**
+ * A rider has just come online. Any booking that fell back to manual
+ * assignment only because no rider was available is put back into the
+ * offer loop, so this rider (or the nearest eligible one) is offered it.
+ * Bookings the admin already assigned, or cancelled, are not touched.
+ */
+export async function offerOpenParcelsToRider(deliveryId) {
+  const riderOid = toDeliveryObjectId(deliveryId);
+  if (!riderOid) return;
+
+  const since = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  const open = await Parcel.find({
+    status: "REQUESTED",
+    deliveryPartnerId: null,
+    searchFallbackAt: { $gte: since },
+    awaitingScheduledDispatch: { $ne: true },
+  })
+    .sort({ createdAt: 1 })
+    .limit(10)
+    .select("_id")
+    .lean();
+
+  for (const { _id: parcelId } of open) {
+    const reopened = await Parcel.findOneAndUpdate(
+      { _id: parcelId, status: "REQUESTED", deliveryPartnerId: null },
+      { $set: { status: "SEARCHING" }, $unset: { searchFallbackAt: 1 } },
+      { new: true },
+    );
+    if (!reopened) continue;
+
+    await recordParcelEvent({
+      parcelId,
+      status: "SEARCHING",
+      previousStatus: "REQUESTED",
+      actor: PARCEL_EVENT_ACTOR.SYSTEM,
+      note: "A rider came online — offer reopened",
+    });
+    await offerParcelToNextRider(parcelId).catch((err) =>
+      console.warn("[parcelWorkflow] reopen offer failed", parcelId, err.message),
+    );
+  }
 }
 
 export async function fetchAvailableParcelsForRider(deliveryId) {

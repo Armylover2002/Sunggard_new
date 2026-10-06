@@ -7,6 +7,8 @@ import { incrementWindowCounter } from "../utils/otpRateLimit.js";
 import { uploadImageWithFallback } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
 import { syncDeliveryPartnerBusyFlag } from "../services/deliveryBusyService.js";
+import { claimRoleSession } from "../services/sessionService.js";
+import { offerOpenParcelsToRider } from "../services/parcelWorkflowService.js";
 import { getActiveZoneById, isZoneGatingActive } from "../services/deliveryZoneService.js";
 
 // Same OTP_RATE_LIMIT / OTP_RATE_WINDOW knob the customer OTP flow uses —
@@ -23,7 +25,7 @@ const OTP_LOCKOUT_MINUTES = () =>
 
 const generateToken = (delivery) =>
     jwt.sign(
-        { id: delivery._id, role: "delivery" },
+        { id: delivery._id, role: "delivery", sv: delivery.sessionVersion || 0 },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
     );
@@ -563,6 +565,7 @@ export const verifyDeliveryOTP = async (req, res) => {
 
         await delivery.save();
 
+        await claimRoleSession("delivery", delivery.phone);
         const token = generateToken(delivery);
 
         return handleResponse(res, 200, "Login successful", {
@@ -695,6 +698,14 @@ export const updateDeliveryProfile = async (req, res) => {
 
         await delivery.save();
         await delivery.populate("zoneIds", "name city color");
+
+        // A rider who just came online gets any booking that was left without
+        // a rider while nobody was available (see offerOpenParcelsToRider).
+        if (!wasOnline && delivery.isOnline === true) {
+            offerOpenParcelsToRider(delivery._id).catch((err) =>
+                console.warn("[delivery] reopen parcels failed", err.message),
+            );
+        }
 
         // Fire-and-forget — never blocks the HTTP response. A failed cleanup
         // is also safe: the scheduled sweep job will pick it up on TTL.

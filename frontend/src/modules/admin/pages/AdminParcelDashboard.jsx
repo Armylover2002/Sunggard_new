@@ -2194,7 +2194,7 @@ const AdminParcelDashboard = () => {
               </div>
 
               {/* Extra details card */}
-              <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm max-w-2xl mx-auto space-y-4">
+              <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm w-full space-y-4">
                 <h3 className="text-base font-black text-slate-800">
                   Financial Insights
                 </h3>

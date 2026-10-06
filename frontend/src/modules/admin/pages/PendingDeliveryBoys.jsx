@@ -476,7 +476,7 @@ return (
                         initial={{ opacity: 0, scale: 0.9, y: 30 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                        className="relative z-10 w-full max-w-5xl max-h-[min(90vh,calc(100dvh-2rem))] flex flex-col overflow-hidden bg-white rounded-3xl shadow-3xl"
+                        className="relative z-10 w-full max-w-3xl max-h-[min(90vh,calc(100dvh-2rem))] flex flex-col overflow-hidden bg-white rounded-3xl shadow-3xl"
                         role="dialog"
                         aria-modal="true"
                     >

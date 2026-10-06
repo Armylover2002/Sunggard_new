@@ -30,7 +30,8 @@ function extractJwtFromHeaders(req) {
 /* ===============================
    Verify Token
 ================================ */
-export const verifyToken = (req, res, next) => {
+export const verifyToken = async (req, res, next) => {
+  let decoded;
   try {
     const token = extractJwtFromHeaders(req);
 
@@ -38,13 +39,36 @@ export const verifyToken = (req, res, next) => {
       return handleResponse(res, 401, "Unauthorized, token missing");
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    req.user = decoded; // { id, role }
-    next();
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch (error) {
     return handleResponse(res, 401, "Invalid or expired token");
   }
+
+  // A customer or rider token is only good while it still matches the
+  // account's session version. Logging in as the other role on the same
+  // number bumps it (see services/sessionService.js).
+  if (decoded.role === "customer" || decoded.role === "delivery") {
+    try {
+      const Model = decoded.role === "customer" ? Customer : Delivery;
+      const account = await Model.findById(decoded.id).select("sessionVersion").lean();
+      if (!account) {
+        return handleResponse(res, 401, "Account not found");
+      }
+      if ((account.sessionVersion || 0) !== (decoded.sv || 0)) {
+        return handleResponse(
+          res,
+          401,
+          "You were signed out because this number logged in to another account.",
+          { code: "SESSION_REPLACED" },
+        );
+      }
+    } catch (error) {
+      return handleResponse(res, 503, "Unable to validate your session, please try again");
+    }
+  }
+
+  req.user = decoded; // { id, role, sv }
+  next();
 };
 
 /* ===============================

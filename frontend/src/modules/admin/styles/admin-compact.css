@@ -67,6 +67,51 @@
    text block starts with a capital letter, so "ram" reads "Ram" and "PENDING
    REVIEW" reads "Pending review". Acronyms are lowercased too. */
 .admin-compact .uppercase { text-transform: lowercase; }
-.admin-compact :where(p, h1, h2, h3, h4, h5, h6, div, label, td, th, li, button, a)::first-letter {
+/* Inline text-only spans (badges, pills, labels) need to be block-level for
+   ::first-letter to apply to them. */
+.admin-compact span:not(:has(*)) { display: inline-block; }
+.admin-compact :where(p, h1, h2, h3, h4, h5, h6, div, span, label, td, th, li, button, a)::first-letter {
   text-transform: uppercase;
+}
+
+/* The admin primary is orange everywhere, including portalled modals that sit
+   outside the themed wrapper. */
+:root:has(.admin-compact) { --primary: #F97316; --color-primary: #F97316; }
+
+/* Cards and panels in nested sections: cap the large paddings, gaps and radii. */
+.admin-compact .p-4 { padding: 0.75rem; }
+.admin-compact .p-5,
+.admin-compact .md\:p-5 { padding: 0.875rem; }
+.admin-compact .p-7,
+.admin-compact .p-8,
+.admin-compact .p-10,
+.admin-compact .md\:p-10 { padding: 1rem; }
+.admin-compact .px-8,
+.admin-compact .px-10,
+.admin-compact .md\:px-10 { padding-left: 1rem; padding-right: 1rem; }
+.admin-compact .py-8,
+.admin-compact .py-10 { padding-top: 0.875rem; padding-bottom: 0.875rem; }
+.admin-compact .py-2\.5 { padding-top: 0.4375rem; padding-bottom: 0.4375rem; }
+.admin-compact .gap-8,
+.admin-compact .gap-10 { gap: 1rem; }
+.admin-compact .mt-6,
+.admin-compact .mt-8,
+.admin-compact .mt-10 { margin-top: 0.75rem; }
+.admin-compact .mb-6,
+.admin-compact .mb-8,
+.admin-compact .mb-10 { margin-bottom: 0.875rem; }
+.admin-compact .space-y-8 > :not(:last-child),
+.admin-compact .space-y-10 > :not(:last-child) { margin-bottom: 1rem; }
+.admin-compact [class*="rounded-["] { border-radius: 0.875rem; }
+.admin-compact .text-4xl,
+.admin-compact .text-5xl,
+.admin-compact .text-6xl,
+.admin-compact .md\:text-4xl,
+.admin-compact .md\:text-5xl { font-size: 1.25rem; line-height: 1.75rem; }
+.admin-compact .shadow-3xl,
+.admin-compact .shadow-2xl { box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08); }
+.admin-compact h1 > span[class*="rounded"] {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  padding: 0.125rem 0.5rem;
 }

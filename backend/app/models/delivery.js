@@ -128,6 +128,15 @@ const deliverySchema = new mongoose.Schema(
             trim: true,
         },
 
+        /**
+         * Bumped when the same phone number logs in as the other role, which
+         * signs that role out everywhere (see services/sessionService.js).
+         */
+        sessionVersion: {
+            type: Number,
+            default: 0,
+        },
+
         isVerified: {
             type: Boolean,
             default: false,

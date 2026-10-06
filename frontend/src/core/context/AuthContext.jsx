@@ -190,6 +190,17 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // Sign out when another login on this number replaced this role's session.
+    useEffect(() => {
+        const onReplaced = (event) => {
+            const message = event.detail || 'You were signed out because this number logged in to another account.';
+            logout();
+            import('sonner').then(({ toast }) => toast.error(message)).catch(() => {});
+        };
+        window.addEventListener('auth:session-replaced', onReplaced);
+        return () => window.removeEventListener('auth:session-replaced', onReplaced);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     const logout = async () => {
         const storageKey = ROLE_STORAGE_KEYS[currentRole];
         const previousUserId = user?._id || user?.id || '';

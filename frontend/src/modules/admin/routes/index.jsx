@@ -191,6 +191,13 @@ const AdminRoutes = () => {
     setActiveRole(ROLES.ADMIN);
   }, []);
 
+  // Portalled modals sit on <body>, outside the wrapper, so the admin density
+  // and text rules are applied to body while the admin routes are mounted.
+  useEffect(() => {
+    document.body.classList.add("admin-compact");
+    return () => document.body.classList.remove("admin-compact");
+  }, []);
+
   return (
     <Routes>
       <Route
