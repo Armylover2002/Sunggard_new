@@ -1,0 +1,50 @@
+/*
+ * Admin panel density. Scoped to .admin-compact (wrapped around the admin
+ * <Outlet /> in modules/admin/routes/index.jsx), so the customer, delivery and
+ * seller apps keep their sizes.
+ *
+ * Unlayered rules beat Tailwind's utilities layer, so these win without
+ * !important. The md: variants are overridden too, so a card keeps the same
+ * size at every width.
+ */
+
+/* Type scale */
+.admin-compact .text-3xl,
+.admin-compact .md\:text-3xl { font-size: 1.25rem; line-height: 1.75rem; }
+.admin-compact .text-2xl,
+.admin-compact .md\:text-2xl { font-size: 1.0625rem; line-height: 1.5rem; }
+.admin-compact .text-xl,
+.admin-compact .md\:text-xl { font-size: 0.975rem; line-height: 1.4rem; }
+.admin-compact .text-lg,
+.admin-compact .md\:text-lg { font-size: 0.9rem; line-height: 1.35rem; }
+.admin-compact .text-base,
+.admin-compact .md\:text-base { font-size: 0.8125rem; line-height: 1.25rem; }
+.admin-compact .text-sm,
+.admin-compact .md\:text-sm { font-size: 0.78rem; line-height: 1.1rem; }
+.admin-compact .text-xs,
+.admin-compact .md\:text-xs { font-size: 0.6875rem; line-height: 1rem; }
+
+/* Cards and panels */
+.admin-compact .rounded-3xl { border-radius: 0.875rem; }
+.admin-compact .rounded-2xl { border-radius: 0.75rem; }
+
+.admin-compact .p-6,
+.admin-compact .md\:p-6,
+.admin-compact .md\:p-7,
+.admin-compact .md\:p-8 { padding: 1rem; }
+.admin-compact .px-6,
+.admin-compact .md\:px-6,
+.admin-compact .md\:px-8 { padding-left: 1rem; padding-right: 1rem; }
+.admin-compact .py-6,
+.admin-compact .md\:py-6,
+.admin-compact .md\:py-8 { padding-top: 0.875rem; padding-bottom: 0.875rem; }
+.admin-compact .px-5 { padding-left: 0.875rem; padding-right: 0.875rem; }
+.admin-compact .py-5 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+
+/* Spacing between blocks */
+.admin-compact .gap-6,
+.admin-compact .md\:gap-6 { gap: 0.875rem; }
+.admin-compact .gap-5 { gap: 0.75rem; }
+.admin-compact .space-y-6 > :not(:last-child),
+.admin-compact .md\:space-y-6 > :not(:last-child) { margin-bottom: 0.875rem; }
+.admin-compact .space-y-5 > :not(:last-child) { margin-bottom: 0.75rem; }

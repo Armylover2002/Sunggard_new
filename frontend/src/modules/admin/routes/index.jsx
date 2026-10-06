@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
+import "../styles/admin-compact.css";
 import NotFoundPage from "@shared/components/NotFoundPage";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import {
@@ -195,7 +196,9 @@ const AdminRoutes = () => {
       <Route
         element={
           <DashboardLayout navItems={navItems} title="Admin Center">
-            <Outlet />
+            <div className="admin-compact">
+              <Outlet />
+            </div>
           </DashboardLayout>
         }
       >
