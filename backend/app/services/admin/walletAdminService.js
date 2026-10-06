@@ -36,7 +36,7 @@ export async function getDeliveryWithdrawalsData({ page, limit, skip }) {
       // seeing where the money was supposed to go.
       .populate(
         "user",
-        "name phone accountHolder accountNumber ifsc bankName upiId qrImageUrl",
+        "name phone profileImage vehicleType vehicleNumber accountHolder accountNumber ifsc bankName upiId qrImageUrl",
       )
       .sort({ createdAt: -1 })
       .skip(skip)

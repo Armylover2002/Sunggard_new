@@ -36,18 +36,21 @@ import { toast } from "sonner";
  * whatever the rider has saved right now. The snapshot wins, so editing
  * payout details after requesting cannot silently redirect a payment.
  */
+/* The snapshot is what the rider had when they raised the request; the live
+   profile is what they have now. Each field takes the snapshot value when it
+   has one, and the live value otherwise, so a UPI or bank added afterwards
+   still shows. */
 const resolvePayout = (req) => {
-    const snapshot = req?.meta?.payout;
+    const snapshot = req?.meta?.payout || {};
     const live = req?.user || {};
-    const source = snapshot && Object.values(snapshot).some(Boolean) ? snapshot : live;
+    const pick = (key) => snapshot[key] || live[key] || "";
     return {
-        accountHolder: source.accountHolder || "",
-        accountNumber: source.accountNumber || "",
-        ifsc: source.ifsc || "",
-        bankName: source.bankName || "",
-        upiId: source.upiId || "",
-        qrImageUrl: source.qrImageUrl || "",
-        fromSnapshot: Boolean(snapshot && Object.values(snapshot).some(Boolean)),
+        accountHolder: pick("accountHolder"),
+        accountNumber: pick("accountNumber"),
+        ifsc: pick("ifsc"),
+        bankName: pick("bankName"),
+        upiId: pick("upiId"),
+        qrImageUrl: pick("qrImageUrl"),
     };
 };
 
@@ -393,11 +396,17 @@ const WithdrawalRequests = () => {
                 {selectedRequest && (
                     <div className="ds-section-spacing">
                         <div className="flex items-center gap-6 p-6 bg-slate-50 rounded-xl border border-slate-100">
-                            <div className={cn(
-                                "h-20 w-20 rounded-xl flex items-center justify-center shadow-xl bg-[color:var(--primary)] text-primary-foreground",
-                            )}>
-                                <Truck className="h-10 w-10" />
-                            </div>
+                            {selectedRequest.user?.profileImage ? (
+                                <img
+                                    src={selectedRequest.user.profileImage}
+                                    alt={selectedRequest.user?.name || "Rider"}
+                                    className="h-20 w-20 shrink-0 rounded-xl object-cover shadow-xl"
+                                />
+                            ) : (
+                                <div className="h-20 w-20 shrink-0 rounded-xl flex items-center justify-center shadow-xl bg-[color:var(--primary)] text-primary-foreground">
+                                    <Truck className="h-10 w-10" />
+                                </div>
+                            )}
                             <div>
                                 <h3 className="text-2xl font-black text-slate-900 tracking-tight">{selectedRequest.user?.shopName || selectedRequest.user?.name || "Unknown"}</h3>
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">{selectedRequest._id}</p>

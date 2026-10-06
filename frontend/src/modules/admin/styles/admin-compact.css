@@ -70,13 +70,14 @@
 /* Inline text-only spans (badges, pills, labels) need to be block-level for
    ::first-letter to apply to them. */
 .admin-compact span:not(:has(*)) { display: inline-block; }
-.admin-compact :where(p, h1, h2, h3, h4, h5, h6, div, span, label, td, th, li, button, a)::first-letter {
-  text-transform: uppercase;
+.admin-compact :where(p, h1, h2, h3, h4, h5, h6, div, span, label, td, th, li, button, a) {
+  text-transform: capitalize;
 }
 
 /* The admin primary is orange everywhere, including portalled modals that sit
    outside the themed wrapper. */
-:root:has(.admin-compact) { --primary: #F97316; --color-primary: #F97316; }
+:root:has(.admin-compact),
+body.admin-compact { --primary: #F97316; --color-primary: #F97316; }
 
 /* Cards and panels in nested sections: cap the large paddings, gaps and radii. */
 .admin-compact .p-4 { padding: 0.75rem; }
@@ -110,8 +111,12 @@
 .admin-compact .md\:text-5xl { font-size: 1.25rem; line-height: 1.75rem; }
 .admin-compact .shadow-3xl,
 .admin-compact .shadow-2xl { box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08); }
-.admin-compact h1 > span[class*="rounded"] {
-  font-size: 0.6875rem;
+.admin-compact h1 > span[class*="rounded"],
+.admin-compact h1 span[class*="rounded-full"],
+.admin-compact h1 [class*="badge"] {
+  font-size: 0.75rem;
   line-height: 1rem;
-  padding: 0.125rem 0.5rem;
+  padding: 0.25rem 0.625rem;
+  white-space: nowrap;
+  text-transform: capitalize;
 }
