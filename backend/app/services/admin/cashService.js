@@ -1,6 +1,7 @@
 import Delivery from "../../models/delivery.js";
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
+import { translate, normalizeLanguage } from "../../modules/notifications/notification.i18n.js";
 
 export async function getDeliveryCashBalancesData({ page, limit, skip }) {
   const ridersPipeline = [
@@ -199,11 +200,12 @@ export async function settleRiderCashEntry({ riderId, amount, method }) {
     notes: `Method: ${method || "Cash"}`,
   });
 
+  const lang = normalizeLanguage(rider?.language);
   await Notification.create({
     recipient: riderId,
     recipientModel: "Delivery",
-    title: "Cash Settled",
-    message: `Admin has collected \u20B9${amount} cash from you. Your balance is updated.`,
+    title: translate(lang, "cash_settled_title"),
+    message: translate(lang, "cash_settled_body", { amount }),
     type: "payment",
     data: { transactionId: settlement._id },
   });

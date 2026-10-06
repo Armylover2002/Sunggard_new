@@ -155,7 +155,10 @@ function eventDefinition(eventType) {
         role: NOTIFICATION_ROLES.DELIVERY,
         recipientIds: (payload) => normalizeIdList(payload.deliveryId),
         title: () => msg("parcel_assigned_title"),
-        body: (payload) => payload.body || msg("parcel_assigned_default"),
+        body: (payload) =>
+          payload.bodyKey
+            ? msg(payload.bodyKey, payload.bodyVars || {})
+            : payload.body || msg("parcel_assigned_default"),
       };
     case NOTIFICATION_EVENTS.PARCEL_SEARCH_CANCELLED:
       return {

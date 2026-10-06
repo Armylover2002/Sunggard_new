@@ -3,6 +3,7 @@ import CashDeposit from "../models/cashDeposit.js";
 import Parcel from "../models/parcel.js";
 import Delivery from "../models/delivery.js";
 import Notification from "../models/notification.js";
+import { translate, normalizeLanguage } from "../modules/notifications/notification.i18n.js";
 import Transaction from "../models/transaction.js";
 import Setting from "../models/setting.js";
 import { emitToDelivery } from "./orderSocketEmitter.js";
@@ -249,18 +250,20 @@ async function finalizeCashDeposit(deposit, { approve, adminId = null, adminNote
   const { getRiderCashStatus } = await import("./porter/riderCashLimitService.js");
   const cashStatus = await getRiderCashStatus(deposit.riderId).catch(() => null);
   const unblocked = approve && cashStatus && !cashStatus.blocked;
+  const riderLang = normalizeLanguage(
+    (await Delivery.findById(deposit.riderId).select("language").lean().catch(() => null))?.language,
+  );
 
   await Notification.create({
     recipient: deposit.riderId,
     recipientModel: "Delivery",
-    title: approve ? "Cash deposit approved" : "Cash deposit rejected",
+    title: translate(riderLang, approve ? "cash_deposit_approved_title" : "cash_deposit_rejected_title"),
     message: approve
-      ? `Your ₹${deposit.amount} cash deposit has been verified and cleared.${
-          unblocked ? " You can take new jobs again." : ""
-        }`
-      : `Your ₹${deposit.amount} cash deposit was rejected.${
-          deposit.adminNote ? ` Reason: ${deposit.adminNote}` : ""
-        }`,
+      ? translate(riderLang, "cash_deposit_approved_body", { amount: deposit.amount }) +
+        (unblocked ? translate(riderLang, "cash_deposit_approved_unblocked") : "")
+      : translate(riderLang, "cash_deposit_rejected_body", { amount: deposit.amount }) +
+        // adminNote is free text the admin typed, so it is appended as-is.
+        (deposit.adminNote ? ` ${deposit.adminNote}` : ""),
     type: "payment",
     data: { depositId: String(deposit._id) },
   }).catch(() => {

@@ -1,5 +1,6 @@
 import Transaction from "../../models/transaction.js";
 import Notification from "../../models/notification.js";
+import { translate, normalizeLanguage } from "../../modules/notifications/notification.i18n.js";
 import { getOrCreateWallet } from "../finance/walletService.js";
 import { OWNER_TYPE } from "../../constants/finance.js";
 import { addMoney, roundCurrency } from "../../utils/money.js";
@@ -58,7 +59,7 @@ export async function updateWithdrawalStatusById({ id, status, reason }) {
     throw new Error("Invalid status");
   }
 
-  const transaction = await Transaction.findById(id).populate("user", "name");
+  const transaction = await Transaction.findById(id).populate("user", "name language");
   if (!transaction) {
     return null;
   }
@@ -121,11 +122,14 @@ async function applySettledWithdrawalSideEffects(transaction) {
   }
 
   try {
+    // Only Customer/Delivery accounts carry a `language`; others (Seller,
+    // Admin) have none, and normalizeLanguage falls back to English for them.
+    const lang = normalizeLanguage(transaction.user?.language);
     await Notification.create({
       recipient: userId,
       recipientModel: transaction.userModel,
-      title: "Withdrawal Approved",
-      message: `Your withdrawal of \u20B9${amount} has been approved and settled.`,
+      title: translate(lang, "withdrawal_approved_title"),
+      message: translate(lang, "withdrawal_approved_body", { amount }),
       type: "payment",
       data: { transactionId: transaction._id, reference: transaction.reference },
     });
@@ -139,17 +143,18 @@ export async function settleDeliveryTransactionById(id) {
     id,
     { status: "Settled" },
     { new: true },
-  ).populate("user", "name");
+  ).populate("user", "name language");
 
   if (!transaction) {
     return null;
   }
 
+  const lang = normalizeLanguage(transaction.user?.language);
   await Notification.create({
     recipient: transaction.user._id,
     recipientModel: "Delivery",
-    title: "Payment Settled",
-    message: `Your payment of \u20B9${transaction.amount} has been settled.`,
+    title: translate(lang, "payment_settled_title"),
+    message: translate(lang, "payment_settled_body", { amount: transaction.amount }),
     type: "payment",
     data: { transactionId: transaction._id },
   });

@@ -38,6 +38,7 @@ const depositFindById = jest.fn();
 const depositCountDocuments = jest.fn().mockResolvedValue(0);
 const depositAggregate = jest.fn().mockResolvedValue([]);
 const deliveryFind = jest.fn();
+const deliveryFindById = jest.fn(() => chain(null));
 const notificationCreate = jest.fn().mockResolvedValue({});
 const transactionFindOneAndUpdate = jest.fn().mockResolvedValue({});
 
@@ -54,13 +55,19 @@ jest.unstable_mockModule("../app/models/cashDeposit.js", () => ({
   },
 }));
 jest.unstable_mockModule("../app/models/delivery.js", () => ({
-  default: { find: deliveryFind },
+  default: { find: deliveryFind, findById: deliveryFindById },
 }));
 jest.unstable_mockModule("../app/models/notification.js", () => ({
   default: { create: notificationCreate },
 }));
 jest.unstable_mockModule("../app/models/transaction.js", () => ({
   default: { findOneAndUpdate: transactionFindOneAndUpdate },
+}));
+// getRiderCashStatus (called inside reviewCashDeposit) reads Setting directly;
+// left unmocked it buffers against a real Mongoose connection for 10s before
+// giving up, racing past this test file's 5s-per-test limit.
+jest.unstable_mockModule("../app/models/setting.js", () => ({
+  default: { findOne: jest.fn(() => chain(null)), findOneAndUpdate: jest.fn(() => chain(null)) },
 }));
 
 const {

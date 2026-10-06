@@ -1561,6 +1561,8 @@ export const requestParcelLateRefund = async (req, res) => {
       "Your late pickup refund request was sent to admin. COD / fare collection is unchanged until admin decides.",
       NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
       parcel._id,
+      null,
+      { bodyKey: "late_refund_submitted_body" },
     );
 
     return handleResponse(res, 200, "Late refund request submitted", parcel);
@@ -1629,6 +1631,14 @@ export const adminApproveParcelLateRefund = async (req, res) => {
       }`.trim(),
       NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
       parcel._id,
+      null,
+      {
+        bodyKey:
+          String(parcel.paymentMethod).toUpperCase() === "COD"
+            ? "late_refund_approved_cod"
+            : "late_refund_approved_online",
+        bodyVars: { amount: credited.toFixed(2) },
+      },
     );
 
     return handleResponse(
@@ -1678,6 +1688,10 @@ export const adminRejectParcelLateRefund = async (req, res) => {
         "Your late pickup refund request was rejected by admin.",
       NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
       parcel._id,
+      null,
+      // adminNote is free text the admin typed, so it can't be translated —
+      // only the generic fallback (no note) gets a translation key.
+      parcel.lateRefundRequest.adminNote ? {} : { bodyKey: "late_refund_rejected_default" },
     );
 
     return handleResponse(res, 200, "Late refund request rejected", parcel);
@@ -1754,7 +1768,9 @@ export const adminAssignRider = async (req, res) => {
       "Rider Assigned",
       `Delivery partner ${rider.name} has been assigned to your courier.`,
       NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE,
-      parcel._id
+      parcel._id,
+      null,
+      { bodyKey: "status_accepted" },
     );
 
     // Notify Rider
@@ -1764,7 +1780,9 @@ export const adminAssignRider = async (req, res) => {
       "New Courier Delivery Assigned",
       `You have been assigned a new courier delivery from ${parcel.pickupAddress.fullAddress} to ${parcel.dropAddress.fullAddress}.`,
       NOTIFICATION_EVENTS.PARCEL_ASSIGNED,
-      parcel._id
+      parcel._id,
+      null,
+      { bodyKey: "parcel_assigned_default" },
     );
 
     emitToCustomer(parcel.customerId, {

@@ -9,6 +9,7 @@ import { getParcelRiderIdsNearPickup } from "./deliveryNearbyService.js";
 import { getParcelSellerIdsNearPickup } from "./sellerNearbyService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
+import { translate, normalizeLanguage } from "../modules/notifications/notification.i18n.js";
 
 let _getIo = null;
 
@@ -240,19 +241,31 @@ export async function emitParcelBroadcast(
    * accept-window timeout no matter what the customer did.
    */
   try {
+    // `type: "parcel"` and `data.parcelId` are load-bearing: retractParcelBroadcast
+    // queries on exactly these to find who currently holds a live offer and
+    // needs a dismiss push. Title/body are written in each rider's own
+    // language — this row is inserted directly rather than through
+    // notify(), so it has to translate itself instead of getting it for free.
+    const riders = await Delivery.find({ _id: { $in: ids } }).select("language").lean();
+    const langById = new Map(riders.map((r) => [String(r._id), normalizeLanguage(r.language)]));
+    const code = String(payload.parcelId || "").slice(-6);
+
     await Notification.insertMany(
-      ids.map((id) => ({
-        recipient: new mongoose.Types.ObjectId(id),
-        recipientModel: "Delivery",
-        title: "New courier delivery",
-        message: `Courier #${String(payload.parcelId || "").slice(-6)} nearby — tap Accept on the alert.`,
-        type: "parcel",
-        data: {
-          parcelId: payload.parcelId,
-          preview: payload.preview || null,
-          searchExpiresAt: payload.searchExpiresAt || null,
-        },
-      })),
+      ids.map((id) => {
+        const lang = langById.get(String(id)) || "en";
+        return {
+          recipient: new mongoose.Types.ObjectId(id),
+          recipientModel: "Delivery",
+          title: translate(lang, "parcel_new_request_title"),
+          message: translate(lang, "parcel_nearby_body", { code }),
+          type: "parcel",
+          data: {
+            parcelId: payload.parcelId,
+            preview: payload.preview || null,
+            searchExpiresAt: payload.searchExpiresAt || null,
+          },
+        };
+      }),
       { ordered: false },
     );
   } catch (e) {
