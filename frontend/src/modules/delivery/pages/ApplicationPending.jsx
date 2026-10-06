@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CheckCircle2, Clock3, RefreshCw, ShieldAlert, Truck } from "lucide-react";
 import { useAuth } from "@core/context/AuthContext";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 const ApplicationPending = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthenticated, role, user, isLoading, refreshUser } = useAuth();
   const { settings } = useSettings();
 
@@ -80,7 +81,7 @@ const ApplicationPending = () => {
           </h1>
           <p className="mt-4 text-base md:text-lg text-slate-200/90 font-medium max-w-2xl">
             {isRejected
-              ? "You cannot receive orders yet. Please contact admin support and re-submit with the required details."
+              ? "Read the reason below, update your details, and reapply. The admin will review it again."
               : "You will start receiving orders only after admin approves your account."}
           </p>
 
@@ -88,6 +89,12 @@ const ApplicationPending = () => {
             <div className="mt-6 rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
               <span className="font-black uppercase tracking-widest text-[11px]">Reason</span>
               <p className="mt-1 font-medium">{rejectionReason}</p>
+            </div>
+          ) : null}
+
+          {!isRejected && user?.reappliedAt ? (
+            <div className="mt-6 rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-100">
+              Your reapplication was sent on {new Date(user.reappliedAt).toLocaleDateString("en-IN")}. The admin will review it again.
             </div>
           ) : null}
 
@@ -101,6 +108,15 @@ const ApplicationPending = () => {
           ) : null}
 
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
+            {isRejected ? (
+              <button
+                type="button"
+                onClick={() => navigate("/delivery/auth", { state: { reapplyFrom: user } })}
+                className="inline-flex items-center justify-center rounded-xl bg-orange-500 text-white px-5 py-3 text-sm font-black tracking-wide hover:bg-orange-600 transition-colors"
+              >
+                Edit & reapply
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleRefreshStatus}

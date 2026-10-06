@@ -349,6 +349,9 @@ export const signupDelivery = async (req, res) => {
         if (/^https?:\/\//i.test(normalizedDl)) dlUrl = normalizedDl;
         if (/^https?:\/\//i.test(normalizedProfileImage)) profileImageUrl = normalizedProfileImage;
 
+        // A rejected applicant resubmitting is a reapply: the admin queue shows
+        // it as such, and the rejection stays on record.
+        const wasRejected = delivery?.applicationStatus === "rejected";
         const deliveryData = {
             name,
             phone,
@@ -369,6 +372,9 @@ export const signupDelivery = async (req, res) => {
             // A resubmission after rejection is a fresh application, not a
             // continuation of the rejected one — send it back to the queue.
             applicationStatus: "pending",
+            ...(wasRejected
+                ? { reappliedAt: new Date(), reapplyCount: (delivery?.reapplyCount || 0) + 1 }
+                : {}),
             documents: {
                 aadhar: aadharUrl,
                 aadharFront: aadharFrontUrl,
@@ -442,7 +448,9 @@ export const loginDelivery = async (req, res) => {
             return handleResponse(res, 404, "Delivery partner not found");
         }
 
-        if (!delivery.isVerified) {
+        // A rejected rider may log in to read the reason and reapply; everyone
+        // else still waiting on the queue is kept out until approved.
+        if (!delivery.isVerified && delivery.applicationStatus !== "rejected") {
             return handleResponse(res, 403, "Your application is pending admin approval.");
         }
 

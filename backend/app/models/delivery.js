@@ -148,6 +148,27 @@ const deliverySchema = new mongoose.Schema(
         },
 
         /**
+         * Why the admin rejected the application. Kept after a resubmission so
+         * the review queue can show what the rider was told to fix.
+         */
+        rejectionReason: {
+            type: String,
+            trim: true,
+            default: "",
+        },
+        rejectedAt: {
+            type: Date,
+        },
+        /** Set when a rejected rider resubmits; cleared never, so the history stays visible. */
+        reappliedAt: {
+            type: Date,
+        },
+        reapplyCount: {
+            type: Number,
+            default: 0,
+        },
+
+        /**
          * Admin on/off switch for an already-approved rider — separate from
          * `applicationStatus`, which is about the onboarding decision, not
          * about suspending someone who already passed it. `requireActiveDelivery`

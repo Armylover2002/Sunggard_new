@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
@@ -51,6 +51,14 @@ const ActiveDeliveryBoys = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isOnboardModalOpen, setIsOnboardModalOpen] = useState(false);
     const [viewingRider, setViewingRider] = useState(null);
+
+    // Keep the page behind the detail modal from scrolling with the wheel.
+    useEffect(() => {
+        if (!viewingRider) return;
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = prev; };
+    }, [viewingRider]);
 
     // Form states
     const [formState, setFormState] = useState({
@@ -387,7 +395,7 @@ return (
                                     <div className="pt-2 flex items-center gap-2">
                                         <button
                                             onClick={() => handleAction('view', rider)}
-                                            className="flex-1 py-2.5 bg-[color:var(--primary)] text-white rounded-xl text-[10px] font-bold shadow-lg shadow-slate-200 hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                            className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl text-[10px] font-bold shadow-lg shadow-orange-100 hover:bg-orange-600 transition-all active:scale-95 flex items-center justify-center gap-2"
                                         >
                                             <Eye className="h-3.5 w-3.5" />
                                             VIEW PROFILE
@@ -451,7 +459,7 @@ return (
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         className="w-full max-w-2xl relative z-10 bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain"
                     >
-                        <div className="p-10">
+                        <div className="p-5">
                             <div className="flex justify-between items-start mb-10">
                                 <div className="flex gap-6">
                                     <img 
@@ -539,15 +547,15 @@ return (
                             </div>
 
                             {viewingRider.documents?.length > 0 && (
-                                <div className="space-y-4 mb-10">
+                                <div className="space-y-3 mb-5">
                                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Submitted Documents ({viewingRider.documents.length})</h4>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                         {viewingRider.documents.map((doc) => {
                                             const docUrl = viewingRider.documentsRaw?.[doc] || '';
                                             return (
-                                                <a key={doc} href={docUrl} target="_blank" rel="noreferrer" className="relative aspect-[4/3] bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden">
+                                                <a key={doc} href={docUrl} target="_blank" rel="noreferrer" className="relative aspect-[4/3] max-h-[120px] w-full bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
                                                     {docUrl && <img src={docUrl} alt={DOC_LABELS[doc] || doc} className="w-full h-full object-cover" />}
-                                                    <span className="absolute inset-x-0 bottom-0 bg-slate-900/60 py-1.5 px-3 text-[9px] font-black text-white uppercase">
+                                                    <span className="absolute inset-x-0 bottom-0 truncate bg-slate-900/60 py-1 px-2 text-[9px] font-black text-white uppercase">
                                                         {DOC_LABELS[doc] || doc.toUpperCase()}
                                                     </span>
                                                 </a>
@@ -560,10 +568,10 @@ return (
                             <button
                                 onClick={() => handleAction('toggle-active', viewingRider)}
                                 className={cn(
-                                    "mt-6 w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2",
+                                    "mt-4 w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2",
                                     viewingRider.isActive
                                         ? "bg-rose-50 text-rose-600 hover:bg-rose-100"
-                                        : "bg-[color:var(--primary)] text-white hover:opacity-90"
+                                        : "bg-orange-500 text-white hover:bg-orange-600"
                                 )}
                             >
                                 {viewingRider.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}

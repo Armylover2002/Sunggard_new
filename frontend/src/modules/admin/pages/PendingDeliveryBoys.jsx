@@ -41,6 +41,9 @@ const PendingDeliveryBoys = () => {
     const [identityDraft, setIdentityDraft] = useState({ aadhar: "", pan: "" });
     const [isSavingIdentity, setIsSavingIdentity] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    // Rejection needs a reason the rider can read; this holds the open dialog.
+    const [rejectTarget, setRejectTarget] = useState(null);
+    const [rejectReason, setRejectReason] = useState('');
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
     useEffect(() => {
@@ -165,6 +168,15 @@ const filteredRiders = useMemo(() => {
     });
 }, [pendingRiders, searchTerm, filterStatus, serviceFilter]);
 
+/* Lock the page behind the review modal or the reject dialog, so the wheel
+   scrolls the modal and not the list underneath it. */
+useEffect(() => {
+    if (!viewingRider && !rejectTarget) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+}, [viewingRider, rejectTarget]);
+
 const handleApprove = async (id) => {
     setIsProcessing(true);
     try {
@@ -180,20 +192,20 @@ const handleApprove = async (id) => {
     }
 };
 
-const handleReject = async (id) => {
-    if (window.confirm('Are you sure you want to reject this application?')) {
-        setIsProcessing(true);
-        try {
-            await adminApi.rejectDeliveryPartner(id);
-            toast.success('Application Rejected');
-            setPendingRiders(pendingRiders.filter(r => r.id !== id));
-            setViewingRider(null);
-        } catch (error) {
-            console.error('Rejection Error:', error);
-            toast.error('Failed to reject application');
-        } finally {
-            setIsProcessing(false);
-        }
+const handleReject = async (id, reason) => {
+    setIsProcessing(true);
+    try {
+        await adminApi.rejectDeliveryPartner(id, reason);
+        toast.success('Application rejected. The rider can edit and reapply.');
+        setPendingRiders(pendingRiders.filter(r => r.id !== id));
+        setViewingRider(null);
+        setRejectTarget(null);
+        setRejectReason('');
+    } catch (error) {
+        console.error('Rejection Error:', error);
+        toast.error(error?.response?.data?.message || 'Failed to reject application');
+    } finally {
+        setIsProcessing(false);
     }
 };
 
@@ -325,6 +337,9 @@ return (
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <p className="text-sm font-black text-slate-900">{rider.name}</p>
+                                                    {rider.reappliedAt && (
+                                                        <Badge variant="warning" className="text-[9px] px-1.5 py-0.5">Reapplied</Badge>
+                                                    )}
                                                     {/* CAR WASH DISABLED
                                                     {rider.isCarWashService && (
                                                         <Badge variant="info" className="text-[8px] font-black uppercase px-1.5 py-0.5">Washer</Badge>
@@ -407,6 +422,44 @@ return (
             </div>
         </Card>
 
+        {/* Reject reason dialog — the reason is shown to the rider on their waiting screen */}
+        {typeof document !== 'undefined' && rejectTarget && createPortal(
+            <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-slate-900/60" onClick={() => !isProcessing && setRejectTarget(null)} />
+                <div role="dialog" aria-modal="true" className="relative z-10 w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+                    <h3 className="text-base font-black text-slate-900">Reject this application?</h3>
+                    <p className="mt-1 text-xs text-slate-500">The rider will see this reason on their waiting screen and can edit and reapply.</p>
+                    <textarea
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        maxLength={300}
+                        rows={4}
+                        placeholder="e.g. Aadhar photo is blurry, please upload a clearer copy"
+                        className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-orange-200"
+                    />
+                    <div className="mt-1 text-right text-[10px] text-slate-400">{rejectReason.trim().length}/300</div>
+                    <div className="mt-4 flex justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() => { setRejectTarget(null); setRejectReason(''); }}
+                            className="rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={isProcessing || rejectReason.trim().length < 5}
+                            onClick={() => handleReject(rejectTarget, rejectReason.trim())}
+                            className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-bold text-white hover:bg-orange-600 disabled:opacity-40"
+                        >
+                            Reject application
+                        </button>
+                    </div>
+                </div>
+            </div>,
+            document.body,
+        )}
+
         {/* Application Review Modal — portaled so backdrop scroll cannot leak through layout */}
         {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
@@ -423,7 +476,7 @@ return (
                         initial={{ opacity: 0, scale: 0.9, y: 30 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                        className="relative z-10 w-full max-w-5xl max-h-[min(90vh,calc(100dvh-2rem))] flex flex-col overflow-hidden bg-white rounded-[48px] shadow-3xl"
+                        className="relative z-10 w-full max-w-5xl max-h-[min(90vh,calc(100dvh-2rem))] flex flex-col overflow-hidden bg-white rounded-3xl shadow-3xl"
                         role="dialog"
                         aria-modal="true"
                     >
@@ -655,7 +708,7 @@ return (
 
                             <div className="space-y-4 mb-10">
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Submitted Documents ({viewingRider.documents.length})</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     {viewingRider.documents.map((doc, idx) => {
                                         const isObj = doc && typeof doc === 'object';
                                         const docKey = isObj ? (doc.name || '') : doc;
@@ -667,7 +720,7 @@ return (
                                                 href={docUrl} 
                                                 target="_blank" 
                                                 rel="noreferrer" 
-                                                className="group relative aspect-[4/3] bg-slate-50 rounded-[24px] border border-slate-100 overflow-hidden cursor-pointer hover:border-primary transition-all flex flex-col items-center justify-center"
+                                                className="group relative aspect-[4/3] max-h-[120px] w-full bg-slate-50 rounded-xl border border-slate-100 overflow-hidden cursor-pointer hover:border-orange-400 transition-all flex flex-col items-center justify-center"
                                             >
                                                 {docUrl ? (
                                                     <img 
@@ -678,9 +731,9 @@ return (
                                                 ) : (
                                                     <FileSearch className="h-8 w-8 text-slate-400 group-hover:text-primary transition-colors" />
                                                 )}
-                                                <div className="absolute inset-x-0 bottom-0 bg-slate-900/60 backdrop-blur-sm py-1.5 px-3 flex items-center justify-between">
-                                                    <span className="text-[9px] font-black text-white uppercase tracking-wider">{docName}</span>
-                                                    <span className="text-[8px] font-bold text-primary-light uppercase">Click to Zoom</span>
+                                                <div className="absolute inset-x-0 bottom-0 bg-slate-900/60 backdrop-blur-sm py-1 px-2 flex items-center justify-between gap-1">
+                                                    <span className="min-w-0 truncate text-[9px] font-black text-white uppercase tracking-wide">{docName}</span>
+                                                    <span className="shrink-0 text-[8px] font-bold text-orange-200">Zoom</span>
                                                 </div>
                                             </a>
                                         );
@@ -688,11 +741,23 @@ return (
                                 </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-4">
+                            {(viewingRider.reappliedAt || viewingRider.rejectionReason) && (
+                                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                                    {viewingRider.reappliedAt && (
+                                        <p className="font-bold">
+                                            Reapplied after rejection on {new Date(viewingRider.reappliedAt).toLocaleString('en-IN')} (attempt {viewingRider.reapplyCount})
+                                        </p>
+                                    )}
+                                    {viewingRider.rejectionReason && (
+                                        <p className="mt-1">Last rejection reason: {viewingRider.rejectionReason}</p>
+                                    )}
+                                </div>
+                            )}
+                            <div className="flex flex-col sm:flex-row gap-3">
                                 <button
                                     disabled={isProcessing}
                                     onClick={() => handleApprove(viewingRider.id)}
-                                    className="flex-1 py-5 bg-[color:var(--primary)] text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                    className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
                                     {isProcessing ? (
                                         <>
@@ -707,7 +772,7 @@ return (
                                     )}
                                 </button>
                                 <button
-                                    onClick={() => handleReject(viewingRider.id)}
+                                    onClick={() => setRejectTarget(viewingRider.id)}
                                     className="py-5 px-5 bg-rose-50 text-rose-600 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-rose-100 transition-all active:scale-95"
                                 >
                                     REJECT APPLICATION

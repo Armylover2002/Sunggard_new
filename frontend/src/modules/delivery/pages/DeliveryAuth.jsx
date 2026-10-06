@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Phone,
   ArrowRight,
@@ -149,11 +149,12 @@ const validateSignupStep1 = ({
   signupEmail,
   signupAddress,
   profileImageFile,
+  existingPhoto = "",
   signupServiceType,
   zones,
   signupZoneId,
 }) => {
-  if (!signupName.trim() || !signupPhone || !signupEmail || !signupAddress || !profileImageFile) {
+  if (!signupName.trim() || !signupPhone || !signupEmail || !signupAddress || (!profileImageFile && !existingPhoto)) {
     return "Please fill all personal information fields and upload photo";
   }
   if (!isValidFullName(signupName)) {
@@ -208,6 +209,10 @@ const validateSignupStep3 = ({ signupAadharNumber, signupPanNumber, signupAccoun
 
 const DeliveryAuth = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // A rejected rider reapplying arrives with their last application. Files
+  // they do not pick again stay as they are on the server.
+  const reapplyFrom = location.state?.reapplyFrom || null;
   const { settings } = useSettings();
   const appName = settings?.appName || "App";
   const logoUrl = settings?.logoUrl || "";
@@ -242,6 +247,8 @@ const DeliveryAuth = () => {
   const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState("");
+  const [existingPhoto, setExistingPhoto] = useState("");
+  const [existingDocs, setExistingDocs] = useState({});
 
   // Document states
   const [aadharFrontFile, setAadharFrontFile] = useState(null);
@@ -299,6 +306,32 @@ const DeliveryAuth = () => {
   const handleAadharBackUpload = async (file) =>
     setAadharBackFile(file ? await compressImage(file) : null);
 
+  // Prefill the 4-step form from the rejected application, once, on arrival.
+  useEffect(() => {
+    const d = reapplyFrom;
+    if (!d) return;
+    setMode("signup");
+    setSignupName(d.name || "");
+    setSignupPhone(d.phone || "");
+    setSignupEmail(d.email || "");
+    setSignupAddress(d.address || "");
+    setSignupVehicle(d.vehicleType || "bike");
+    setSignupVehicleNumber(d.vehicleNumber || "");
+    setSignupDLNumber(d.drivingLicenseNumber || "");
+    setSignupPanNumber(d.panNumber || "");
+    setSignupAadharNumber(d.aadharNumber || "");
+    setSignupAccountHolder(d.accountHolder || "");
+    setSignupAccountNumber(d.accountNumber || "");
+    setSignupIfsc(d.ifsc || "");
+    setSignupBankName(d.bankName || "");
+    setSignupUpiId(d.upiId || "");
+    setSignupServiceType(d.isParcelService ? "parcel" : "");
+    setSignupZoneId(String(d.zoneIds?.[0]?._id || d.zoneIds?.[0] || ""));
+    setExistingPhoto(d.profileImage || "");
+    setProfileImagePreview(d.profileImage || "");
+    setExistingDocs(d.documents || {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSendOtp = async () => {
     try {
       setLoading(true);
@@ -316,6 +349,7 @@ const DeliveryAuth = () => {
           signupEmail,
           signupAddress,
           profileImageFile,
+          existingPhoto,
           signupServiceType,
           zones,
           signupZoneId,
@@ -733,6 +767,7 @@ const DeliveryAuth = () => {
                                 signupEmail,
                                 signupAddress,
                                 profileImageFile,
+                                existingPhoto,
                                 signupServiceType,
                                 zones,
                                 signupZoneId,
@@ -1061,7 +1096,13 @@ const DeliveryAuth = () => {
                             </button>
                             <button
                               onClick={handleSendOtp}
-                              disabled={loading || !dlFile || !panFile || !aadharFrontFile || !aadharBackFile}
+                              disabled={
+                                loading ||
+                                !(dlFile || existingDocs.drivingLicense) ||
+                                !(panFile || existingDocs.pan) ||
+                                !(aadharFrontFile || existingDocs.aadharFront) ||
+                                !(aadharBackFile || existingDocs.aadharBack)
+                              }
                               className="flex-[2] py-4 bg-black  text-primary-foreground rounded-2xl text-sm font-black tracking-widest uppercase shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               {loading ? (

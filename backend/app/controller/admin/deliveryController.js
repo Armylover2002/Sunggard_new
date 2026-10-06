@@ -64,6 +64,10 @@ export const getDeliveryPartners = async (req, res) => {
       "documents",
       "isVerified",
       "applicationStatus",
+      "rejectionReason",
+      "rejectedAt",
+      "reappliedAt",
+      "reapplyCount",
       "isActive",
       "isOnline",
       "isBusy",
@@ -119,7 +123,7 @@ export const getDeliveryPartnerById = async (req, res) => {
   try {
     const rider = await Delivery.findById(req.params.id)
       .select(
-        "name phone email address vehicleType vehicleNumber drivingLicenseNumber aadharNumber panNumber accountHolder accountNumber ifsc bankName upiId profileImage documents isVerified applicationStatus isParcelService experience experienceDetails currentArea zoneIds createdAt",
+        "name phone email address vehicleType vehicleNumber drivingLicenseNumber aadharNumber panNumber accountHolder accountNumber ifsc bankName upiId profileImage documents isVerified applicationStatus rejectionReason rejectedAt reappliedAt reapplyCount isParcelService experience experienceDetails currentArea zoneIds createdAt",
         // CAR WASH DISABLED — removed isCarWashService from select
       )
       .populate("zoneIds", "name city color")
@@ -202,9 +206,25 @@ export const approveDeliveryPartner = async (req, res) => {
 export const rejectDeliveryPartner = async (req, res) => {
   try {
     const { id } = req.params;
+    // The reason is what the rider reads on their waiting screen to know what
+    // to fix before resubmitting, so a rejection without one is not allowed.
+    const reason = String(req.body?.reason || "").trim();
+    if (reason.length < 5 || reason.length > 300) {
+      return handleResponse(
+        res,
+        400,
+        "Enter a rejection reason (5 to 300 characters) so the rider knows what to fix",
+      );
+    }
     const rider = await Delivery.findByIdAndUpdate(
       id,
-      { isVerified: false, isOnline: false, applicationStatus: "rejected" },
+      {
+        isVerified: false,
+        isOnline: false,
+        applicationStatus: "rejected",
+        rejectionReason: reason,
+        rejectedAt: new Date(),
+      },
       { new: true },
     );
 
