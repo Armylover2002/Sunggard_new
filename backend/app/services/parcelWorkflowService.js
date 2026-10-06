@@ -8,6 +8,7 @@ import { getActiveZoneById, isPointInZoneId } from "./deliveryZoneService.js";
 import {
   emitParcelBroadcast,
   retractParcelBroadcast,
+  retractParcelOfferForRider,
   emitToDelivery,
   emitToCustomer,
   emitToAdmins,
@@ -567,7 +568,18 @@ export async function processParcelSearchTimeout(parcelId) {
         $set: { "searchMeta.offeredTo": null, "searchMeta.offeredAt": null },
       },
     );
-    await retractParcelBroadcast(String(parcelId), null);
+    // A timeout is not a rejection: the rider's row stays so the request sits
+    // in their pending list and they can still accept it later. Only the live
+    // popup is dismissed here.
+    const settings = await ParcelConfig.getSearchSettings();
+    emitToDelivery(offeredTo, {
+      event: "parcel:pending",
+      payload: {
+        ...parcelBroadcastPayloadFromDoc(parcel, {}, settings),
+        searchExpiresAt: null,
+        at: now.toISOString(),
+      },
+    });
   }
 
   await offerParcelToNextRider(parcelId);
@@ -621,10 +633,12 @@ export async function fetchAvailableParcelsForRider(deliveryId) {
   const parcels = await Parcel.find({
     status: "SEARCHING",
     deliveryPartnerId: null,
-    searchExpiresAt: { $gt: now },
     skippedBy: { $ne: deliveryOid },
-    offerTimeoutBy: { $ne: deliveryOid },
-    "searchMeta.offeredTo": deliveryOid,
+    // The live offer, plus requests this rider let time out and kept pending.
+    $or: [
+      { "searchMeta.offeredTo": deliveryOid, searchExpiresAt: { $gt: now } },
+      { offerTimeoutBy: deliveryOid },
+    ],
   })
     .sort({ createdAt: -1 })
     .limit(30)
@@ -748,13 +762,15 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
       _id: parcelId,
       status: "SEARCHING",
       deliveryPartnerId: null,
-      searchExpiresAt: { $gt: now },
       skippedBy: { $nin: [deliveryOid] },
       // Sequential dispatch offers one rider at a time (nearest first, see
-      // offerParcelToNextRider) — this is the server-side half of that: only
-      // the rider it's currently offered to can actually claim it, even if
-      // someone else somehow still has a stale screen open for it.
-      "searchMeta.offeredTo": deliveryOid,
+      // offerParcelToNextRider). The rider holding the live offer may claim it,
+      // and so may a rider whose earlier offer timed out — that request sits
+      // in their pending list until someone accepts it. Anyone else is refused.
+      $or: [
+        { "searchMeta.offeredTo": deliveryOid, searchExpiresAt: { $gt: now } },
+        { offerTimeoutBy: deliveryOid },
+      ],
     },
     {
       $set: {
@@ -890,7 +906,8 @@ export async function parcelRejectAtomic(deliveryId, parcelId, { timeout = false
   // someone else) is a no-op, not a reason to re-trigger dispatch.
   if (updated && String(updated.searchMeta?.offeredTo || "") === String(deliveryOid)) {
     clearParcelSearchTimeout(parcelId);
-    await retractParcelBroadcast(String(parcelId), null);
+    // Only this rider's row goes — other riders may still have it pending.
+    await retractParcelOfferForRider(String(parcelId), deliveryOid);
     await offerParcelToNextRider(parcelId).catch((err) => {
       console.warn("[parcelWorkflow] offer-next after reject failed", parcelId, err.message);
     });

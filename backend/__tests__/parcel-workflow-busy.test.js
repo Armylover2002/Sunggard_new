@@ -38,6 +38,7 @@ jest.unstable_mockModule("../app/services/deliveryBusyService.js", () => ({
 jest.unstable_mockModule("../app/services/orderSocketEmitter.js", () => ({
   emitParcelBroadcast: jest.fn(),
   retractParcelBroadcast: jest.fn().mockResolvedValue({}),
+  retractParcelOfferForRider: jest.fn().mockResolvedValue({}),
   emitToDelivery: jest.fn(),
   emitToCustomer: jest.fn(),
   emitToAdmins: jest.fn(),

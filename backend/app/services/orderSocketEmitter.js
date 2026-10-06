@@ -275,6 +275,38 @@ export async function emitParcelBroadcast(
 }
 
 /**
+ * Remove one rider's offer row and dismiss it on their device only. Used when
+ * that rider rejects — the other riders' pending rows must stay so a later
+ * accept can still withdraw them in real time.
+ */
+export async function retractParcelOfferForRider(parcelId, deliveryId) {
+  const s = getIo();
+  const id = normalizeDeliveryId(deliveryId);
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) return { removedCount: 0 };
+
+  if (s) {
+    s.to(`delivery:${id}`).emit("parcel:broadcast:withdrawn", {
+      parcelId: String(parcelId),
+      winnerDeliveryId: null,
+      at: new Date().toISOString(),
+    });
+  }
+
+  try {
+    const result = await Notification.deleteMany({
+      recipient: new mongoose.Types.ObjectId(id),
+      recipientModel: "Delivery",
+      type: "parcel",
+      "data.parcelId": String(parcelId),
+    });
+    return { removedCount: result?.deletedCount || 0 };
+  } catch (error) {
+    console.warn("[retractParcelOfferForRider] failed", parcelId, error.message);
+    return { removedCount: 0 };
+  }
+}
+
+/**
  * Retract a parcel offer from losing riders after first-wins accept.
  */
 export async function retractParcelBroadcast(parcelId, winnerDeliveryId) {
