@@ -2588,45 +2588,76 @@ const AdminParcelDashboard = () => {
                   )}
                 </div>
 
-                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Fare & Weight
-                  </span>
-                  <span className="text-sm font-black text-slate-800 mt-1 block">
-                    ₹{selectedParcel.fare} ({selectedParcel.weight} KG)
-                  </span>
-                  {selectedParcel.fareBreakdown && (
-                    <span className="text-[11px] text-slate-500 font-medium mt-1 block">
-                      Delivery ₹{selectedParcel.fareBreakdown.baseFare || 0}
-                      {Number(selectedParcel.fareBreakdown.courierCharge) > 0 &&
-                        ` + Courier (${selectedParcel.courierCompany || "—"}) ₹${selectedParcel.fareBreakdown.courierCharge}`}
-                    </span>
-                  )}
-                </div>
+                {selectedParcel.fareBreakdown && (() => {
+                  const b = selectedParcel.fareBreakdown;
+                  const num = (v) => Number(v) || 0;
+                  const lineItems = [
+                    { label: "Delivery charge", value: num(b.baseFare) },
+                    { label: `Weight charge (${selectedParcel.weight} KG)`, value: num(b.weightFare) },
+                    { label: "Express charge", value: num(b.expressCharge), onlyIfPositive: true },
+                    {
+                      label: `Courier company (${selectedParcel.courierCompany || "—"})`,
+                      value: num(b.courierCharge),
+                      note: "pass-through",
+                    },
+                    { label: "GST", value: num(b.gstAmount), onlyIfPositive: true, note: "pass-through" },
+                  ].filter((item) => !item.onlyIfPositive || item.value > 0);
+                  const riderPayout = selectedParcel.riderEarningBreakdown?.earning ?? 0;
+                  // What the admin actually keeps: the charges that are truly
+                  // the platform's own (delivery + weight + express), minus
+                  // what the rider was paid. Courier company charge and GST
+                  // pass straight through — the admin collects them from the
+                  // customer and owes them in full elsewhere, so they are
+                  // shown above for transparency but never counted here.
+                  const adminEarning = Math.max(
+                    0,
+                    num(b.baseFare) + num(b.weightFare) + num(b.expressCharge) - riderPayout,
+                  );
+                  return (
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Fare Breakdown
+                      </span>
+                      <div className="mt-1.5 space-y-1">
+                        {lineItems.map((item) => (
+                          <div key={item.label} className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500 font-medium">
+                              {item.label}
+                              {item.note ? ` (${item.note})` : ""}
+                            </span>
+                            <span className="font-bold text-slate-700">₹{item.value.toFixed(2)}</span>
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200">
+                          <span className="font-bold text-slate-700">Total fare</span>
+                          <span className="font-black text-slate-900">₹{num(selectedParcel.fare).toFixed(2)}</span>
+                        </div>
+                      </div>
 
-                {selectedParcel.riderEarningBreakdown && (
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Rider Payout vs Admin Margin
-                    </span>
-                    <span className="text-sm font-black text-slate-800 mt-1 block">
-                      Rider ₹{selectedParcel.riderEarningBreakdown.earning.toFixed(2)}
-                      {" · "}
-                      Admin ₹
-                      {Math.max(
-                        0,
-                        Number(selectedParcel.fareBreakdown?.baseFare || 0) -
-                          selectedParcel.riderEarningBreakdown.earning,
-                      ).toFixed(2)}
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-medium mt-1 block">
-                      {selectedParcel.riderEarningBreakdown.earning > 0
-                        ? `Rider: ${selectedParcel.riderEarningBreakdown.distanceKm} km (accept → pickup) × ₹${selectedParcel.riderEarningBreakdown.ratePerKm}/km`
-                        : "Rider hasn't accepted yet — payout not computed"}
-                      {" · Admin margin = Delivery charge − Rider payout (courier charge is a pass-through, not platform revenue)"}
-                    </span>
-                  </div>
-                )}
+                      {selectedParcel.riderEarningBreakdown && (
+                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500 font-medium">
+                              Rider payout
+                              {riderPayout > 0
+                                ? ` (${selectedParcel.riderEarningBreakdown.distanceKm} km accept → pickup × ₹${selectedParcel.riderEarningBreakdown.ratePerKm}/km)`
+                                : " (not yet accepted)"}
+                            </span>
+                            <span className="font-bold text-rose-600">− ₹{riderPayout.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-700">Admin earning</span>
+                            <span className="font-black text-emerald-700">₹{adminEarning.toFixed(2)}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-medium pt-0.5">
+                            Delivery + weight + express − rider payout. Courier company charge and GST
+                            are pass-through, not platform revenue.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">

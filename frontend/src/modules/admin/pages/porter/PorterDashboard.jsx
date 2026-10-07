@@ -148,6 +148,7 @@ const PorterDashboard = () => {
     const trend = data?.trend || [];
     const recent = data?.recent || [];
     const courierCompanies = data?.courierCompanies || [];
+    const marginBreakdown = data?.marginBreakdown || null;
     const statusOverview = data?.statusOverview || {};
     const topAreas = data?.topAreas || [];
 
@@ -212,11 +213,11 @@ const PorterDashboard = () => {
             note: `${rupees(overview.riderPayout)} to riders`,
         },
         {
-            label: "Admin Commission",
-            value: rupees(overview.margin),
+            label: "Admin Earning",
+            value: rupees(overview.adminEarning ?? overview.margin),
             icon: TrendingUp,
             tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
-            note: `${overview.distanceKm || 0} km covered`,
+            note: "After rider payouts — see breakdown below",
         },
         {
             label: "Rider Payouts",
@@ -744,6 +745,62 @@ const PorterDashboard = () => {
                     </table>
                 </div>
             </Card>
+
+            {marginBreakdown && (
+                <Card className="overflow-hidden rounded-3xl p-6 shadow-sm md:p-7">
+                    <div className="border-b border-slate-100 pb-5 dark:border-slate-800">
+                        <h3 className="flex items-center gap-2.5 text-lg font-extrabold text-slate-900 dark:text-white md:text-xl">
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                            Admin earning breakdown
+                        </h3>
+                        <p className="mt-1 text-xs text-slate-500 md:text-sm">
+                            Every charge behind this window's admin earning, delivered bookings only.
+                        </p>
+                    </div>
+                    <div className="divide-y divide-slate-100 pt-2 dark:divide-slate-800">
+                        {[
+                            { label: "Delivery charge", value: marginBreakdown.deliveryCharge },
+                            { label: "Weight charge", value: marginBreakdown.weightCharge },
+                            { label: "Express charge", value: marginBreakdown.expressCharge },
+                            {
+                                label: "Courier company charge",
+                                value: marginBreakdown.courierCompanyCharge,
+                                note: "pass-through, not platform revenue",
+                            },
+                            {
+                                label: "GST collected",
+                                value: marginBreakdown.gstCollected,
+                                note: "pass-through, not platform revenue",
+                            },
+                            { label: "Rider payout", value: -marginBreakdown.riderPayout, negative: true },
+                        ].map((row) => (
+                            <div key={row.label} className="flex items-center justify-between py-2.5">
+                                <div>
+                                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{row.label}</p>
+                                    {row.note && (
+                                        <p className="text-[10px] text-slate-400 font-medium">{row.note}</p>
+                                    )}
+                                </div>
+                                <p
+                                    className={cn(
+                                        "font-mono text-sm font-black",
+                                        row.negative ? "text-rose-600" : "text-slate-900 dark:text-white",
+                                    )}
+                                >
+                                    {row.negative ? "− " : ""}
+                                    {rupees(Math.abs(row.value))}
+                                </p>
+                            </div>
+                        ))}
+                        <div className="flex items-center justify-between pt-3">
+                            <p className="text-sm font-black text-slate-900 dark:text-white">Admin earning</p>
+                            <p className="font-mono text-base font-black text-emerald-700">
+                                {rupees(marginBreakdown.adminEarning)}
+                            </p>
+                        </div>
+                    </div>
+                </Card>
+            )}
 
             <Card className="overflow-hidden rounded-3xl shadow-sm">
                 <div className="flex items-center justify-between border-b border-slate-100 p-6 dark:border-slate-800">

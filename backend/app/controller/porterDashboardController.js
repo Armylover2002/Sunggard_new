@@ -4,6 +4,7 @@ import Delivery from "../models/delivery.js";
 import ParcelReview from "../models/parcelReview.js";
 import CashDeposit from "../models/cashDeposit.js";
 import CourierCompany from "../models/courierCompany.js";
+import Transaction from "../models/transaction.js";
 import handleResponse from "../utils/helper.js";
 import { visibleParcels } from "../services/bookingCheckoutService.js";
 
@@ -121,6 +122,19 @@ export const adminGetPorterDashboard = async (req, res) => {
             delivered: { $sum: 1 },
             revenue: { $sum: "$fare" },
             distanceKm: { $sum: "$distance" },
+            // Line items behind "revenue": the delivery and weight charge
+            // are the platform's own money; express charge too, when paid.
+            // Courier company charge and GST are pass-through — the admin
+            // collects them from the customer but owes them in full
+            // elsewhere, never platform earning. ids feeds the separate
+            // rider-payout lookup below (Transaction rows, not stored on
+            // the parcel itself).
+            baseFare: { $sum: { $ifNull: ["$fareBreakdown.baseFare", 0] } },
+            weightFare: { $sum: { $ifNull: ["$fareBreakdown.weightFare", 0] } },
+            expressCharge: { $sum: { $ifNull: ["$fareBreakdown.expressCharge", 0] } },
+            courierCharge: { $sum: { $ifNull: ["$fareBreakdown.courierCharge", 0] } },
+            gstAmount: { $sum: { $ifNull: ["$fareBreakdown.gstAmount", 0] } },
+            ids: { $push: "$_id" },
           },
         },
       ]),
@@ -198,9 +212,42 @@ export const adminGetPorterDashboard = async (req, res) => {
         .reduce((sum, [, count]) => sum + count, 0);
 
     const revenue = pickupTotals.revenue || 0;
-    // The pickup flow settles riders outside the parcel document, so there
-    // is no stored rider share to report here.
-    const riderPayout = 0;
+
+    // Real rider payout for this window: the Transaction "Delivery Earning"
+    // rows these delivered parcels actually wrote (applyParcelDeliveredRider
+    // Earning), not a guess. Was hardcoded to 0 before — that made the
+    // margin card equal revenue exactly, silently pretending riders are paid
+    // nothing.
+    const deliveredIds = (pickupTotals.ids || []).map((id) => String(id));
+    const riderPayoutAgg = deliveredIds.length
+      ? await Transaction.aggregate([
+          {
+            $match: {
+              userModel: "Delivery",
+              type: "Delivery Earning",
+              "meta.parcelId": { $in: deliveredIds },
+            },
+          },
+          { $group: { _id: null, amount: { $sum: "$amount" } } },
+        ])
+      : [];
+    const riderPayout = riderPayoutAgg[0]?.amount || 0;
+
+    // What the platform actually keeps: the charges that are genuinely its
+    // own (delivery + weight + express), minus what riders were paid for
+    // these deliveries. Courier company charge and GST pass straight
+    // through — collected from the customer, owed in full elsewhere — so
+    // they are reported alongside this for transparency but never counted
+    // into it.
+    const adminEarning = Math.max(
+      0,
+      round2(
+        (pickupTotals.baseFare || 0) +
+          (pickupTotals.weightFare || 0) +
+          (pickupTotals.expressCharge || 0) -
+          riderPayout,
+      ),
+    );
 
     const recent = recentPickup
       .map((doc) => toRecentRow(doc, "pickup"))
@@ -232,7 +279,10 @@ export const adminGetPorterDashboard = async (req, res) => {
         cancelledParcels: pickupStatusCounts.CANCELLED || 0,
         revenue: round2(revenue),
         riderPayout: round2(riderPayout),
-        margin: round2(revenue - riderPayout),
+        // Kept as "margin" for any other consumer of this field; it's the
+        // same number as adminEarning below, just the older name.
+        margin: adminEarning,
+        adminEarning,
         distanceKm: round1(pickupTotals.distanceKm || 0),
         zones: { total: zoneTotal, active: zoneActive },
         fleet: { total: riderTotal, online: riderOnline, verified: riderVerified },
@@ -248,6 +298,17 @@ export const adminGetPorterDashboard = async (req, res) => {
           revenue: round2(pickupTotals.revenue),
           statusCounts: pickupStatusCounts,
         },
+      },
+      // Every component behind adminEarning, for the dashboard card to show
+      // as line items rather than a single opaque number.
+      marginBreakdown: {
+        deliveryCharge: round2(pickupTotals.baseFare || 0),
+        weightCharge: round2(pickupTotals.weightFare || 0),
+        expressCharge: round2(pickupTotals.expressCharge || 0),
+        courierCompanyCharge: round2(pickupTotals.courierCharge || 0),
+        gstCollected: round2(pickupTotals.gstAmount || 0),
+        riderPayout: round2(riderPayout),
+        adminEarning,
       },
       courierCompanies,
       needsAttention: {
