@@ -147,6 +147,7 @@ const PorterDashboard = () => {
     const attention = data?.needsAttention || {};
     const trend = data?.trend || [];
     const recent = data?.recent || [];
+    const courierCompanies = data?.courierCompanies || [];
     const statusOverview = data?.statusOverview || {};
     const topAreas = data?.topAreas || [];
 
@@ -735,6 +736,66 @@ const PorterDashboard = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <StatusBadge status={row.status} />
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+
+            <Card className="overflow-hidden rounded-3xl shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 p-6 dark:border-slate-800">
+                    <div>
+                        <h3 className="flex items-center gap-2.5 text-lg font-extrabold text-slate-900 dark:text-white md:text-xl">
+                            <Truck className="h-5 w-5 text-primary" />
+                            Courier company charges
+                        </h3>
+                        <p className="mt-1 text-xs text-slate-500 md:text-sm">
+                            What each courier company was paid, this window — delivered bookings only.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/50">
+                            <tr>
+                                {["Courier company", "Bookings", "Delivered", "Charge paid"].map((head) => (
+                                    <th
+                                        key={head}
+                                        className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500"
+                                    >
+                                        {head}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {courierCompanies.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4}>
+                                        <EmptyState
+                                            icon={Truck}
+                                            title="No courier company charges in this window"
+                                            description="Try a wider date range or check back later."
+                                        />
+                                    </td>
+                                </tr>
+                            ) : (
+                                courierCompanies.map((row) => (
+                                    <tr
+                                        key={row.id}
+                                        className="transition-colors hover:bg-slate-50/60 dark:hover:opacity-90/40"
+                                    >
+                                        <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                            {row.name}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-500">{row.bookings}</td>
+                                        <td className="px-6 py-4 text-sm text-slate-500">{row.delivered}</td>
+                                        <td className="px-6 py-4 font-mono text-sm font-bold text-slate-900 dark:text-white">
+                                            {rupees(row.charge)}
                                         </td>
                                     </tr>
                                 ))

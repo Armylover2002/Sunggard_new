@@ -3,6 +3,7 @@ import DeliveryZone from "../models/deliveryZone.js";
 import Delivery from "../models/delivery.js";
 import ParcelReview from "../models/parcelReview.js";
 import CashDeposit from "../models/cashDeposit.js";
+import CourierCompany from "../models/courierCompany.js";
 import handleResponse from "../utils/helper.js";
 import { visibleParcels } from "../services/bookingCheckoutService.js";
 
@@ -81,8 +82,15 @@ export const adminGetPorterDashboard = async (req, res) => {
 
     const dailyGroup = {
       _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+      // Booking volume counts every booking made that day, cancelled or not
+      // — that's a real count of activity. Revenue does not: a cancelled or
+      // still-in-progress booking's fare was never actually earned, so only
+      // DELIVERED rows contribute to it. Matches the window's main revenue
+      // card below, which was already DELIVERED-only — this trend line had
+      // drifted from that and was overstating revenue by whatever cancelled
+      // and in-flight bookings added up to.
       count: { $sum: 1 },
-      revenue: { $sum: "$fare" },
+      revenue: { $sum: { $cond: [{ $eq: ["$status", "DELIVERED"] }, "$fare", 0] } },
     };
 
     const [
@@ -99,6 +107,7 @@ export const adminGetPorterDashboard = async (req, res) => {
       ratingAgg,
       cashDepositsPending,
       recentPickup,
+      courierCompanyAgg,
     ] = await Promise.all([
       Parcel.aggregate([
         { $match: pickupWindow },
@@ -148,6 +157,34 @@ export const adminGetPorterDashboard = async (req, res) => {
         .populate("deliveryPartnerId", "name")
         .select("status fare customerId deliveryPartnerId createdAt")
         .lean(),
+
+      // Per courier company: `bookings` is every booking placed with them in
+      // the window, any status — real activity. `charge` is only what they
+      // were actually paid for, i.e. DELIVERED bookings' courierCharge (the
+      // pass-through fee that company billed for the city-to-city leg, not
+      // platform revenue) — same DELIVERED-only rule as the revenue card
+      // above, for the same reason: a cancelled booking's charge was never
+      // actually owed to that company.
+      Parcel.aggregate([
+        { $match: { ...pickupWindow, courierCompanyId: { $ne: null } } },
+        {
+          $group: {
+            _id: "$courierCompanyId",
+            bookings: { $sum: 1 },
+            delivered: { $sum: { $cond: [{ $eq: ["$status", "DELIVERED"] }, 1, 0] } },
+            charge: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$status", "DELIVERED"] },
+                  { $ifNull: ["$fareBreakdown.courierCharge", 0] },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        { $sort: { charge: -1 } },
+      ]),
     ]);
 
     const pickupStatusCounts = toStatusCounts(pickupByStatus);
@@ -169,6 +206,22 @@ export const adminGetPorterDashboard = async (req, res) => {
       .map((doc) => toRecentRow(doc, "pickup"))
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 8);
+
+    const courierCompanyNames = courierCompanyAgg.length
+      ? await CourierCompany.find({ _id: { $in: courierCompanyAgg.map((row) => row._id) } })
+          .select("name")
+          .lean()
+      : [];
+    const courierCompanyNameById = new Map(
+      courierCompanyNames.map((c) => [String(c._id), c.name]),
+    );
+    const courierCompanies = courierCompanyAgg.map((row) => ({
+      id: String(row._id),
+      name: courierCompanyNameById.get(String(row._id)) || "Unknown company",
+      bookings: row.bookings,
+      delivered: row.delivered,
+      charge: round2(row.charge),
+    }));
 
     return handleResponse(res, 200, "Courier dashboard", {
       range: { days, from, to: new Date() },
@@ -196,6 +249,7 @@ export const adminGetPorterDashboard = async (req, res) => {
           statusCounts: pickupStatusCounts,
         },
       },
+      courierCompanies,
       needsAttention: {
         unassigned: pickupUnassigned,
         failed: 0,
