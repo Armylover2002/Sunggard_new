@@ -12,6 +12,18 @@ const ticketSchema = new mongoose.Schema(
             refPath: "userType",
             required: true,
         },
+        /**
+         * Human-readable id ("TKT-000123") set once on create via the atomic
+         * counter in models/counter.js. Sparse so existing rows (created
+         * before this field existed) don't collide on the unique index until
+         * the backfill script runs — see scripts/backfill-ticket-numbers.js.
+         */
+        ticketNumber: {
+            type: String,
+            unique: true,
+            sparse: true,
+            index: true,
+        },
         // Phase 5 P5-2: enum widened to include canonical "User" / "Delivery"
         // while still accepting legacy "Customer" / "Rider" rows. The
         // migration script rewrites existing values to the canonical form;
@@ -70,6 +82,26 @@ const ticketSchema = new mongoose.Schema(
             type: String,
             enum: ["open", "processing", "closed"],
             default: "open",
+        },
+        /** Last time the owner opened/read this ticket's messages (B3). */
+        lastReadByUserAt: {
+            type: Date,
+        },
+        /** Post-resolution rating (B4). `rating: null` means not rated yet. */
+        rating: {
+            type: Number,
+            min: 1,
+            max: 5,
+            default: null,
+        },
+        ratingComment: {
+            type: String,
+            trim: true,
+            default: "",
+        },
+        ratedAt: {
+            type: Date,
+            default: null,
         },
         messages: [
             {

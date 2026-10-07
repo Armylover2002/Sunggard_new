@@ -12,7 +12,9 @@ import {
   joinTicketRoom,
   leaveTicketRoom,
   onTicketMessage,
+  onTicketStatus,
 } from "@/core/services/orderSocket";
+import { Star } from "lucide-react";
 
 const emojis = [
   "😀",
@@ -118,6 +120,11 @@ const ChatPage = () => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [ticketStatus, setTicketStatus] = useState(null);
+  const [ticketRating, setTicketRating] = useState(null);
+  const [isReopening, setIsReopening] = useState(false);
+  const [ratingDraft, setRatingDraft] = useState(0);
+  const [isRating, setIsRating] = useState(false);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -204,10 +211,17 @@ const ChatPage = () => {
 
         if (active?._id) {
           setTicketId(active._id);
+          setTicketStatus(active.status || "open");
+          setTicketRating(active.rating ?? null);
           joinTicketRoom(active._id, getToken);
           setMessages(normalizeTicketMessages(active.messages));
+          if (String(active.status).toLowerCase() !== "closed") {
+            customerApi.markTicketRead(active._id).catch(() => {});
+          }
         } else {
           setTicketId(null);
+          setTicketStatus(null);
+          setTicketRating(null);
           setMessages([
             {
               id: "welcome-1",
@@ -279,8 +293,46 @@ const ChatPage = () => {
   }, [token]);
 
   useEffect(() => {
+    if (!token) return;
+    const off = onTicketStatus(getToken, (payload) => {
+      const current = ticketIdRef.current;
+      if (!current || String(payload?.ticketId || "") !== String(current)) return;
+      setTicketStatus(payload?.status || null);
+    });
+    return () => off();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, selectedImage]);
+
+  const handleReopen = async () => {
+    if (!ticketIdRef.current || isReopening) return;
+    try {
+      setIsReopening(true);
+      await customerApi.reopenTicket(ticketIdRef.current);
+      setTicketStatus("open");
+    } catch (error) {
+      showToast(error.response?.data?.message || "Could not reopen the ticket", "error");
+    } finally {
+      setIsReopening(false);
+    }
+  };
+
+  const handleSubmitRating = async () => {
+    if (!ticketIdRef.current || !ratingDraft || isRating) return;
+    try {
+      setIsRating(true);
+      await customerApi.rateTicket(ticketIdRef.current, ratingDraft);
+      setTicketRating(ratingDraft);
+      showToast("Thanks for your feedback!", "success");
+    } catch (error) {
+      showToast(error.response?.data?.message || "Could not submit rating", "error");
+    } finally {
+      setIsRating(false);
+    }
+  };
 
   const handleEmojiClick = (emoji) => {
     setInputText((prev) => `${prev}${emoji}`);
@@ -324,6 +376,10 @@ const ChatPage = () => {
         if (!mediaUrl) {
           throw new Error("Failed to upload image");
         }
+      }
+
+      if (ticketStatus === "closed") {
+        setTicketStatus("open");
       }
 
       if (!ticketIdRef.current) {
@@ -483,6 +539,60 @@ const ChatPage = () => {
         ))}
         <div ref={messagesEndRef} />
       </div>
+
+      {ticketStatus === "closed" && (
+        <div className="bg-slate-50 border-t border-slate-100 px-4 py-3 shrink-0 z-30">
+          {ticketRating == null ? (
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-600">How was the support you received?</p>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRatingDraft(n)}
+                    className="p-0.5"
+                    aria-label={"Rate " + n + " star" + (n > 1 ? "s" : "")}
+                  >
+                    <Star
+                      size={22}
+                      className={n <= ratingDraft ? "fill-amber-400 text-amber-400" : "text-slate-300"}
+                    />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={!ratingDraft || isRating}
+                  onClick={handleSubmitRating}
+                  className="ml-2 text-xs font-bold text-primary disabled:opacity-40"
+                >
+                  {isRating ? "Submitting…" : "Submit"}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={handleReopen}
+                disabled={isReopening}
+                className="text-xs font-bold text-slate-500 underline underline-offset-2"
+              >
+                {isReopening ? "Reopening…" : "This isn't resolved — reopen ticket"}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-slate-500">Ticket closed · you rated it {ticketRating}★</p>
+              <button
+                type="button"
+                onClick={handleReopen}
+                disabled={isReopening}
+                className="text-xs font-bold text-primary"
+              >
+                {isReopening ? "Reopening…" : "Reopen"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="bg-white p-3 border-t border-slate-100 shrink-0 z-30 safe-area-bottom relative mb-4">
         <AnimatePresence>

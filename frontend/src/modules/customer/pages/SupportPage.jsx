@@ -240,12 +240,27 @@ const SupportPage = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900 truncate">{ticket.subject}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-bold text-slate-900 truncate">{ticket.subject}</p>
+                        {ticket.unreadCount > 0 && (
+                          <span className="shrink-0 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white">
+                            {ticket.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      {ticket.ticketNumber && (
+                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">{ticket.ticketNumber}</p>
+                      )}
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">{ticket.description}</p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {ticket.category && (
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">
                             {ticket.category}
+                          </span>
+                        )}
+                        {ticket.status === 'closed' && ticket.rating == null && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                            Rate this
                           </span>
                         )}
                         <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">

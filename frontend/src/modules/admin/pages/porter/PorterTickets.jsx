@@ -240,9 +240,14 @@ const PorterTickets = () => {
                                     )}
                                 >
                                     <div className="flex items-start justify-between gap-3">
-                                        <p className="min-w-0 flex-1 truncate text-sm font-bold text-slate-900 dark:text-white">
-                                            {ticket.subject || "Untitled"}
-                                        </p>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
+                                                {ticket.subject || "Untitled"}
+                                            </p>
+                                            {ticket.ticketNumber && (
+                                                <p className="font-mono text-[10px] text-slate-400">{ticket.ticketNumber}</p>
+                                            )}
+                                        </div>
                                         <Badge
                                             variant={STATUS_BADGE_VARIANT[ticket.status] || STATUS_BADGE_VARIANT.closed}
                                             className="shrink-0"
@@ -281,6 +286,12 @@ const PorterTickets = () => {
                                         <h3 className="truncate text-base font-extrabold text-slate-900 dark:text-white">
                                             {selected.subject || "Untitled"}
                                         </h3>
+                                        {selected.ticketNumber && (
+                                            <p className="font-mono text-[10px] text-slate-400">
+                                                {selected.ticketNumber}
+                                                {selected.rating != null ? " · Rated " + selected.rating + "★" : ""}
+                                            </p>
+                                        )}
                                         <div className="mt-1 flex items-center gap-1.5">
                                             <OriginBadge ticket={selected} />
                                             <p className="truncate text-xs text-slate-500">

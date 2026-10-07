@@ -6,6 +6,7 @@ import paymentRoute from "./paymentRoutes.js";
 import notificationRoute from "./notificationRoutes.js";
 import pushRoute from "./pushRoutes.js";
 import ticketRoute from "./ticketRoutes.js";
+import publicRoute from "./publicRoutes.js";
 import couponRoute from "./couponRoutes.js";
 import settingsRoute from "./settingsRoutes.js";
 import mapsRoute from "./mapsRoutes.js";
@@ -45,6 +46,7 @@ const setupRoutes = (app) => {
     router.use("/auth/otp", authOtpRoute);
     router.use("/push", pushRoute);
     router.use("/tickets", ticketRoute);
+    router.use("/public", publicRoute);
     router.use("/parcel", parcelRoute);
     // Porter desk: parcel-side dashboard and delivery zones. Reads from both
     // parcel modules above; owns nothing they depend on.

@@ -44,6 +44,17 @@ export const customerApi = {
       mimeType,
     });
   },
+  reopenTicket: (ticketId) =>
+    axiosInstance.patch(`/tickets/${encodeURIComponent(String(ticketId))}/reopen`),
+  markTicketRead: (ticketId) =>
+    axiosInstance.patch(`/tickets/${encodeURIComponent(String(ticketId))}/read`),
+  rateTicket: (ticketId, rating, comment = "") =>
+    axiosInstance.patch(`/tickets/${encodeURIComponent(String(ticketId))}/rate`, {
+      rating,
+      comment,
+    }),
+  getFaqs: (category = "Customer") =>
+    getWithDedupe("/public/faqs", { category, status: "published" }),
 
   // Coupons
   getActiveCoupons: () => getWithDedupe("/coupons", { status: "active" }),

@@ -63,3 +63,23 @@ export function emitTicketMessage({ ticketId, userId, message }) {
   io.to("admin:support").emit("ticket:message", payload);
 }
 
+/** Emitted on every status change: admin update, reopen, or auto-reopen. */
+export function emitTicketStatus({ ticketId, userId, status }) {
+  const io = getIo();
+  if (!io) return;
+
+  const tid = safeToString(ticketId);
+  const uid = safeToString(userId);
+  if (!tid) return;
+
+  const payload = {
+    ticketId: tid,
+    status,
+    at: new Date().toISOString(),
+  };
+
+  io.to(`ticket:${tid}`).emit("ticket:status", payload);
+  if (uid) io.to(`customer:${uid}`).emit("ticket:status", payload);
+  io.to("admin:support").emit("ticket:status", payload);
+}
+
