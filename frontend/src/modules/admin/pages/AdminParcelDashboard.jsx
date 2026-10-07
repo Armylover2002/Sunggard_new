@@ -96,6 +96,66 @@ const describeRefund = (refund) => {
 
 const ALL_PAGE_SIZES_DEFAULT = 10;
 
+/** One label + colour for how a booking was paid, for the list's badge. */
+const describePayment = (parcel) => {
+  const method = String(parcel.paymentMethod).toUpperCase();
+  const status = parcel.paymentStatus;
+  if (method === "COD") {
+    const cod = parcel.codSettlement?.status;
+    const state =
+      cod === "REMITTED_TO_ADMIN" || status === "PAID"
+        ? "Admin paid"
+        : cod === "WITH_SELLER"
+          ? "With seller"
+          : cod === "RIDER_HOLDING"
+            ? "With rider"
+            : "Collect pending";
+    return { label: `COD · ${state}`, className: "bg-orange-50 text-orange-700" };
+  }
+  if (method === "WALLET") {
+    const state =
+      status === "REFUNDED" ? "Refunded to wallet" : status === "PAID" ? "Paid" : "Payment pending";
+    return { label: `Wallet · ${state}`, className: "bg-violet-50 text-violet-700" };
+  }
+  const state =
+    status === "REFUNDED"
+      ? "Refunded"
+      : status === "PAID"
+        ? "Paid"
+        : status === "FAILED"
+          ? "Failed"
+          : "Payment pending";
+  return { label: `Online · ${state}`, className: "bg-sky-50 text-sky-700" };
+};
+
+const formatBookedAt = (value) => {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return { date: "—", time: "" };
+  return {
+    date: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+    time: d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
+  };
+};
+
+/** Name + phone + address for one end of the route, each on its own line. */
+const AddressCell = ({ address }) => {
+  const name = address?.name || "—";
+  const phone = address?.phone ? `+${String(address.phone).replace(/^\+/, "")}` : "";
+  const full = address?.fullAddress || "";
+  // An outstation drop-off is a courier counter whose "address" is just its
+  // own name — repeating it on a second line says nothing.
+  const showAddress = full && full.trim() !== String(address?.name || "").trim();
+  return (
+    <div className="space-y-0.5">
+      <p className="font-bold text-slate-800 leading-tight break-words">{name}</p>
+      {phone && <p className="text-xs font-medium text-slate-500 tabular-nums">{phone}</p>}
+      {showAddress && (
+        <p className="text-xs text-slate-400 leading-snug line-clamp-2 break-words">{full}</p>
+      )}
+    </div>
+  );
+};
+
 const AdminParcelDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tab: urlTab } = useParams();
@@ -1069,15 +1129,15 @@ const AdminParcelDashboard = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-sm">
+                  <table className="w-full min-w-[1000px] text-left border-collapse text-sm">
                     <thead>
                       <tr className="bg-slate-50 text-slate-400 font-bold text-xs uppercase tracking-wider border-b border-slate-100">
-                        <th className="p-4">ID / Date</th>
-                        <th className="p-4">Customer Details</th>
-                        <th className="p-4">Pickup Address</th>
-                        <th className="p-4">Dropoff Address</th>
-                        <th className="p-4">Fare & Weight</th>
-                        <th className="p-4">Status / Rider</th>
+                        <th className="px-4 py-3">ID / Date</th>
+                        <th className="px-4 py-3">Customer</th>
+                        <th className="px-4 py-3">Pickup</th>
+                        <th className="px-4 py-3">Drop-off</th>
+                        <th className="px-4 py-3">Fare & Payment</th>
+                        <th className="px-4 py-3">Status / Rider</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1086,116 +1146,72 @@ const AdminParcelDashboard = () => {
                           key={parcel._id}
                           className="hover:bg-slate-50/50 cursor-pointer transition-colors"
                           onClick={() => openParcelDetail(parcel)}>
-                          <td className="p-4 align-top">
-                            <span className="font-bold text-slate-800">
-                              #{parcel._id.slice(-6)}
-                            </span>
-                            <div className="text-[10px] text-slate-400 mt-0.5">
-                              {new Date(parcel.createdAt).toLocaleDateString()}
-                            </div>
-                            {parcel.lateRefundRequest?.status ===
-                              "requested" && (
-                              <span className="inline-flex mt-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                          <td className="px-4 py-5 align-top whitespace-nowrap">
+                            <p className="font-bold text-slate-800">#{parcel._id.slice(-6)}</p>
+                            {(() => {
+                              const when = formatBookedAt(parcel.createdAt);
+                              return (
+                                <>
+                                  <p className="text-xs text-slate-500 mt-1">{when.date}</p>
+                                  <p className="text-[11px] text-slate-400">{when.time}</p>
+                                </>
+                              );
+                            })()}
+                            {parcel.lateRefundRequest?.status === "requested" && (
+                              <span className="inline-flex mt-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                                 Late refund
-                                {parcel.lateRefundRequest?.lateByLabel ||
-                                parcel.pickupSla?.lateByLabel
-                                  ? ` · ${
-                                      parcel.lateRefundRequest?.lateByLabel ||
-                                      parcel.pickupSla?.lateByLabel
-                                    }`
+                                {parcel.lateRefundRequest?.lateByLabel || parcel.pickupSla?.lateByLabel
+                                  ? ` · ${parcel.lateRefundRequest?.lateByLabel || parcel.pickupSla?.lateByLabel}`
                                   : ""}
                               </span>
                             )}
                           </td>
-                          <td className="p-4 align-top">
-                            <span className="font-bold text-slate-800 block">
+                          <td className="px-4 py-5 align-top min-w-[140px]">
+                            <p className="font-bold text-slate-800 leading-tight">
                               {parcel.customerId?.name || "Customer"}
-                            </span>
-                            <span className="text-xs text-slate-400">
+                            </p>
+                            <p className="text-xs font-medium text-slate-500 mt-0.5 tabular-nums">
                               {parcel.customerId?.phone || "N/A"}
-                            </span>
+                            </p>
                           </td>
-                          <td className="p-4 align-top max-w-[200px]">
-                            <span className="font-bold text-slate-700 block">
-                              {parcel.pickupAddress?.name} (
-                              {parcel.pickupAddress?.phone})
-                            </span>
-                            <span className="text-xs text-slate-400 line-clamp-2 mt-0.5">
-                              {parcel.pickupAddress?.fullAddress}
-                            </span>
+                          <td className="px-4 py-5 align-top min-w-[190px] max-w-[230px]">
+                            <AddressCell address={parcel.pickupAddress} />
                           </td>
-                          <td className="p-4 align-top max-w-[200px]">
-                            <span className="font-bold text-slate-700 block">
-                              {parcel.dropAddress?.name} (
-                              {parcel.dropAddress?.phone})
-                            </span>
-                            <span className="text-xs text-slate-400 line-clamp-2 mt-0.5">
-                              {parcel.dropAddress?.fullAddress}
-                            </span>
+                          <td className="px-4 py-5 align-top min-w-[190px] max-w-[230px]">
+                            <AddressCell address={parcel.dropAddress} />
                           </td>
-                          <td className="p-4 align-top">
-                            <span className="font-black text-slate-900 block">
-                              ₹{parcel.fare}
-                            </span>
-                            <span className="text-xs text-slate-400">
-                              {parcel.weight} KG
-                            </span>
+                          <td className="px-4 py-5 align-top min-w-[150px]">
+                            <p className="flex items-baseline gap-2">
+                              <span className="text-base font-black text-slate-900 tabular-nums">
+                                ₹{parcel.fare}
+                              </span>
+                              <span className="text-xs text-slate-400">{parcel.weight} KG</span>
+                            </p>
+                            <div className="mt-2 flex flex-col items-start gap-1">
+                              <span
+                                className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                  parcel.deliverySpeed === "express"
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-slate-100 text-slate-500"
+                                }`}>
+                                {parcel.deliverySpeed === "express"
+                                  ? "Express · 10 min"
+                                  : "Normal · 30 min"}
+                              </span>
+                              {(() => {
+                                const pay = describePayment(parcel);
+                                return (
+                                  <span
+                                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${pay.className}`}>
+                                    {pay.label}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </td>
+                          <td className="px-4 py-5 align-top min-w-[170px]">
                             <span
-                              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 inline-block ${
-                                parcel.deliverySpeed === "express"
-                                  ? "bg-amber-50 text-amber-700"
-                                  : "bg-slate-100 text-slate-500"
-                              }`}>
-                              {parcel.deliverySpeed === "express"
-                                ? "Express · 10 min"
-                                : "Normal · 30 min"}
-                            </span>
-                            {String(parcel.paymentMethod).toUpperCase() ===
-                              "COD" && (
-                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 inline-block bg-orange-50 text-orange-700 block w-fit">
-                                COD ·{" "}
-                                {parcel.codSettlement?.status ===
-                                  "REMITTED_TO_ADMIN" ||
-                                parcel.paymentStatus === "PAID"
-                                  ? "Admin paid"
-                                  : parcel.codSettlement?.status ===
-                                      "WITH_SELLER"
-                                    ? "With seller"
-                                    : parcel.codSettlement?.status ===
-                                        "RIDER_HOLDING"
-                                      ? "With rider"
-                                      : "Collect pending"}
-                              </span>
-                            )}
-                            {String(parcel.paymentMethod).toUpperCase() ===
-                              "WALLET" && (
-                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 inline-block bg-violet-50 text-violet-700 block w-fit">
-                                Wallet ·{" "}
-                                {parcel.paymentStatus === "REFUNDED"
-                                  ? "Refunded to wallet"
-                                  : parcel.paymentStatus === "PAID"
-                                    ? "Paid"
-                                    : "Payment pending"}
-                              </span>
-                            )}
-                            {!["COD", "WALLET"].includes(
-                              String(parcel.paymentMethod).toUpperCase(),
-                            ) && (
-                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 inline-block bg-sky-50 text-sky-700 block w-fit">
-                                Online ·{" "}
-                                {parcel.paymentStatus === "REFUNDED"
-                                  ? "Refunded"
-                                  : parcel.paymentStatus === "PAID"
-                                    ? "Paid"
-                                    : parcel.paymentStatus === "FAILED"
-                                      ? "Failed"
-                                      : "Payment pending"}
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-4 align-top">
-                            <span
-                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase block w-fit ${
+                              className={`inline-flex text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
                                 parcel.status === "DELIVERED"
                                   ? "bg-green-100 text-green-700"
                                   : parcel.status === "CANCELLED"
@@ -1211,28 +1227,31 @@ const AdminParcelDashboard = () => {
                               const refund = describeRefund(parcel.refund);
                               if (!refund) return null;
                               return (
-                                <div className="mt-1.5 max-w-[190px]">
+                                <div className="mt-2 max-w-[200px]">
                                   <span
-                                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase block w-fit ${refund.className}`}>
+                                    className={`inline-flex text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${refund.className}`}>
                                     {refund.label}
                                   </span>
-                                  <span className="text-[10px] text-slate-400 block mt-0.5 leading-tight">
+                                  <p className="text-[10px] text-slate-400 mt-1 leading-snug">
                                     {refund.note}
-                                  </span>
+                                  </p>
                                 </div>
                               );
                             })()}
 
                             {parcel.deliveryPartnerId ? (
-                              <div className="text-xs text-slate-500 font-medium mt-1">
-                                Rider: {parcel.deliveryPartnerId.name}
-                              </div>
+                              <p className="text-xs text-slate-500 font-medium mt-2">
+                                Rider:{" "}
+                                <span className="font-bold text-slate-700">
+                                  {parcel.deliveryPartnerId.name}
+                                </span>
+                              </p>
                             ) : (
                               parcel.status !== "CANCELLED" &&
                               parcel.status !== "DELIVERED" && (
-                                <div className="text-[11px] text-amber-700 font-bold mt-1">
+                                <p className="text-[11px] text-amber-700 font-bold mt-2 leading-snug">
                                   Auto broadcasting to nearby courier riders
-                                </div>
+                                </p>
                               )
                             )}
                           </td>

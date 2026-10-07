@@ -274,9 +274,9 @@ const SidebarContent = ({ items, onClose, openMenu, handleToggle }) => {
                         >
                             {appName}
                         </span>
-                        <RailCaption className="mt-1.5">
-                            {role === "seller" ? "Seller desk" : "Operations desk"}
-                        </RailCaption>
+                        {role === "seller" && (
+                            <RailCaption className="mt-1.5">Seller desk</RailCaption>
+                        )}
                     </span>
                 </div>
                 <button
