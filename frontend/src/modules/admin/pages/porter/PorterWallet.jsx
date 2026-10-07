@@ -43,9 +43,9 @@ import { cn } from "@/lib/utils";
 const rupees = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
 
 const WITHDRAWAL_TABS = [
+  { key: "all", label: "All" },
   { key: "pending", label: "Payment Ready" },
   { key: "settled", label: "Paid" },
-  { key: "all", label: "All" },
 ];
 
 /**
@@ -237,10 +237,11 @@ const WithdrawalDetailModal = ({ row, onClose }) => {
 const PorterWallet = () => {
   const [overview, setOverview] = useState(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
+  const [payment, setPayment] = useState("all");
 
   const [withdrawals, setWithdrawals] = useState(null);
   const [withdrawalsLoading, setWithdrawalsLoading] = useState(true);
-  const [statusTab, setStatusTab] = useState("pending");
+  const [statusTab, setStatusTab] = useState("all");
   const [page, setPage] = useState(1);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -250,7 +251,7 @@ const PorterWallet = () => {
 
   const fetchOverview = useCallback(async () => {
     try {
-      const res = await adminPorterApi.getWalletOverview();
+      const res = await adminPorterApi.getWalletOverview({ payment });
       if (res.data.success) setOverview(res.data.result);
     } catch (error) {
       console.error("Courier wallet overview error:", error);
@@ -258,7 +259,7 @@ const PorterWallet = () => {
     } finally {
       setOverviewLoading(false);
     }
-  }, []);
+  }, [payment]);
 
   const fetchWithdrawals = useCallback(async () => {
     setWithdrawalsLoading(true);
@@ -310,18 +311,20 @@ const PorterWallet = () => {
   const revenue = overview?.revenue || {};
   const adminEarning = overview?.adminEarning || {};
   const riderEarning = overview?.riderEarning || {};
-  const withheld = overview?.withheld || {};
   const wallet = overview?.wallet || {};
+  const refunds = overview?.refunds || {};
   const riders = overview?.riders || [];
 
   const moneyStats = [
     {
-      label: "Courier Revenue",
+      label: "Cash Received",
       value: rupees(revenue.total),
       icon: TrendingUp,
       color: "text-orange-600",
       bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
-      note: `Courier ${rupees(revenue.pickup)} · Local ${rupees(revenue.city)}`,
+      note: `COD deposited ${rupees(revenue.cod)} · Online ${rupees(revenue.online)} · Wallet ${rupees(revenue.wallet)}${
+        revenue.codWithRiders > 0 ? ` · ${rupees(revenue.codWithRiders)} COD still with riders` : ""
+      }`,
     },
     {
       label: "Rider Earning",
@@ -329,7 +332,7 @@ const PorterWallet = () => {
       icon: Users,
       color: "text-orange-600",
       bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
-      note: `${riderEarning.riders || 0} riders earned from courier jobs`,
+      note: `${rupees(riderEarning.paid)} paid · ${rupees(riderEarning.owed)} still owed (not withdrawn)`,
     },
     {
       label: "Admin Earning",
@@ -337,15 +340,45 @@ const PorterWallet = () => {
       icon: Wallet,
       color: "text-orange-600",
       bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
-      note: `${adminEarning.marginPercent || 0}% margin on courier revenue`,
+      note: `${adminEarning.marginPercent || 0}% margin on cash received`,
     },
     {
-      label: "Held Back",
-      value: rupees(withheld.amount),
+      label: "Pending Admin Earning",
+      value: rupees(adminEarning.pending),
       icon: AlertTriangle,
       color: "text-amber-600",
       bg: "bg-amber-500/10 border border-amber-200 dark:border-amber-900",
-      note: `${withheld.count || 0} deliveries awaiting review`,
+      note:
+        revenue.codWithRiders > 0
+          ? `${rupees(revenue.codWithRiders)} COD with riders · moves to Admin Earning once deposited`
+          : "Nothing pending — all cash is with admin",
+    },
+  ];
+
+  const refundStats = [
+    {
+      label: "Refunded To Customers",
+      value: rupees(refunds.refundedAmount),
+      icon: CheckCircle2,
+      color: "text-emerald-600",
+      bg: "bg-emerald-500/10 border border-emerald-200 dark:border-emerald-900",
+      note: `${refunds.refundedCount || 0} cancelled online booking${refunds.refundedCount === 1 ? "" : "s"} · sent back via gateway`,
+    },
+    {
+      label: "Refund Pending",
+      value: rupees(refunds.pendingAmount),
+      icon: Clock,
+      color: "text-amber-600",
+      bg: "bg-amber-500/10 border border-amber-200 dark:border-amber-900",
+      note: `${refunds.pendingCount || 0} paid & cancelled, refund not sent yet`,
+    },
+    {
+      label: "Refund Failed",
+      value: rupees(refunds.failedAmount),
+      icon: AlertTriangle,
+      color: "text-red-600",
+      bg: "bg-red-500/10 border border-red-200 dark:border-red-900",
+      note: `${refunds.failedCount || 0} refund${refunds.failedCount === 1 ? "" : "s"} the gateway refused — needs attention`,
     },
   ];
 
@@ -394,6 +427,29 @@ const PorterWallet = () => {
         }
       />
 
+      {/* Payment filter: All / COD / Online */}
+      <div className="inline-flex items-center gap-1.5 rounded-2xl bg-slate-100 p-1.5 dark:bg-slate-800">
+        {[
+          { key: "all", label: "All" },
+          { key: "cod", label: "COD" },
+          { key: "online", label: "Online" },
+          { key: "wallet", label: "Wallet" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setPayment(tab.key)}
+            className={cn(
+              "rounded-xl px-5 py-2 text-xs font-bold uppercase transition",
+              payment === tab.key
+                ? "bg-primary text-white shadow"
+                : "text-slate-500 hover:text-slate-900 dark:hover:text-white",
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Revenue / earning / margin */}
       {overviewLoading ? (
         <div className="flex h-32 items-center justify-center">
@@ -402,6 +458,23 @@ const PorterWallet = () => {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {moneyStats.map((stat) => (
+            <StatCard
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              description={stat.note}
+              icon={stat.icon}
+              color={stat.color}
+              bg={stat.bg}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Customer refunds on cancelled online bookings */}
+      {!overviewLoading && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {refundStats.map((stat) => (
             <StatCard
               key={stat.label}
               label={stat.label}

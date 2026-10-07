@@ -69,7 +69,7 @@ export const settleTransaction = async (req, res) => {
       transaction,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
 

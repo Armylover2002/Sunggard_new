@@ -12,6 +12,7 @@ import {
   canTransitionPorterPayment,
 } from "../../constants/porterPayment.js";
 import { getActivePaymentProvider } from "../payment/providerRegistry.js";
+import { refundWalletBooking } from "./porterWalletPaymentService.js";
 import { gstFromBreakdown } from "../../utils/gst.js";
 import logger from "../logger.js";
 
@@ -493,6 +494,14 @@ export async function refundBookingPayment({
   source = PORTER_PAYMENT_SOURCE.SYSTEM,
   initiatedByAdminId = null,
 }) {
+  // A booking paid from the wallet has no gateway payment to reverse: the
+  // money goes straight back into the customer's wallet. Null means "not a
+  // paid wallet booking", and the gateway path below carries on as before.
+  if (kind === PORTER_BOOKING_KIND.PARCEL) {
+    const walletRefund = await refundWalletBooking({ parcelId: bookingId, reason });
+    if (walletRefund) return walletRefund;
+  }
+
   const payment = await PorterPayment.findOne({
     bookingKind: kind,
     bookingId,
@@ -750,7 +759,15 @@ export async function reconcileFromGateway(
 
   await payment.save();
 
-  const booking = changed ? await applyBookingSideEffects(payment, { onPaid }) : null;
+  let booking = null;
+  if (changed) {
+    if (payment.purpose === PORTER_PAYMENT_PURPOSE.WALLET_TOPUP) {
+      const { applyWalletTopupSideEffects } = await import("./walletTopupService.js");
+      await applyWalletTopupSideEffects(payment);
+    } else {
+      booking = await applyBookingSideEffects(payment, { onPaid });
+    }
+  }
 
   return { payment, status: payment.status, changed, booking, duplicate: !changed };
 }
@@ -862,6 +879,9 @@ export async function applyPorterWebhook(decoded, { onPaid = null } = {}) {
     if (payment.purpose === PORTER_PAYMENT_PURPOSE.RIDER_CASH_DEPOSIT) {
       const { applyRiderDepositSideEffects } = await import("./riderDepositService.js");
       await applyRiderDepositSideEffects(payment);
+    } else if (payment.purpose === PORTER_PAYMENT_PURPOSE.WALLET_TOPUP) {
+      const { applyWalletTopupSideEffects } = await import("./walletTopupService.js");
+      await applyWalletTopupSideEffects(payment);
     } else {
       booking = await applyBookingSideEffects(payment, { onPaid });
     }

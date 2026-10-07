@@ -42,7 +42,9 @@ const notify = (userId, role, bodyKey, bodyVars, parcelId) => {
 const refundLine = (refund) => {
   if (!refund) return "";
   if (refund.status === "REFUNDED") {
-    return `₹${refund.amountRupees} has been refunded to your original payment method.`;
+    return refund.via === "WALLET"
+      ? `₹${refund.amountRupees} has been added back to your wallet.`
+      : `₹${refund.amountRupees} has been refunded to your original payment method.`;
   }
   if (refund.error) {
     return "We could not start your refund automatically. Our team will contact you.";

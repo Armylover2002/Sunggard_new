@@ -134,6 +134,12 @@ const porterPaymentSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    /**
+     * Set the moment a WALLET_TOPUP payment has been credited to the
+     * customer's wallet. Claimed atomically before the credit so a verify and
+     * a webhook landing together can never credit the same payment twice.
+     */
+    walletCreditedAt: { type: Date, default: null },
     /** Set once a rider deposit has been turned into a CashDeposit row. */
     cashDepositId: {
       type: mongoose.Schema.Types.ObjectId,

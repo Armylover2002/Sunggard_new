@@ -28,11 +28,15 @@ export const ALL_PORTER_BOOKING_KINDS = Object.values(PORTER_BOOKING_KIND);
  * COD_DOORSTEP     — a COD customer choosing to pay digitally at handover.
  * RIDER_CASH_DEPOSIT — a rider returning collected COD cash to the platform
  *                      online, instead of the old transfer-and-screenshot.
+ * WALLET_TOPUP       — a customer adding money to their wallet. Credited to
+ *                      the wallet only once the gateway has CAPTURED it.
  */
 export const PORTER_PAYMENT_PURPOSE = {
   BOOKING: "BOOKING",
   COD_DOORSTEP: "COD_DOORSTEP",
   RIDER_CASH_DEPOSIT: "RIDER_CASH_DEPOSIT",
+  /** A customer adding money to their own wallet through the gateway. */
+  WALLET_TOPUP: "WALLET_TOPUP",
 };
 
 export const ALL_PORTER_PAYMENT_PURPOSES = Object.values(PORTER_PAYMENT_PURPOSE);

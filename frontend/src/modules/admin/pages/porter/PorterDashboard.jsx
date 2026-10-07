@@ -81,6 +81,7 @@ const PAYMENT_TABS = [
     { key: "all", label: "All" },
     { key: "cod", label: "COD" },
     { key: "online", label: "Online" },
+    { key: "wallet", label: "Wallet" },
 ];
 
 const FLEET_DONUT = [
@@ -141,6 +142,7 @@ const PorterDashboard = () => {
     const topAreas = data?.topAreas || [];
     const paymentSummary = data?.paymentSummary || {};
     const drivers = data?.drivers || [];
+    const refunds = data?.refunds || {};
 
     const trendChart = trend.map((row) => ({ ...row, label: shortDate(row.date) }));
 
@@ -196,21 +198,23 @@ const PorterDashboard = () => {
             value: rupees(overview.revenue),
             icon: Wallet,
             tint: "bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-900",
-            note: `${rupees(overview.riderPayout)} to riders`,
+            note: `${rupees(overview.riderEarned)} earned by riders · billed on delivered bookings`,
         },
         {
             label: "Admin Earning",
             value: rupees(overview.adminEarning ?? overview.margin),
             icon: TrendingUp,
             tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
-            note: "After rider payouts — see breakdown below",
+            note: overview.cashWithRiders > 0
+                ? `Counted once cash reaches admin · ${rupees(overview.pendingEarning)} more pending`
+                : "Cash received, after rider earning — see breakdown below",
         },
         {
-            label: "Rider Payouts",
+            label: "Paid To Riders",
             value: rupees(overview.riderPayout),
             icon: CircleDollarSign,
             tint: "bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-200 dark:border-fuchsia-900",
-            note: "Paid out to couriers",
+            note: `${rupees(overview.riderOwed)} earned, not withdrawn yet`,
         },
     ];
 
@@ -287,11 +291,12 @@ const PorterDashboard = () => {
                         </button>
                     ))}
                 </div>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     {[
-                        { key: "all", label: "All payments", note: "COD + online combined" },
-                        { key: "cod", label: "COD amount", note: "Cash collected on delivery" },
-                        { key: "online", label: "Online amount", note: "UPI / card / wallet" },
+                        { key: "all", label: "Received (all)", note: "COD deposited + online + wallet" },
+                        { key: "cod", label: "COD received", note: "Deposited by riders" },
+                        { key: "online", label: "Online received", note: "UPI / card" },
+                        { key: "wallet", label: "Wallet received", note: "Paid from customer wallet" },
                     ].map((card) => {
                         const row = paymentSummary[card.key] || {};
                         return (
@@ -299,14 +304,54 @@ const PorterDashboard = () => {
                                 key={card.key}
                                 label={card.label}
                                 value={rupees(row.amount)}
-                                description={`${row.delivered || 0} delivered of ${row.bookings || 0} bookings · ${card.note}`}
+                                description={`${card.note}${row.withRiders > 0 ? ` · ${rupees(row.withRiders)} still with riders` : ""} · ${row.delivered || 0}/${row.bookings || 0} delivered`}
                                 icon={card.key === "cod" ? Banknote : card.key === "online" ? CircleDollarSign : Wallet}
                                 color="text-orange-600"
                                 bg="bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900"
                             />
                         );
                     })}
+                    <StatCard
+                        label="Pending Admin Earning"
+                        value={rupees(overview.pendingEarning)}
+                        description={
+                            overview.cashWithRiders > 0
+                                ? `${rupees(overview.cashWithRiders)} COD with riders · moves to Admin Earning once deposited`
+                                : "Nothing pending — all cash is with admin"
+                        }
+                        icon={Banknote}
+                        color="text-amber-600"
+                        bg="bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-900"
+                    />
                 </div>
+            </div>
+
+            {/* Customer refunds on cancelled online bookings */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <StatCard
+                    label="Refunded To Customers"
+                    value={rupees(refunds.refundedAmount)}
+                    description={`${refunds.refundedCount || 0} cancelled online booking${refunds.refundedCount === 1 ? "" : "s"} refunded via gateway`}
+                    icon={CircleDollarSign}
+                    color="text-emerald-600"
+                    bg="bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-900"
+                />
+                <StatCard
+                    label="Refund Pending"
+                    value={rupees(refunds.pendingAmount)}
+                    description={`${refunds.pendingCount || 0} paid & cancelled, refund not sent yet`}
+                    icon={Banknote}
+                    color="text-amber-600"
+                    bg="bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-900"
+                />
+                <StatCard
+                    label="Refund Failed"
+                    value={rupees(refunds.failedAmount)}
+                    description={`${refunds.failedCount || 0} refund${refunds.failedCount === 1 ? "" : "s"} the gateway refused — needs attention`}
+                    icon={XCircle}
+                    color="text-red-600"
+                    bg="bg-red-500/10 text-red-600 border-red-200 dark:border-red-900"
+                />
             </div>
 
             {/* KPIs */}
@@ -354,10 +399,12 @@ const PorterDashboard = () => {
                     },
                     {
                         label: "Pending Cash Deposits",
-                        value: Number(attention.cashDepositsPending || 0).toLocaleString("en-IN"),
+                        value: rupees(overview.cashWithRiders),
                         icon: Banknote,
                         tint: "bg-rose-500/10 text-rose-600 border-rose-200 dark:border-rose-900",
-                        note: "COD deposits awaiting review",
+                        note: attention.cashDepositsPending
+                            ? `${attention.cashDepositsPending} deposit${attention.cashDepositsPending === 1 ? "" : "s"} awaiting review`
+                            : "COD cash riders hold, not deposited yet",
                     },
                 ].map((kpi) => (
                     <StatCard
@@ -752,7 +799,7 @@ const PorterDashboard = () => {
                             Admin earning breakdown
                         </h3>
                         <p className="mt-1 text-xs text-slate-500 md:text-sm">
-                            Every charge behind this window's admin earning, delivered bookings only.
+                            Delivered bookings whose cash has reached admin (online, or COD deposited by the rider).
                         </p>
                     </div>
                     <div className="divide-y divide-slate-100 pt-2 dark:divide-slate-800">
@@ -766,7 +813,7 @@ const PorterDashboard = () => {
                                 value: marginBreakdown.gstCollected,
                                 note: "government's tax, not counted",
                             },
-                            { label: "Rider payout", value: -marginBreakdown.riderPayout, negative: true },
+                            { label: "Rider earning", value: -marginBreakdown.riderEarning, negative: true },
                         ].map((row) => (
                             <div key={row.label} className="flex items-center justify-between py-2.5">
                                 <div>
@@ -792,6 +839,21 @@ const PorterDashboard = () => {
                                 {rupees(marginBreakdown.adminEarning)}
                             </p>
                         </div>
+                        {marginBreakdown.pending?.cashWithRiders > 0 && (
+                            <div className="mt-3 flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3 dark:bg-amber-950/30">
+                                <div>
+                                    <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+                                        Pending — COD cash still with riders
+                                    </p>
+                                    <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80">
+                                        {rupees(marginBreakdown.pending.cashWithRiders)} collected, not deposited yet. Becomes earning once admin approves the deposit.
+                                    </p>
+                                </div>
+                                <p className="font-mono text-sm font-black text-amber-800 dark:text-amber-300">
+                                    {rupees(marginBreakdown.pending.earning)}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </Card>
             )}

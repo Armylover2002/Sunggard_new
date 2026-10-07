@@ -310,6 +310,16 @@ const parcelSchema = new mongoose.Schema(
       paidAt: { type: Date, default: null },
       paymentId: { type: String, default: null },
     },
+    /**
+     * Paid from the customer's wallet (paymentMethod WALLET). The wallet is
+     * debited when the booking is created and credited back — to the wallet,
+     * not the card — if the booking is cancelled.
+     */
+    walletPayment: {
+      amount: { type: Number, default: 0 },
+      paidAt: { type: Date, default: null },
+      refundedAt: { type: Date, default: null },
+    },
     /** Razorpay order id for UPI/online parcel payments. */
     razorpayOrderId: {
       type: String,

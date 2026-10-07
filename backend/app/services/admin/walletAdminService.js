@@ -5,6 +5,7 @@ import { getOrCreateWallet } from "../finance/walletService.js";
 import { OWNER_TYPE } from "../../constants/finance.js";
 import { addMoney, roundCurrency } from "../../utils/money.js";
 import { buildKey, invalidate } from "../cacheService.js";
+import { getFleetCashHoldings } from "../riderCashService.js";
 
 export async function getDeliveryTransactionsData({ page, limit, skip }) {
   const query = { userModel: "Delivery" };
@@ -17,8 +18,34 @@ export async function getDeliveryTransactionsData({ page, limit, skip }) {
 
   const total = await Transaction.countDocuments(query);
 
+  // Headline figures over the whole ledger, not just this page. Earnings
+  // and cash collections are "Settled" on the ledger once they are credited
+  // or booked, which is not money leaving the platform — so the figures the
+  // admin acts on are withdrawals actually paid, withdrawals still waiting,
+  // and cash riders are still holding.
+  const [withdrawalAgg, riderIds, holdings] = await Promise.all([
+    Transaction.aggregate([
+      { $match: { userModel: "Delivery", type: "Withdrawal" } },
+      { $group: { _id: "$status", amount: { $sum: { $abs: "$amount" } } } },
+    ]),
+    Transaction.distinct("user", query),
+    getFleetCashHoldings().catch(() => ({ totalHeld: 0 })),
+  ]);
+  const withdrawalTotal = (statuses) =>
+    roundCurrency(
+      withdrawalAgg
+        .filter((row) => statuses.includes(row._id))
+        .reduce((sum, row) => sum + (row.amount || 0), 0),
+    );
+
   return {
     items: transactions,
+    summary: {
+      paidOut: withdrawalTotal(["Settled"]),
+      pendingPayouts: withdrawalTotal(["Pending", "Processing"]),
+      cashWithRiders: roundCurrency(holdings.totalHeld || 0),
+      riders: riderIds.length,
+    },
     page,
     limit,
     total,
@@ -139,6 +166,18 @@ async function applySettledWithdrawalSideEffects(transaction) {
 }
 
 export async function settleDeliveryTransactionById(id) {
+  // Cash a rider collected is settled by approving their cash deposit, which
+  // also moves the booking to REMITTED_TO_ADMIN. Flipping just this ledger
+  // row would say the cash is in while the booking says the rider holds it.
+  const existing = await Transaction.findById(id).select("type").lean();
+  if (existing?.type === "Cash Collection") {
+    const err = new Error(
+      "Collected cash is settled by approving the rider's cash deposit, not from here.",
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+
   const transaction = await Transaction.findByIdAndUpdate(
     id,
     { status: "Settled" },
@@ -164,7 +203,9 @@ export async function settleDeliveryTransactionById(id) {
 
 export async function bulkSettleDeliveryTransactions() {
   return Transaction.updateMany(
-    { userModel: "Delivery", status: "Pending" },
+    // Pending "Cash Collection" rows are cash still with a rider; they settle
+    // when a deposit is approved, never in bulk.
+    { userModel: "Delivery", status: "Pending", type: { $ne: "Cash Collection" } },
     { status: "Settled" },
   );
 }

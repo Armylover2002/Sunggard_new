@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import InvoiceDownloadButton from "@shared/components/InvoiceDownloadButton";
 import PageHeader from "@shared/components/ui/PageHeader";
+import Pagination from "@shared/components/ui/Pagination";
 import { adminPorterApi } from "../services/api/porterApi";
 import { createPortal } from "react-dom";
 import { useSearchParams, useParams, useNavigate, useLocation } from "react-router-dom";
@@ -52,6 +53,49 @@ import {
 import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storage";
 
+/**
+ * What happened to the money on a cancelled online booking. `refund` comes
+ * from the backend (porterRefundService) — null for COD and for bookings
+ * with nothing to refund.
+ */
+const describeRefund = (refund) => {
+  if (!refund) return null;
+  const amount = `₹${Number(refund.amount || 0).toLocaleString("en-IN")}`;
+  const when = refund.at
+    ? new Date(refund.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
+    : "";
+  if (refund.state === "REFUNDED" || refund.state === "PARTIAL") {
+    const reached = refund.gatewayStatus === "processed";
+    const toWallet = refund.via === "WALLET";
+    return {
+      label: `${refund.state === "PARTIAL" ? "Partly refunded" : "Refunded"} ${amount}`,
+      note: toWallet
+        ? `Credited back to customer's wallet${when ? ` · ${when}` : ""}`
+        : reached
+          ? `Reached customer's bank${when ? ` · ${when}` : ""}`
+          : `Refund initiated · bank processing${when ? ` · ${when}` : ""}`,
+      className: "bg-emerald-50 text-emerald-700",
+    };
+  }
+  if (refund.state === "PENDING") {
+    return {
+      label: `Refund pending ${amount}`,
+      note: "Paid online, cancelled — refund not sent yet",
+      className: "bg-amber-50 text-amber-700",
+    };
+  }
+  if (refund.state === "FAILED") {
+    return {
+      label: `Refund failed ${amount}`,
+      note: refund.reason || "Gateway refused the refund",
+      className: "bg-red-50 text-red-600",
+    };
+  }
+  return null;
+};
+
+const ALL_PAGE_SIZES_DEFAULT = 10;
+
 const AdminParcelDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tab: urlTab } = useParams();
@@ -79,6 +123,11 @@ const AdminParcelDashboard = () => {
   };
   const [loading, setLoading] = useState(false);
   const [parcels, setParcels] = useState([]);
+  // "All Bookings" list: payment / status filters and page.
+  const [allPayment, setAllPayment] = useState("all");
+  const [allStatus, setAllStatus] = useState("all");
+  const [allPage, setAllPage] = useState(1);
+  const [allPageSize, setAllPageSize] = useState(ALL_PAGE_SIZES_DEFAULT);
   const [riders, setRiders] = useState([]);
   const [selectedParcel, setSelectedParcel] = useState(null);
   const [selectedParcelLoading, setSelectedParcelLoading] = useState(false);
@@ -528,6 +577,28 @@ const AdminParcelDashboard = () => {
       // parcel, and this event fires on every status change of every active
       // job platform-wide, so re-hitting /parcel/admin/all on each one was
       // the main source of the repeated network calls.
+
+      // A cancelled online booking is refunded a moment after the status
+      // event, and the socket payload does not carry the refund. Re-read
+      // just that one booking so its refund shows up without a page reload.
+      if (
+        updated?.status === "CANCELLED" &&
+        String(updated.paymentMethod || "").toUpperCase() !== "COD"
+      ) {
+        parcelApi
+          .adminGetParcel(id)
+          .then((res) => {
+            const fresh = res.data?.result;
+            if (!fresh) return;
+            setParcels((prev) =>
+              prev.map((p) => (String(p._id) === String(id) ? { ...p, refund: fresh.refund } : p)),
+            );
+            setSelectedParcel((prev) =>
+              prev && String(prev._id) === String(id) ? { ...prev, refund: fresh.refund } : prev,
+            );
+          })
+          .catch(() => {});
+      }
     });
   }, []);
 
@@ -915,20 +986,86 @@ const AdminParcelDashboard = () => {
       ) : (
         <>
           {/* TAB 1: ALL BOOKINGS */}
-          {activeTab === "all" && (
+          {activeTab === "all" && (() => {
+            const methodOf = (p) => String(p.paymentMethod).toUpperCase();
+            const filteredParcels = parcels.filter((p) => {
+              if (allPayment === "cod" && methodOf(p) !== "COD") return false;
+              if (allPayment === "wallet" && methodOf(p) !== "WALLET") return false;
+              if (allPayment === "online" && ["COD", "WALLET"].includes(methodOf(p))) return false;
+              if (allStatus === "active") return !["DELIVERED", "CANCELLED"].includes(p.status);
+              if (allStatus === "delivered") return p.status === "DELIVERED";
+              if (allStatus === "cancelled") return p.status === "CANCELLED";
+              return true;
+            });
+            const allTotalPages = Math.max(1, Math.ceil(filteredParcels.length / allPageSize));
+            const currentAllPage = Math.min(allPage, allTotalPages);
+            const pageParcels = filteredParcels.slice(
+              (currentAllPage - 1) * allPageSize,
+              currentAllPage * allPageSize,
+            );
+            const chip = (active) =>
+              `px-4 py-1.5 rounded-lg text-xs font-bold transition ${
+                active ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:text-slate-800"
+              }`;
+            return (
             <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+              <div className="p-5 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3">
                 <h2 className="text-base font-black text-slate-800">
                   All Requests History
                 </h2>
                 <span className="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-600">
-                  {parcels.length} total requests
+                  {filteredParcels.length === parcels.length
+                    ? `${parcels.length} total requests`
+                    : `${filteredParcels.length} of ${parcels.length} requests`}
                 </span>
               </div>
 
-              {parcels.length === 0 ? (
+              <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-x-6 gap-y-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Payment</span>
+                  {[
+                    { id: "all", label: "All" },
+                    { id: "cod", label: "COD" },
+                    { id: "online", label: "Online" },
+                    { id: "wallet", label: "Wallet" },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => {
+                        setAllPayment(f.id);
+                        setAllPage(1);
+                      }}
+                      className={chip(allPayment === f.id)}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Status</span>
+                  {[
+                    { id: "all", label: "All" },
+                    { id: "active", label: "Active" },
+                    { id: "delivered", label: "Delivered" },
+                    { id: "cancelled", label: "Cancelled" },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => {
+                        setAllStatus(f.id);
+                        setAllPage(1);
+                      }}
+                      className={chip(allStatus === f.id)}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {pageParcels.length === 0 ? (
                 <div className="p-12 text-center text-slate-400">
-                  No courier bookings registered in the system yet.
+                  {parcels.length === 0
+                    ? "No courier bookings registered in the system yet."
+                    : "No bookings match these filters."}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -944,7 +1081,7 @@ const AdminParcelDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {parcels.map((parcel) => (
+                      {pageParcels.map((parcel) => (
                         <tr
                           key={parcel._id}
                           className="hover:bg-slate-50/50 cursor-pointer transition-colors"
@@ -1030,6 +1167,31 @@ const AdminParcelDashboard = () => {
                                       : "Collect pending"}
                               </span>
                             )}
+                            {String(parcel.paymentMethod).toUpperCase() ===
+                              "WALLET" && (
+                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 inline-block bg-violet-50 text-violet-700 block w-fit">
+                                Wallet ·{" "}
+                                {parcel.paymentStatus === "REFUNDED"
+                                  ? "Refunded to wallet"
+                                  : parcel.paymentStatus === "PAID"
+                                    ? "Paid"
+                                    : "Payment pending"}
+                              </span>
+                            )}
+                            {!["COD", "WALLET"].includes(
+                              String(parcel.paymentMethod).toUpperCase(),
+                            ) && (
+                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 inline-block bg-sky-50 text-sky-700 block w-fit">
+                                Online ·{" "}
+                                {parcel.paymentStatus === "REFUNDED"
+                                  ? "Refunded"
+                                  : parcel.paymentStatus === "PAID"
+                                    ? "Paid"
+                                    : parcel.paymentStatus === "FAILED"
+                                      ? "Failed"
+                                      : "Payment pending"}
+                              </span>
+                            )}
                           </td>
                           <td className="p-4 align-top">
                             <span
@@ -1044,6 +1206,22 @@ const AdminParcelDashboard = () => {
                               }`}>
                               {formatParcelStatus(parcel.status)}
                             </span>
+
+                            {(() => {
+                              const refund = describeRefund(parcel.refund);
+                              if (!refund) return null;
+                              return (
+                                <div className="mt-1.5 max-w-[190px]">
+                                  <span
+                                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase block w-fit ${refund.className}`}>
+                                    {refund.label}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 block mt-0.5 leading-tight">
+                                    {refund.note}
+                                  </span>
+                                </div>
+                              );
+                            })()}
 
                             {parcel.deliveryPartnerId ? (
                               <div className="text-xs text-slate-500 font-medium mt-1">
@@ -1064,8 +1242,26 @@ const AdminParcelDashboard = () => {
                   </table>
                 </div>
               )}
+
+              {filteredParcels.length > 0 && (
+                <div className="px-5 py-3 border-t border-slate-100">
+                  <Pagination
+                    numbered
+                    page={currentAllPage}
+                    totalPages={allTotalPages}
+                    total={filteredParcels.length}
+                    pageSize={allPageSize}
+                    onPageChange={setAllPage}
+                    onPageSizeChange={(size) => {
+                      setAllPageSize(size);
+                      setAllPage(1);
+                    }}
+                  />
+                </div>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {/* TAB 2: ACTIVE DELIVERIES */}
           {activeTab === "active" && (
@@ -2580,12 +2776,31 @@ const AdminParcelDashboard = () => {
                       </p>
                     </div>
                   )}
-                  {selectedParcel.paymentStatus === "REFUNDED" && (
-                    <p className="mt-2 text-[11px] font-bold text-orange-700">
-                      ₹{Number(selectedParcel.payableFare || selectedParcel.fare || 0).toFixed(2)}{" "}
-                      refunded to the customer's original payment method
-                    </p>
-                  )}
+                  {(() => {
+                    const refund = describeRefund(selectedParcel.refund);
+                    if (refund) {
+                      return (
+                        <div className="mt-2">
+                          <span
+                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase inline-block ${refund.className}`}>
+                            {refund.label}
+                          </span>
+                          <p className="text-[11px] text-slate-500 mt-1">{refund.note}</p>
+                          {selectedParcel.refund?.gatewayRefundId && (
+                            <p className="text-[10px] font-mono text-slate-400 mt-0.5">
+                              Refund ID: {selectedParcel.refund.gatewayRefundId}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }
+                    return selectedParcel.paymentStatus === "REFUNDED" ? (
+                      <p className="mt-2 text-[11px] font-bold text-orange-700">
+                        ₹{Number(selectedParcel.payableFare || selectedParcel.fare || 0).toFixed(2)}{" "}
+                        refunded to the customer's original payment method
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
 
                 {selectedParcel.fareBreakdown && (() => {

@@ -2,6 +2,13 @@ import Transaction from "../models/transaction.js";
 import Parcel from "../models/parcel.js";
 import Delivery from "../models/delivery.js";
 import handleResponse from "../utils/helper.js";
+import { getRefundTotals } from "../services/porter/porterRefundService.js";
+import {
+  buildDeliveredMoneyGroup,
+  splitParcelIds,
+  computeRiderMoney,
+  buildEarnings,
+} from "../services/porter/porterEarningsService.js";
 
 /**
  * What the porter desk has paid its riders.
@@ -41,7 +48,7 @@ export const adminGetPorterRiderPayouts = async (req, res) => {
       "meta.kind": PORTER_EARNING_KINDS.includes(kind) ? kind : { $in: PORTER_EARNING_KINDS },
     };
 
-    const [rows, total, byKind, riderCount] = await Promise.all([
+    const [rows, total, byKind, riderCount, earnedByRiderAgg] = await Promise.all([
       Transaction.find(match)
         .populate("user", "name phone")
         .sort({ createdAt: -1 })
@@ -54,7 +61,63 @@ export const adminGetPorterRiderPayouts = async (req, res) => {
         { $group: { _id: "$meta.kind", amount: { $sum: "$amount" }, count: { $sum: 1 } } },
       ]),
       Transaction.distinct("user", match),
+      Transaction.aggregate([
+        { $match: match },
+        { $group: { _id: "$user", amount: { $sum: "$amount" } } },
+      ]),
     ]);
+
+    // An earning row is "Settled" the moment it is credited to the rider's
+    // wallet — that is NOT the rider being paid. Paid means the admin has
+    // settled a withdrawal. Withdrawals draw on one pool, so they are
+    // applied oldest-earning-first: a row is Paid once the rider's settled
+    // withdrawals have covered everything up to and including it.
+    const withdrawnAgg = earnedByRiderAgg.length
+      ? await Transaction.aggregate([
+          {
+            $match: {
+              userModel: "Delivery",
+              type: "Withdrawal",
+              status: "Settled",
+              user: { $in: earnedByRiderAgg.map((r) => r._id) },
+            },
+          },
+          { $group: { _id: "$user", amount: { $sum: { $abs: "$amount" } } } },
+        ])
+      : [];
+    const withdrawnByRider = new Map(withdrawnAgg.map((r) => [String(r._id), r.amount || 0]));
+    const totalEarned = round2(earnedByRiderAgg.reduce((sum, r) => sum + (r.amount || 0), 0));
+    const totalPaid = round2(
+      earnedByRiderAgg.reduce(
+        (sum, r) => sum + Math.min(r.amount || 0, withdrawnByRider.get(String(r._id)) || 0),
+        0,
+      ),
+    );
+
+    // Cumulative earning up to each page row, per rider, oldest first.
+    const pageRiderIds = [...new Set(rows.map((r) => String(r.user?._id || r.user)))];
+    const priorRows = pageRiderIds.length
+      ? await Transaction.find({ ...match, user: { $in: pageRiderIds } })
+          .select("user amount createdAt")
+          .sort({ createdAt: 1, _id: 1 })
+          .lean()
+      : [];
+    const cumulativeById = new Map();
+    const running = new Map();
+    for (const row of priorRows) {
+      const key = String(row.user);
+      const next = round2((running.get(key) || 0) + (row.amount || 0));
+      running.set(key, next);
+      cumulativeById.set(String(row._id), { cumulative: next, amount: row.amount || 0 });
+    }
+    const payoutStatusFor = (row) => {
+      const entry = cumulativeById.get(String(row._id));
+      if (!entry) return "In wallet";
+      const withdrawn = withdrawnByRider.get(String(row.user?._id || row.user)) || 0;
+      if (withdrawn + 0.001 >= entry.cumulative) return "Paid";
+      if (withdrawn > entry.cumulative - entry.amount + 0.001) return "Partly paid";
+      return "In wallet";
+    };
 
     const modules = byKind.map((row) => ({
       kind: row._id,
@@ -65,7 +128,11 @@ export const adminGetPorterRiderPayouts = async (req, res) => {
 
     return handleResponse(res, 200, "Courier rider payouts", {
       summary: {
-        totalPaid: round2(modules.reduce((sum, m) => sum + m.amount, 0)),
+        // Earned = credited to rider wallets. Paid = admin has settled the
+        // rider's withdrawal. Owed = earned but still sitting in a wallet.
+        totalEarned,
+        totalPaid,
+        totalOwed: round2(Math.max(0, totalEarned - totalPaid)),
         entries: total,
         riders: riderCount.length,
       },
@@ -81,6 +148,7 @@ export const adminGetPorterRiderPayouts = async (req, res) => {
         distanceKm: row.meta?.distanceKm ?? null,
         paymentMethod: row.meta?.paymentMethod || "",
         status: row.status,
+        payoutStatus: payoutStatusFor(row),
         reference: row.reference,
         date: row.date || row.createdAt,
       })),
@@ -124,10 +192,26 @@ export const adminGetPorterWalletOverview = async (req, res) => {
   try {
     const riderIds = await getPorterRiderIds();
 
-    const [pickupRevenue, riderAgg, riderDocs] = await Promise.all([
+    // All / COD / online / wallet. "online" is UPI or card via the gateway;
+    // "wallet" is paid from the customer's wallet.
+    const payment = ["cod", "online", "wallet"].includes(String(req.query?.payment || "").toLowerCase())
+      ? String(req.query.payment).toLowerCase()
+      : "all";
+    const paymentFilter =
+      payment === "cod"
+        ? { paymentMethod: "COD" }
+        : payment === "wallet"
+          ? { paymentMethod: "WALLET" }
+          : payment === "online"
+            ? { paymentMethod: { $in: ["UPI", "CARD"] } }
+            : {};
+
+    const [pickupMoney, riderAgg, riderDocs, refundTotals] = await Promise.all([
+      // Delivered bookings split into cash that has reached admin vs cash a
+      // rider is still holding (see porterEarningsService).
       Parcel.aggregate([
-        { $match: { status: "DELIVERED" } },
-        { $group: { _id: null, amount: { $sum: "$fare" } } },
+        { $match: { status: "DELIVERED", ...paymentFilter } },
+        buildDeliveredMoneyGroup(),
       ]),
       riderIds.length
         ? Transaction.aggregate([
@@ -195,6 +279,8 @@ export const adminGetPorterWalletOverview = async (req, res) => {
             .select("name phone vehicleType isOnline")
             .lean()
         : [],
+      // Cancelled online bookings: refunded / pending / failed.
+      getRefundTotals(paymentFilter),
     ]);
 
     const riderInfoMap = new Map(riderDocs.map((r) => [String(r._id), r]));
@@ -218,24 +304,45 @@ export const adminGetPorterWalletOverview = async (req, res) => {
       })
       .sort((a, b) => b.porterEarned - a.porterEarned);
 
-    const revenue = round2(pickupRevenue[0]?.amount || 0);
-    const riderEarningTotal = round2(riderRows.reduce((sum, r) => sum + r.porterEarned, 0));
-    const adminEarningTotal = round2(revenue - riderEarningTotal);
+    const moneyTotals = pickupMoney[0] || {};
+    const { realizedIds, pendingIds } = splitParcelIds(moneyTotals);
+    const riderMoney = await computeRiderMoney(realizedIds, pendingIds);
+    const earnings = buildEarnings(moneyTotals, riderMoney);
+    // Revenue here is cash that has actually reached admin. Delivered COD
+    // still in a rider's hands is reported separately, not as revenue.
+    const revenue = earnings.realized.billed;
+    const adminEarningTotal = earnings.realized.earning;
+    const riderEarningTotal = riderMoney.earned;
     const walletBalanceTotal = round2(riderRows.reduce((sum, r) => sum + r.walletBalance, 0));
     const pendingWithdrawalTotal = round2(riderRows.reduce((sum, r) => sum + r.pendingWithdrawal, 0));
     const paidOutTotal = round2(riderAgg.reduce((sum, r) => sum + (r.withdrawnSettled || 0), 0));
 
     return handleResponse(res, 200, "Courier wallet overview", {
+      paymentFilter: payment,
+      refunds: refundTotals,
       revenue: {
         total: revenue,
-        pickup: round2(pickupRevenue[0]?.amount || 0),
+        pickup: revenue,
+        // Where that cash came from, and what is still out with riders.
+        online: earnings.received.online,
+        wallet: earnings.received.wallet,
+        cod: earnings.received.cod,
+        codWithRiders: earnings.cashWithRiders,
       },
       adminEarning: {
         total: adminEarningTotal,
-        marginPercent: revenue > 0 ? round2((adminEarningTotal / revenue) * 100) : 0,
+        // Earning on delivered COD whose cash is still with a rider.
+        pending: earnings.pending.earning,
+        marginPercent:
+          earnings.realized.billed > 0
+            ? round2((adminEarningTotal / earnings.realized.billed) * 100)
+            : 0,
       },
       riderEarning: {
         total: riderEarningTotal,
+        // Earned vs actually paid out (settled withdrawals).
+        paid: riderMoney.paid,
+        owed: riderMoney.owed,
         riders: riderRows.length,
       },
       // All-services figures — see the function comment above.

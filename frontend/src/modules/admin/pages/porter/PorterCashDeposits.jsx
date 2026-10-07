@@ -36,10 +36,10 @@ import { cn } from "@/lib/utils";
 const rupees = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
 
 const TABS = [
+  { key: "all", label: "All" },
   { key: "PENDING", label: "Awaiting Review" },
   { key: "APPROVED", label: "Approved" },
   { key: "REJECTED", label: "Rejected" },
-  { key: "all", label: "All" },
 ];
 
 const STATUS_VARIANT = {
@@ -63,7 +63,7 @@ const PorterCashDeposits = () => {
   const [deposits, setDeposits] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab] = useState("PENDING");
+  const [tab, setTab] = useState("all");
   const [page, setPage] = useState(1);
 
   const [review, setReview] = useState(null); // { deposit, approve }

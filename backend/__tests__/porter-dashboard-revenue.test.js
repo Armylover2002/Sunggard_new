@@ -55,6 +55,17 @@ jest.unstable_mockModule("../app/services/bookingCheckoutService.js", () => ({
   visibleParcels: jest.fn((window) => window),
 }));
 
+jest.unstable_mockModule("../app/services/porter/porterRefundService.js", () => ({
+  getRefundTotals: jest.fn().mockResolvedValue({
+    refundedCount: 0,
+    refundedAmount: 0,
+    pendingCount: 0,
+    pendingAmount: 0,
+    failedCount: 0,
+    failedAmount: 0,
+  }),
+}));
+
 const mockTransactionAggregate = jest.fn();
 jest.unstable_mockModule("../app/models/transaction.js", () => ({
   default: { aggregate: mockTransactionAggregate },
@@ -117,73 +128,77 @@ describe("porter dashboard excludes cancelled/in-flight bookings from revenue", 
   });
 });
 
-describe("admin earning is computed, not hardcoded to revenue", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+describe("admin earning only counts cash that has reached admin", () => {
+  const parcelId = "6ac00000000000000000ab12";
+  const lineItems = { baseFare: 50, weightFare: 3, expressCharge: 20, courierCharge: 210, gstAmount: 0 };
 
-  it("subtracts the real rider payout, and excludes courier charge and GST (pass-through)", async () => {
-    const parcelId = "6ac00000000000000000ab12";
-    mockParcelAggregate
-      .mockResolvedValueOnce([]) // [0] status breakdown
-      .mockResolvedValueOnce([
-        {
-          delivered: 1,
-          revenue: 283,
-          distanceKm: 0,
-          baseFare: 50,
-          weightFare: 3,
-          expressCharge: 20,
-          courierCharge: 210,
-          gstAmount: 0,
-          ids: [parcelId],
-        },
-      ]) // [1] pickupMoney
-      .mockResolvedValueOnce([]) // [2] daily trend
-      .mockResolvedValueOnce([]); // [3] courier company breakdown
-    mockTransactionAggregate.mockResolvedValue([{ amount: 0.06 }]);
+  // Group output for ONE delivered parcel, with its cash either with admin
+  // (r_*) or still with the rider (p_*).
+  const money = (received) => {
+    const out = { delivered: 1, distanceKm: 0, onlineFare: 0, parcels: [{ id: parcelId, received }] };
+    for (const [key, value] of Object.entries({ ...lineItems, fare: 283 })) {
+      out[`r_${key}`] = received ? value : 0;
+      out[`p_${key}`] = received ? 0 : value;
+    }
+    return out;
+  };
 
-    const req = { query: {} };
+  const run = async ({ received, withdrawn = [] }) => {
+    mockParcelAggregate.mockReset();
+    mockParcelAggregate.mockImplementation(async (pipeline) =>
+      pipeline.some((stage) => stage.$group?.parcels) ? [money(received)] : [],
+    );
+    mockTransactionAggregate.mockReset();
+    mockTransactionAggregate.mockImplementation(async (pipeline) => {
+      const type = pipeline[0].$match.type;
+      return type === "Withdrawal" ? withdrawn : [{ _id: "rider1", amount: 0.06 }];
+    });
     const res = makeRes();
-    await adminGetPorterDashboard(req, res);
+    await adminGetPorterDashboard({ query: {} }, res);
+    return res.json.mock.calls[0][0].result;
+  };
 
-    // Real payout query actually scoped to this window's delivered parcels.
-    expect(mockTransactionAggregate).toHaveBeenCalledWith([
-      {
-        $match: {
-          userModel: "Delivery",
-          type: "Delivery Earning",
-          "meta.parcelId": { $in: [parcelId] },
-        },
-      },
-      { $group: { _id: null, amount: { $sum: "$amount" } } },
-    ]);
-
-    const body = res.json.mock.calls[0][0];
-    // 50 + 3 + 20 + 210 - 0.06 = 282.94 — courier company charge is
-    // included; GST (0 here) is the only thing still excluded.
-    expect(body.result.overview.adminEarning).toBe(282.94);
-    expect(body.result.overview.riderPayout).toBe(0.06);
-    expect(body.result.marginBreakdown).toEqual({
+  it("counts an online booking on delivery, minus the rider's earning, and shows it as owed until withdrawn", async () => {
+    const result = await run({ received: true });
+    // 50 + 3 + 20 + 210 - 0.06; GST excluded.
+    expect(result.overview.adminEarning).toBe(282.94);
+    expect(result.overview.cashWithRiders).toBe(0);
+    expect(result.overview.riderEarned).toBe(0.06);
+    expect(result.overview.riderPayout).toBe(0); // nothing withdrawn yet
+    expect(result.overview.riderOwed).toBe(0.06);
+    expect(result.marginBreakdown).toMatchObject({
       deliveryCharge: 50,
       weightCharge: 3,
       expressCharge: 20,
       courierCompanyCharge: 210,
       gstCollected: 0,
-      riderPayout: 0.06,
+      riderEarning: 0.06,
       adminEarning: 282.94,
     });
   });
 
-  it("skips the rider-payout query entirely when nothing was delivered", async () => {
-    mockParcelAggregate.mockResolvedValue([]);
+  it("does NOT count a COD booking while the rider still holds the cash", async () => {
+    const result = await run({ received: false });
+    expect(result.overview.adminEarning).toBe(0);
+    expect(result.overview.pendingEarning).toBe(282.94);
+    expect(result.overview.cashWithRiders).toBe(283);
+    expect(result.marginBreakdown.pending).toMatchObject({ cashWithRiders: 283, earning: 282.94 });
+  });
 
-    const req = { query: {} };
+  it("only reports a rider as paid once a withdrawal has been settled", async () => {
+    const result = await run({ received: true, withdrawn: [{ _id: "rider1", amount: 0.06 }] });
+    expect(result.overview.riderPayout).toBe(0.06);
+    expect(result.overview.riderOwed).toBe(0);
+  });
+
+  it("skips the rider-earning lookup entirely when nothing was delivered", async () => {
+    mockParcelAggregate.mockReset();
+    mockParcelAggregate.mockResolvedValue([]);
+    mockTransactionAggregate.mockReset();
     const res = makeRes();
-    await adminGetPorterDashboard(req, res);
+    await adminGetPorterDashboard({ query: {} }, res);
 
     expect(mockTransactionAggregate).not.toHaveBeenCalled();
-    const body = res.json.mock.calls[0][0];
-    expect(body.result.overview.adminEarning).toBe(0);
+    expect(res.json.mock.calls[0][0].result.overview.adminEarning).toBe(0);
   });
 });

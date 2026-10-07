@@ -4,6 +4,18 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
+/** 1 … 4 5 6 … 20 — always the first, last and neighbours of the current page. */
+const pageList = (page, totalPages) => {
+    const pages = new Set([1, totalPages, page - 1, page, page + 1]);
+    const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+    const out = [];
+    sorted.forEach((p, i) => {
+        if (i > 0 && p - sorted[i - 1] > 1) out.push("gap-" + p);
+        out.push(p);
+    });
+    return out;
+};
+
 const Pagination = ({
     page,
     totalPages,
@@ -13,6 +25,7 @@ const Pagination = ({
     onPageSizeChange,
     loading = false,
     compact = false,
+    numbered = false,
     className,
 }) => {
     if (totalPages <= 1 && !onPageSizeChange) return null;
@@ -53,9 +66,33 @@ const Pagination = ({
                     <ChevronLeft className="h-3.5 w-3.5" />
                     Prev
                 </button>
-                <span className="px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-500">
-                    Page {page} {totalPages > 0 && `of ${totalPages}`}
-                </span>
+                {numbered ? (
+                    <div className="flex items-center gap-1">
+                        {pageList(page, totalPages).map((p) =>
+                            typeof p === "string" ? (
+                                <span key={p} className="px-1 text-xs text-gray-400">…</span>
+                            ) : (
+                                <button
+                                    key={p}
+                                    disabled={loading}
+                                    onClick={() => onPageChange(p)}
+                                    className={cn(
+                                        "h-8 min-w-8 rounded-lg px-2 text-xs font-bold border",
+                                        p === page
+                                            ? "bg-primary text-white border-primary"
+                                            : "bg-gray-50 text-gray-600 border-gray-100 hover:bg-gray-100",
+                                    )}
+                                >
+                                    {p}
+                                </button>
+                            ),
+                        )}
+                    </div>
+                ) : (
+                    <span className="px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-500">
+                        Page {page} {totalPages > 0 && `of ${totalPages}`}
+                    </span>
+                )}
                 <button
                     disabled={page >= totalPages || loading}
                     onClick={() => onPageChange(page + 1)}

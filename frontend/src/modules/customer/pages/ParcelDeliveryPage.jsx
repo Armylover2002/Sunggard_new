@@ -40,6 +40,7 @@ import {
   PHONE_MAX,
 } from "../utils/bookingValidation";
 import { parcelApi } from "../services/parcelApi";
+import { customerApi } from "../services/customerApi";
 import MapPicker from "../../../shared/components/MapPicker";
 import Modal from "../../../shared/components/ui/Modal";
 import { zonesApi } from "@shared/services/zonesApi";
@@ -458,6 +459,23 @@ const ParcelDeliveryPage = () => {
   const navigate = useNavigate();
   const reduce = useReducedMotion();
   const [loading, setLoading] = useState(false);
+  // Wallet balance, for the "Pay from wallet" option. null until loaded.
+  const [walletBalance, setWalletBalance] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    customerApi
+      .getWalletSummary()
+      .then((res) => {
+        if (!cancelled) setWalletBalance(Number(res.data?.result?.balance) || 0);
+      })
+      .catch(() => {
+        if (!cancelled) setWalletBalance(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Form State
   const [pickupDetails, setPickupDetails] = useState(() => ({
@@ -1253,6 +1271,15 @@ const ParcelDeliveryPage = () => {
       if (problem) return toast.error(problem);
     }
 
+    if (paymentMethod === "WALLET") {
+      const payable = Number(appliedCoupon?.payableFare ?? fareEstimation?.fare) || 0;
+      if (walletBalance != null && walletBalance + 0.0001 < payable) {
+        return toast.error(
+          "Your wallet balance is not enough for this booking. Add money to your wallet first.",
+        );
+      }
+    }
+
     setConfirmOpen(true);
   };
 
@@ -1378,8 +1405,18 @@ const ParcelDeliveryPage = () => {
             return;
           }
         } else {
-          toast.success("Pickup requested. Finding a rider nearby...");
+          toast.success(
+            paymentMethod === "WALLET"
+              ? "Paid from your wallet. Finding a rider nearby..."
+              : "Pickup requested. Finding a rider nearby...",
+          );
           navigate(`/parcel/search/${createdParcel._id}`);
+        }
+        if (paymentMethod === "WALLET") {
+          customerApi
+            .getWalletSummary()
+            .then((res) => setWalletBalance(Number(res.data?.result?.balance) || 0))
+            .catch(() => {});
         }
 
         // Reset form after successful book / paid UPI
@@ -1428,6 +1465,11 @@ const ParcelDeliveryPage = () => {
   const totalFare = fareEstimation
     ? Number(appliedCoupon?.payableFare ?? fareEstimation.fare) || 0
     : 0;
+  const walletShort =
+    paymentMethod === "WALLET" &&
+    walletBalance != null &&
+    totalFare > 0 &&
+    walletBalance + 0.0001 < totalFare;
 
   return (
     <div className="min-h-screen bg-slate-100 font-outfit">
@@ -2394,11 +2436,39 @@ const ParcelDeliveryPage = () => {
                                   label: "UPI",
                                   helper: "Pay now",
                                 },
+                                {
+                                  value: "WALLET",
+                                  label: "Wallet",
+                                  helper:
+                                    walletBalance == null
+                                      ? "Pay now"
+                                      : `₹${walletBalance.toLocaleString("en-IN")}`,
+                                },
                               ]}
+                              columns={3}
                               value={paymentMethod}
                               onChange={setPaymentMethod}
                             />
                           </Field>
+                          {paymentMethod === "WALLET" && walletShort && (
+                            <div className="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-800">
+                              <p className="font-semibold">
+                                Wallet balance is ₹{(walletBalance || 0).toLocaleString("en-IN")} — ₹
+                                {(totalFare - (walletBalance || 0)).toFixed(2)} short.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => navigate("/wallet")}
+                                className="mt-1.5 font-bold text-[color:var(--primary)] underline underline-offset-2">
+                                Add money to wallet
+                              </button>
+                            </div>
+                          )}
+                          {paymentMethod === "WALLET" && !walletShort && (
+                            <p className="text-xs text-slate-500">
+                              Paid from your wallet right away. If you cancel, the money returns to your wallet.
+                            </p>
+                          )}
                         </Sheet>
                       </motion.div>
 
@@ -2644,8 +2714,8 @@ const ParcelDeliveryPage = () => {
             ) : (
               <motion.button
                 type="submit"
-                disabled={submitBlocked}
-                whileTap={reduce || submitBlocked ? undefined : { scale: 0.98 }}
+                disabled={submitBlocked || walletShort}
+                whileTap={reduce || submitBlocked || walletShort ? undefined : { scale: 0.98 }}
                 className="flex-1 h-[54px] rounded-2xl bg-[color:var(--primary)] text-white font-bold text-[15px] flex items-center justify-center gap-2 shadow-[0_14px_34px_-12px_color-mix(in_srgb,var(--primary)_75%,transparent)] disabled:opacity-45 disabled:shadow-none">
                 {loading ? (
                   <>
@@ -2657,6 +2727,10 @@ const ParcelDeliveryPage = () => {
                 ) : paymentMethod === "UPI" ? (
                   <>
                     Pay <Money value={totalFare} /> and request
+                  </>
+                ) : paymentMethod === "WALLET" ? (
+                  <>
+                    Pay <Money value={totalFare} /> from wallet
                   </>
                 ) : (
                   <>
@@ -2723,7 +2797,11 @@ const ParcelDeliveryPage = () => {
           </p>
           <div className="rounded-xl bg-slate-50 px-3 py-2.5 flex items-center justify-between">
             <span className="text-slate-500 font-semibold">
-              {paymentMethod === "UPI" ? "Pay now (UPI)" : "Cash on pickup"}
+              {paymentMethod === "UPI"
+                ? "Pay now (UPI)"
+                : paymentMethod === "WALLET"
+                  ? "Pay from wallet"
+                  : "Cash on pickup"}
             </span>
             <span className="font-black text-slate-900 text-base">
               ₹{totalFare.toFixed(2)}

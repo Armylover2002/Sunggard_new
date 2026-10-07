@@ -99,6 +99,15 @@ jest.unstable_mockModule("../app/services/porter/porterDispatchService.js", () =
 jest.unstable_mockModule("../app/services/porter/customerLedgerService.js", () => ({
   recordPorterCodCollected: jest.fn(),
 }));
+jest.unstable_mockModule("../app/services/porter/porterWalletPaymentService.js", () => ({
+  assertWalletCovers: jest.fn(),
+  payBookingFromWallet: jest.fn(),
+}));
+
+jest.unstable_mockModule("../app/services/porter/porterRefundService.js", () => ({
+  getRefundSummaryByParcel: jest.fn().mockResolvedValue(new Map()),
+}));
+
 jest.unstable_mockModule("../app/services/sellerNearbyService.js", () => ({
   findNearestParcelSellerWithDistance,
 }));

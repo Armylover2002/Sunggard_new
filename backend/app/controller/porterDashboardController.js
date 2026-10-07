@@ -4,9 +4,16 @@ import Delivery from "../models/delivery.js";
 import ParcelReview from "../models/parcelReview.js";
 import CashDeposit from "../models/cashDeposit.js";
 import CourierCompany from "../models/courierCompany.js";
-import Transaction from "../models/transaction.js";
 import handleResponse from "../utils/helper.js";
 import { visibleParcels } from "../services/bookingCheckoutService.js";
+import { getRefundTotals } from "../services/porter/porterRefundService.js";
+import {
+  CASH_WITH_ADMIN,
+  buildDeliveredMoneyGroup,
+  splitParcelIds,
+  computeRiderMoney,
+  buildEarnings,
+} from "../services/porter/porterEarningsService.js";
 
 /**
  * One console for the porter side of the desk.
@@ -79,18 +86,21 @@ export const adminGetPorterDashboard = async (req, res) => {
      * the gateway has something to attach an order id to. Counting those
      * made the console report bookings nobody made and revenue nobody owed.
      */
-    // Payment filter: "cod" = cash on delivery, "online" = UPI/card/wallet
-    // (a COD booking the customer paid by QR at the door is already
-    // UPI by then, so it counts as online). "all" is both combined.
-    const payment = ["cod", "online"].includes(String(req.query?.payment || "").toLowerCase())
+    // Payment filter: "cod" = cash on delivery, "online" = UPI/card through
+    // the gateway (a COD booking the customer paid by QR at the door is
+    // already UPI by then, so it counts as online), "wallet" = paid from the
+    // customer's wallet. "all" is every method combined.
+    const payment = ["cod", "online", "wallet"].includes(String(req.query?.payment || "").toLowerCase())
       ? String(req.query.payment).toLowerCase()
       : "all";
     const paymentFilter =
       payment === "cod"
         ? { paymentMethod: "COD" }
-        : payment === "online"
-          ? { paymentMethod: { $in: ["UPI", "CARD", "WALLET"] } }
-          : {};
+        : payment === "wallet"
+          ? { paymentMethod: "WALLET" }
+          : payment === "online"
+            ? { paymentMethod: { $in: ["UPI", "CARD"] } }
+            : {};
 
     const pickupWindow = visibleParcels({ ...window, ...paymentFilter });
     // Same window with no payment filter — feeds the All / COD / Online
@@ -132,34 +142,17 @@ export const adminGetPorterDashboard = async (req, res) => {
       riderParcelAgg,
       riderRejectAgg,
       riderDocs,
+      refundTotals,
     ] = await Promise.all([
       Parcel.aggregate([
         { $match: pickupWindow },
         { $group: { _id: "$status", count: { $sum: 1 } } },
       ]),
+      // Delivered bookings, with every line item split into cash that has
+      // reached admin vs cash still with a rider (see porterEarningsService).
       Parcel.aggregate([
         { $match: { ...pickupWindow, status: "DELIVERED" } },
-        {
-          $group: {
-            _id: null,
-            delivered: { $sum: 1 },
-            revenue: { $sum: "$fare" },
-            distanceKm: { $sum: "$distance" },
-            // Line items behind "revenue": the delivery and weight charge
-            // are the platform's own money; express charge too, when paid.
-            // Courier company charge and GST are pass-through — the admin
-            // collects them from the customer but owes them in full
-            // elsewhere, never platform earning. ids feeds the separate
-            // rider-payout lookup below (Transaction rows, not stored on
-            // the parcel itself).
-            baseFare: { $sum: { $ifNull: ["$fareBreakdown.baseFare", 0] } },
-            weightFare: { $sum: { $ifNull: ["$fareBreakdown.weightFare", 0] } },
-            expressCharge: { $sum: { $ifNull: ["$fareBreakdown.expressCharge", 0] } },
-            courierCharge: { $sum: { $ifNull: ["$fareBreakdown.courierCharge", 0] } },
-            gstAmount: { $sum: { $ifNull: ["$fareBreakdown.gstAmount", 0] } },
-            ids: { $push: "$_id" },
-          },
-        },
+        buildDeliveredMoneyGroup(),
       ]),
       Parcel.aggregate([{ $match: pickupWindow }, { $group: dailyGroup }]),
 
@@ -223,15 +216,41 @@ export const adminGetPorterDashboard = async (req, res) => {
         { $sort: { charge: -1 } },
       ]),
 
-      // COD vs online, delivered bookings only (same rule as revenue).
+      // COD vs online. `amount` is what actually reached admin.
       Parcel.aggregate([
         { $match: unfilteredWindow },
         {
           $group: {
-            _id: { $cond: [{ $eq: ["$paymentMethod", "COD"] }, "cod", "online"] },
+            _id: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ["$paymentMethod", "COD"] }, then: "cod" },
+                  { case: { $eq: ["$paymentMethod", "WALLET"] }, then: "wallet" },
+                ],
+                default: "online",
+              },
+            },
             bookings: { $sum: 1 },
             delivered: { $sum: { $cond: [{ $eq: ["$status", "DELIVERED"] }, 1, 0] } },
-            amount: { $sum: { $cond: [{ $eq: ["$status", "DELIVERED"] }, "$fare", 0] } },
+            // Delivered fare whose cash has reached admin vs is still with a rider.
+            amount: {
+              $sum: {
+                $cond: [
+                  { $and: [{ $eq: ["$status", "DELIVERED"] }, CASH_WITH_ADMIN] },
+                  "$fare",
+                  0,
+                ],
+              },
+            },
+            withRiders: {
+              $sum: {
+                $cond: [
+                  { $and: [{ $eq: ["$status", "DELIVERED"] }, { $not: [CASH_WITH_ADMIN] }] },
+                  "$fare",
+                  0,
+                ],
+              },
+            },
           },
         },
       ]),
@@ -274,6 +293,9 @@ export const adminGetPorterDashboard = async (req, res) => {
         { $group: { _id: "$skippedBy", rejected: { $sum: 1 } } },
       ]),
       Delivery.find({ isParcelService: true }).select("name phone isOnline").lean(),
+
+      // Cancelled online bookings in this window: refunded / pending / failed.
+      getRefundTotals(pickupWindow),
     ]);
 
     const pickupStatusCounts = toStatusCounts(pickupByStatus);
@@ -286,43 +308,14 @@ export const adminGetPorterDashboard = async (req, res) => {
         .filter(([status]) => !terminal.includes(status))
         .reduce((sum, [, count]) => sum + count, 0);
 
-    const revenue = pickupTotals.revenue || 0;
+    // Revenue = everything billed on delivered bookings. Admin earning is
+    // stricter: only bookings whose cash has actually reached admin.
+    const revenue = round2((pickupTotals.r_fare || 0) + (pickupTotals.p_fare || 0));
 
-    // Real rider payout for this window: the Transaction "Delivery Earning"
-    // rows these delivered parcels actually wrote (applyParcelDeliveredRider
-    // Earning), not a guess. Was hardcoded to 0 before — that made the
-    // margin card equal revenue exactly, silently pretending riders are paid
-    // nothing.
-    const deliveredIds = (pickupTotals.ids || []).map((id) => String(id));
-    const riderPayoutAgg = deliveredIds.length
-      ? await Transaction.aggregate([
-          {
-            $match: {
-              userModel: "Delivery",
-              type: "Delivery Earning",
-              "meta.parcelId": { $in: deliveredIds },
-            },
-          },
-          { $group: { _id: null, amount: { $sum: "$amount" } } },
-        ])
-      : [];
-    const riderPayout = riderPayoutAgg[0]?.amount || 0;
-
-    // Every customer-paid charge (delivery, weight, express, and the
-    // courier company's own charge) minus what riders were paid for these
-    // deliveries. GST is still excluded — it's the government's money, never
-    // the business's at any point, unlike the courier company charge, which
-    // does pass through the admin's own account.
-    const adminEarning = Math.max(
-      0,
-      round2(
-        (pickupTotals.baseFare || 0) +
-          (pickupTotals.weightFare || 0) +
-          (pickupTotals.expressCharge || 0) +
-          (pickupTotals.courierCharge || 0) -
-          riderPayout,
-      ),
-    );
+    const { realizedIds, pendingIds } = splitParcelIds(pickupTotals);
+    const riderMoney = await computeRiderMoney(realizedIds, pendingIds);
+    const earnings = buildEarnings(pickupTotals, riderMoney);
+    const adminEarning = earnings.realized.earning;
 
     // Booking status donut: completed / ongoing / pending / cancelled.
     const statusOverview = {
@@ -335,14 +328,18 @@ export const adminGetPorterDashboard = async (req, res) => {
       0,
     );
 
-    const paymentSummary = { all: { bookings: 0, delivered: 0, amount: 0 } };
-    for (const key of ["cod", "online"]) {
+    const paymentSummary = { all: { bookings: 0, delivered: 0, amount: 0, withRiders: 0 } };
+    for (const key of ["cod", "online", "wallet"]) {
       const row = paymentSplitAgg.find((r) => r._id === key) || {};
       paymentSummary[key] = {
         bookings: row.bookings || 0,
         delivered: row.delivered || 0,
         amount: round2(row.amount),
+        withRiders: round2(row.withRiders),
       };
+      paymentSummary.all.withRiders = round2(
+        paymentSummary.all.withRiders + paymentSummary[key].withRiders,
+      );
       paymentSummary.all.bookings += paymentSummary[key].bookings;
       paymentSummary.all.delivered += paymentSummary[key].delivered;
       paymentSummary.all.amount = round2(paymentSummary.all.amount + paymentSummary[key].amount);
@@ -412,7 +409,14 @@ export const adminGetPorterDashboard = async (req, res) => {
         deliveredParcels: pickupTotals.delivered || 0,
         cancelledParcels: pickupStatusCounts.CANCELLED || 0,
         revenue: round2(revenue),
-        riderPayout: round2(riderPayout),
+        // What riders have actually been PAID (settled withdrawals). What they
+        // have earned but not yet withdrawn is riderOwed.
+        riderPayout: riderMoney.paid,
+        riderEarned: riderMoney.earned,
+        riderOwed: riderMoney.owed,
+        // Delivered COD whose cash a rider still holds — not earning yet.
+        pendingEarning: earnings.pending.earning,
+        cashWithRiders: earnings.cashWithRiders,
         // Kept as "margin" for any other consumer of this field; it's the
         // same number as adminEarning below, just the older name.
         margin: adminEarning,
@@ -435,26 +439,35 @@ export const adminGetPorterDashboard = async (req, res) => {
         pickup: {
           total: pickupTotal,
           delivered: pickupTotals.delivered || 0,
-          revenue: round2(pickupTotals.revenue),
+          revenue,
           statusCounts: pickupStatusCounts,
         },
       },
       // Every component behind adminEarning, for the dashboard card to show
       // as line items rather than a single opaque number.
       marginBreakdown: {
-        deliveryCharge: round2(pickupTotals.baseFare || 0),
-        weightCharge: round2(pickupTotals.weightFare || 0),
-        expressCharge: round2(pickupTotals.expressCharge || 0),
-        courierCompanyCharge: round2(pickupTotals.courierCharge || 0),
-        gstCollected: round2(pickupTotals.gstAmount || 0),
-        riderPayout: round2(riderPayout),
+        deliveryCharge: earnings.realized.delivery,
+        weightCharge: earnings.realized.weight,
+        expressCharge: earnings.realized.express,
+        courierCompanyCharge: earnings.realized.courier,
+        gstCollected: earnings.realized.gst,
+        riderEarning: earnings.realized.riderEarning,
         adminEarning,
+        // Delivered but the cash is still with a rider, so not counted yet.
+        pending: {
+          cashWithRiders: earnings.cashWithRiders,
+          charges: earnings.pending.charges,
+          riderEarning: earnings.pending.riderEarning,
+          earning: earnings.pending.earning,
+        },
+        received: earnings.received,
       },
       courierCompanies,
       statusOverview,
       topAreas,
       paymentFilter: payment,
       paymentSummary,
+      refunds: refundTotals,
       drivers,
       needsAttention: {
         unassigned: pickupUnassigned,

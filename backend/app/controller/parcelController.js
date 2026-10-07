@@ -41,6 +41,11 @@ import {
   refundBookingPayment,
 } from "../services/porter/porterPaymentService.js";
 import { activatePorterBookingAfterPayment } from "../services/porter/porterDispatchService.js";
+import { getRefundSummaryByParcel } from "../services/porter/porterRefundService.js";
+import {
+  assertWalletCovers,
+  payBookingFromWallet,
+} from "../services/porter/porterWalletPaymentService.js";
 import { PORTER_BOOKING_KIND, PORTER_PAYMENT_SOURCE } from "../constants/porterPayment.js";
 import logger from "../services/logger.js";
 import { findNearestParcelSellerWithDistance } from "../services/sellerNearbyService.js";
@@ -949,6 +954,19 @@ export const createParcel = async (req, res) => {
       discountAmount: discount?.discountAmount || 0,
     };
 
+    // Wallet: refuse before a booking row exists if the wallet cannot cover it.
+    if (method === "WALLET") {
+      try {
+        await assertWalletCovers(req.user.id, payableFare);
+      } catch (walletErr) {
+        return handleResponse(res, walletErr.statusCode || 500, walletErr.message, {
+          code: walletErr.code,
+          balance: walletErr.balance,
+          required: walletErr.required,
+        });
+      }
+    }
+
     let parcel = null;
     let resumed = false;
     let previousCouponId = null;
@@ -1009,12 +1027,35 @@ export const createParcel = async (req, res) => {
       });
     }
 
+    // Wallet: take the money now. If the wallet cannot cover it after all
+    // (a second booking raced this one), the booking is removed — nothing was
+    // dispatched and nothing was charged.
+    if (method === "WALLET") {
+      try {
+        parcel = (await payBookingFromWallet(parcel)) || parcel;
+      } catch (walletErr) {
+        await Parcel.findByIdAndDelete(parcel._id).catch(() => {});
+        logger.warn("parcel_wallet_payment_failed", {
+          parcelId: String(parcel._id),
+          message: walletErr?.message,
+        });
+        return handleResponse(res, walletErr.statusCode || 500, walletErr.message, {
+          code: walletErr.code,
+        });
+      }
+    }
+
     await recordParcelEvent({
       parcelId: parcel._id,
       status: "REQUESTED",
       actor: PARCEL_EVENT_ACTOR.CUSTOMER,
       actorId: req.user.id,
-      note: resumed ? "Payment retried on the same booking" : "Booking created",
+      note:
+        method === "WALLET"
+          ? "Booking created and paid from wallet"
+          : resumed
+            ? "Payment retried on the same booking"
+            : "Booking created",
     });
 
     // Only bump usage when this booking is newly claiming the coupon — a
@@ -1376,7 +1417,9 @@ export const cancelParcelByCustomer = async (req, res) => {
           parcel: refund.booking,
           message:
             refund.status === "REFUNDED"
-              ? `₹${refund.amountRupees} has been refunded to your original payment method.`
+              ? refund.via === "WALLET"
+                ? `₹${refund.amountRupees} has been added back to your wallet.`
+                : `₹${refund.amountRupees} has been refunded to your original payment method.`
               : "Your refund is being processed.",
         },
       });
@@ -1429,6 +1472,8 @@ export const adminGetParcels = async (req, res) => {
     const settledByParcelId = await getSettledParcelEarnings(
       parcels.filter((p) => p.status === "DELIVERED").map((p) => p._id),
     );
+    // What happened to the money on cancelled online bookings.
+    const refundByParcelId = await getRefundSummaryByParcel(parcels);
     const enriched = parcels.map((doc) => {
       const plain = doc.toObject ? doc.toObject() : { ...doc };
       const lateSummary = getParcelLatePickupSummary(plain);
@@ -1443,6 +1488,7 @@ export const adminGetParcels = async (req, res) => {
           stillAwaitingPickup: lateSummary.stillAwaitingPickup,
         };
       }
+      plain.refund = refundByParcelId.get(String(plain._id)) || null;
       return withRiderEarningBreakdown(
         plain,
         settings,
@@ -1496,10 +1542,13 @@ export const adminGetParcelById = async (req, res) => {
     const riderEarningBreakdown = computeRiderParcelEarningBreakdown(plain, settings);
     if (settledAmount != null) riderEarningBreakdown.earning = settledAmount;
 
+    const refund = (await getRefundSummaryByParcel([plain])).get(String(plain._id)) || null;
+
     return handleResponse(res, 200, "Courier retrieved successfully", {
       ...plain,
       timeline,
       riderEarningBreakdown,
+      refund,
     });
   } catch (error) {
     return handleResponse(res, 500, error.message);

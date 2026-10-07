@@ -73,28 +73,28 @@ const PorterRiderPayouts = () => {
 
     const stats = [
         {
-            label: "Paid to riders",
-            value: rupees(summary.totalPaid),
-            icon: Banknote,
-            color: "text-orange-600",
-            bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
-            note: `${summary.entries || 0} settlements`,
-        },
-        {
-            label: "Riders paid",
-            value: Number(summary.riders || 0).toLocaleString("en-IN"),
+            label: "Earned by riders",
+            value: rupees(summary.totalEarned),
             icon: Users,
             color: "text-orange-600",
             bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
-            note: "With at least one courier job",
+            note: `${summary.entries || 0} deliveries · ${summary.riders || 0} riders · credited to wallets`,
         },
         {
-            label: "Held back",
-            value: rupees(summary.withheldAmount),
+            label: "Paid to riders",
+            value: rupees(summary.totalPaid),
+            icon: Banknote,
+            color: "text-emerald-600",
+            bg: "bg-emerald-500/10 border border-emerald-200 dark:border-emerald-900",
+            note: "Withdrawals the admin has settled",
+        },
+        {
+            label: "Still owed",
+            value: rupees(summary.totalOwed),
             icon: AlertTriangle,
             color: "text-amber-600",
             bg: "bg-amber-500/10 border border-amber-200 dark:border-amber-900",
-            note: `${summary.withheldCount || 0} awaiting review`,
+            note: "In rider wallets, not withdrawn yet",
         },
     ];
 
@@ -102,7 +102,7 @@ const PorterRiderPayouts = () => {
         <div className="space-y-6">
             <PageHeader
                 title="Rider Payouts"
-                description="Earnings from courier jobs only. Withdrawals stay under Money Requests — riders draw against one balance shared with grocery work, so a withdrawal can't be split by service."
+                description="What riders earned on courier jobs, and what has actually been paid. Earned money sits in the rider's wallet until a withdrawal is approved and paid. Withdrawals stay under Money Requests — riders draw against one balance shared with grocery work, so a withdrawal can't be split by service."
                 icon={Receipt}
                 actions={
                     <button
@@ -146,7 +146,7 @@ const PorterRiderPayouts = () => {
                                 <p className="font-mono text-lg font-extrabold text-slate-900 dark:text-white">
                                     {rupees(m.amount)}
                                 </p>
-                                <p className="text-[11px] text-slate-400">{m.count} settlements</p>
+                                <p className="text-[11px] text-slate-400">{m.count} deliveries</p>
                             </div>
                         ))}
                     </div>
@@ -183,15 +183,15 @@ const PorterRiderPayouts = () => {
                 ) : items.length === 0 ? (
                     <EmptyState
                         icon={Banknote}
-                        title="No courier settlements"
-                        description="No courier settlements in this view."
+                        title="No courier earnings"
+                        description="No courier earnings in this view."
                     />
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/50">
                                 <tr>
-                                    {["Rider", "Service", "Courier", "Amount", "Status", "Date"].map(
+                                    {["Rider", "Service", "Courier", "Payment", "Amount", "Payout", "Date"].map(
                                         (head) => (
                                             <th
                                                 key={head}
@@ -225,12 +225,23 @@ const PorterRiderPayouts = () => {
                                         <td className="px-5 py-3.5 font-mono text-xs text-slate-500">
                                             {row.parcelRef || "—"}
                                         </td>
+                                        <td className="px-5 py-3.5 text-xs font-bold text-slate-500">
+                                            {row.paymentMethod === "COD" ? "COD" : row.paymentMethod ? "Online" : "—"}
+                                        </td>
                                         <td className="px-5 py-3.5 font-mono text-sm font-bold text-slate-900 dark:text-white">
                                             {rupees(row.amount)}
                                         </td>
                                         <td className="px-5 py-3.5">
-                                            <Badge variant={row.status === "Settled" ? "success" : "gray"}>
-                                                {row.status}
+                                            <Badge
+                                                variant={
+                                                    row.payoutStatus === "Paid"
+                                                        ? "success"
+                                                        : row.payoutStatus === "Partly paid"
+                                                            ? "warning"
+                                                            : "gray"
+                                                }
+                                            >
+                                                {row.payoutStatus || "In wallet"}
                                             </Badge>
                                         </td>
                                         <td className="px-5 py-3.5 text-xs text-slate-500">
@@ -252,7 +263,7 @@ const PorterRiderPayouts = () => {
                 {data?.totalPages > 1 && (
                     <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3.5 dark:border-slate-800">
                         <p className="text-xs text-slate-500">
-                            Page {data.page} of {data.totalPages} · {data.total} settlements
+                            Page {data.page} of {data.totalPages} · {data.total} deliveries
                         </p>
                         <div className="flex gap-2">
                             <button

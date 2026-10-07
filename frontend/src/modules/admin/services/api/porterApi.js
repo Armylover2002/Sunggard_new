@@ -35,7 +35,8 @@ export const adminPorterApi = {
      * rider wallet/withdrawal picture. `getWalletWithdrawals` supports
      * status (pending|settled|all), page and limit.
      */
-    getWalletOverview: () => axiosInstance.get('/porter/admin/wallet/overview'),
+    getWalletOverview: (params) =>
+        axiosInstance.get('/porter/admin/wallet/overview', { params }),
     getWalletWithdrawals: (params) =>
         axiosInstance.get('/porter/admin/wallet/withdrawals', { params }),
 

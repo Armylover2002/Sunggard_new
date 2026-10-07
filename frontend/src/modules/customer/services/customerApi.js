@@ -14,6 +14,13 @@ export const customerApi = {
     }),
   getWalletTransactions: (params) =>
     getWithDedupe("/customer/transactions", params),
+  /** Balance plus the top-up limits. */
+  getWalletSummary: () => axiosInstance.get("/customer/wallet"),
+  /** Opens a gateway order. Nothing is credited until the payment is captured. */
+  createWalletTopup: (data) => axiosInstance.post("/customer/wallet/topup", data),
+  /** Hands the gateway's signed receipt back; the server credits the wallet. */
+  verifyWalletTopup: (receipt) =>
+    axiosInstance.post("/customer/wallet/topup/verify", receipt),
 
   // Sellers & Location
   getNearbySellers: (params) => getWithDedupe("/seller/nearby", params),

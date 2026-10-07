@@ -39,6 +39,8 @@ function ledgerTitle(entry) {
             return "Wallet refund";
         case "WALLET_PAYMENT":
             return "Order payment (wallet)";
+        case "WALLET_TOPUP":
+            return "Wallet top-up";
         case "CANCELLATION_REVERSAL":
             return "Cancel refund";
         case "ADJUSTMENT":
@@ -269,15 +271,28 @@ export const getCustomerTransactions = async (req, res) => {
                 typeStr === "refund" ||
                 typeStr.includes("refund") ||
                 typeStr.includes("credit");
+            // Courier payments/refunds that went through the gateway (or cash)
+            // never touched the wallet balance — say so, instead of showing
+            // them as if they did.
+            const viaSource = String(t.meta?.source || "");
+            const gatewayOnly = ["porter_payment", "porter_refund", "porter_cod"].includes(viaSource);
+            const gatewayTitles = {
+                porter_payment: "Courier payment (online)",
+                porter_refund: "Courier refund (to original payment method)",
+                porter_cod: "Courier payment (cash)",
+            };
             return {
                 _id: `legacy-${String(t._id)}`,
                 type: isCredit ? "credit" : "debit",
-                title: t.type === "Refund" ? "Refund" : t.type || "Transaction",
+                title: gatewayOnly
+                    ? gatewayTitles[viaSource]
+                    : t.type === "Refund" ? "Refund" : t.type || "Transaction",
                 amount: Math.abs(Number(t.amount) || 0),
                 date: t.createdAt,
                 reference: t.reference || "",
                 orderId: null,
                 source: "legacy",
+                affectsWallet: !gatewayOnly,
             };
         });
 

@@ -27,11 +27,28 @@ import Pagination from '@shared/components/ui/Pagination';
 import { adminApi } from '../services/adminApi';
 import { toast } from 'sonner';
 
+/**
+ * What a ledger row's status actually means for each kind of row. The stored
+ * status is "Settled" for an earning as soon as it is credited to the rider's
+ * wallet, and for collected cash once a deposit is approved — neither is the
+ * same thing as money having been paid to a rider, so the screen says which.
+ */
+const ledgerStatusLabel = (type, status) => {
+    const s = String(status || '').toLowerCase();
+    if (type === 'Withdrawal') {
+        return s === 'settled' ? 'Paid' : s === 'failed' ? 'Failed' : s === 'processing' ? 'Processing' : 'Requested';
+    }
+    if (type === 'Delivery Earning') return s === 'failed' ? 'Failed' : 'In wallet';
+    if (type === 'Cash Collection') return s === 'settled' ? 'Deposited' : s === 'failed' ? 'Failed' : 'With rider';
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Pending';
+};
+
 const DeliveryFunds = () => {
     const [transfers, setTransfers] = useState([]);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
     const [total, setTotal] = useState(0);
+    const [summary, setSummary] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -61,9 +78,11 @@ const DeliveryFunds = () => {
                 accountInfo: tx.user?.documents?.bankDetails || 'No details',
                 dateTime: new Date(tx.createdAt || tx.date).toLocaleString(),
                 referenceId: tx.reference,
-                type: tx.type
+                type: tx.type,
+                displayStatus: ledgerStatusLabel(tx.type, tx.status)
             }));
             setTransfers(mapped);
+            setSummary(payload.summary || null);
             setTotal(typeof payload.total === 'number' ? payload.total : mapped.length);
             setPage(typeof payload.page === 'number' ? payload.page : requestedPage);
         } catch (error) {
@@ -115,6 +134,14 @@ const DeliveryFunds = () => {
     }, [transfers, searchTerm, filterStatus]);
 
     const stats = useMemo(() => {
+        if (summary) {
+            return [
+                { label: 'Paid To Riders', value: `₹${Number(summary.paidOut || 0).toLocaleString()}`, icon: Banknote, color: 'emerald' },
+                { label: 'Payouts Pending', value: `₹${Number(summary.pendingPayouts || 0).toLocaleString()}`, icon: Clock, color: 'amber' },
+                { label: 'Cash With Riders', value: `₹${Number(summary.cashWithRiders || 0).toLocaleString()}`, icon: Wallet, color: 'indigo' },
+                { label: 'Riders Involved', value: summary.riders ?? 0, icon: Users, color: 'rose' },
+            ];
+        }
         const settled = transfers.filter(tx => tx.status === 'settled').reduce((acc, tx) => acc + tx.amount, 0);
         const pending = transfers.filter(tx => tx.status === 'pending').reduce((acc, tx) => acc + tx.amount, 0);
         const float = transfers.reduce((acc, tx) => acc + tx.amount, 0);
@@ -125,7 +152,7 @@ const DeliveryFunds = () => {
             { label: 'System Float', value: `₹${float.toLocaleString()}`, icon: Wallet, color: 'indigo' },
             { label: 'Riders Involved', value: [...new Set(transfers.map(tx => tx.riderId))].length, icon: Users, color: 'rose' },
         ];
-    }, [transfers]);
+    }, [transfers, summary]);
 
     return (
         <div className="ds-section-spacing animate-in fade-in duration-700">
@@ -283,13 +310,13 @@ const DeliveryFunds = () => {
                                                     <XCircle className="h-4 w-4 text-rose-500 shrink-0" />
                                                 )}
                                                 <Badge variant={tx.status === 'settled' ? 'success' : tx.status === 'pending' ? 'warning' : 'destructive'} className="text-[8px] font-black uppercase tracking-wider px-2">
-                                                    {tx.status}
+                                                    {tx.displayStatus}
                                                 </Badge>
                                             </div>
                                         </td>
                                         <td className="px-4 py-7 text-right pr-12">
                                             <div className="flex items-center justify-end gap-2">
-                                                {tx.status === 'pending' && (
+                                                {tx.status === 'pending' && tx.type !== 'Cash Collection' && (
                                                     <button
                                                         onClick={() => handleSettleSingle(tx._id)}
                                                         className="p-2.5 bg-brand-50 text-brand-600 rounded-xl hover:bg-brand-500 hover:text-white transition-all shadow-sm active:scale-95"
@@ -349,7 +376,7 @@ const DeliveryFunds = () => {
                                 <div className="flex justify-between items-center mb-10">
                                     <h3 className="ds-h2 uppercase tracking-widest">Ledger Entry</h3>
                                     <div className="flex items-center gap-2">
-                                        {viewingTxn.status === 'pending' && (
+                                        {viewingTxn.status === 'pending' && viewingTxn.type !== 'Cash Collection' && (
                                             <button
                                                 onClick={() => {
                                                     handleSettleSingle(viewingTxn._id);
@@ -377,7 +404,7 @@ const DeliveryFunds = () => {
                                     <h4 className="text-3xl font-black text-slate-900 tracking-tight">₹{viewingTxn.amount.toLocaleString()}</h4>
                                     <div className="flex items-center justify-center gap-2 mt-2">
                                         <Badge variant={viewingTxn.status === 'completed' ? 'success' : 'warning'} className="uppercase font-black text-[9px]">
-                                            {viewingTxn.status}
+                                            {viewingTxn.displayStatus || viewingTxn.status}
                                         </Badge>
                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{viewingTxn.id}</span>
                                     </div>

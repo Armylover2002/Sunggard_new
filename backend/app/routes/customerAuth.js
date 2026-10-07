@@ -7,6 +7,11 @@ import {
     updateCustomerProfile,
     getCustomerTransactions,
 } from "../controller/customerAuthController.js";
+import {
+    getWalletSummary,
+    createWalletTopup,
+    verifyWalletTopup,
+} from "../controller/customerWalletController.js";
 import { verifyToken, requireActiveCustomer } from "../middleware/authMiddleware.js";
 import {
     authRouteRateLimiter,
@@ -29,5 +34,8 @@ router.put("/profile", verifyToken, requireActiveCustomer, updateCustomerProfile
 
 // Wallet
 router.get("/transactions", verifyToken, getCustomerTransactions);
+router.get("/wallet", verifyToken, requireActiveCustomer, getWalletSummary);
+router.post("/wallet/topup", verifyToken, requireActiveCustomer, createWalletTopup);
+router.post("/wallet/topup/verify", verifyToken, requireActiveCustomer, verifyWalletTopup);
 
 export default router;
