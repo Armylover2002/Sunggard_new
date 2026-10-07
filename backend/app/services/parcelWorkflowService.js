@@ -347,8 +347,25 @@ export async function offerParcelToNextRider(parcelId) {
   const now = new Date();
   const searchExpiresAt = new Date(now.getTime() + PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS());
 
+  // Optimistic-concurrency guard: this function can be entered twice for the
+  // same parcel at nearly the same moment (the in-memory offer timer firing
+  // right as a sweep/reject/online-trigger also calls it) — without this,
+  // both calls would read the same "nobody holds it" state, independently
+  // pick a next rider (not always the same one), and both successfully
+  // write + emit, which is exactly how two different riders have ended up
+  // with a live offer for one parcel at once. Matching on the attempt
+  // counter we just read makes only the first writer's update succeed; the
+  // second gets null back and bails out below instead of emitting too.
+  const attemptFilter =
+    parcel.searchMeta?.attempt == null ? { $exists: false } : parcel.searchMeta.attempt;
+
   const updated = await Parcel.findOneAndUpdate(
-    { _id: parcelId, status: "SEARCHING", deliveryPartnerId: null },
+    {
+      _id: parcelId,
+      status: "SEARCHING",
+      deliveryPartnerId: null,
+      "searchMeta.attempt": attemptFilter,
+    },
     {
       $set: {
         searchExpiresAt,
@@ -614,6 +631,46 @@ export async function processParcelSearchTimeout(parcelId) {
   }
 
   await offerParcelToNextRider(parcelId);
+}
+
+/**
+ * Safety net for processParcelSearchTimeout, run on a short interval by
+ * jobs/parcelOfferSweepJob.js. The normal path is scheduleParcelSearchTimeout's
+ * in-memory setTimeout, which only exists in the process that set it — an
+ * API restart or redeploy wipes every pending timer with it, and nothing
+ * else was ever watching for the parcel's searchExpiresAt passing. The
+ * parcel stays SEARCHING forever, visible only to whoever it was last
+ * offered to, never moving on to the next rider.
+ *
+ * Finds every parcel whose offer window has already passed and reuses
+ * processParcelSearchTimeout for each — the exact same path the timer would
+ * have taken, so this is a recovery mechanism, not a second code path with
+ * its own rules. Safe to run alongside a live in-memory timer too:
+ * processParcelSearchTimeout always re-reads the parcel and bails out if
+ * searchExpiresAt has already moved into the future (set by whichever of
+ * the two got there first), so double-processing is a harmless no-op.
+ */
+export async function sweepExpiredParcelOffers() {
+  const now = new Date();
+  const expired = await Parcel.find({
+    status: "SEARCHING",
+    deliveryPartnerId: null,
+    searchExpiresAt: { $ne: null, $lte: now },
+  })
+    .select("_id")
+    .limit(100)
+    .lean();
+
+  let processed = 0;
+  for (const { _id: parcelId } of expired) {
+    try {
+      await processParcelSearchTimeout(parcelId);
+      processed += 1;
+    } catch (err) {
+      console.warn("[parcelWorkflow] sweep failed for", parcelId, err.message);
+    }
+  }
+  return { found: expired.length, processed };
 }
 
 /**

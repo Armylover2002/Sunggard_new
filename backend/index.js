@@ -45,6 +45,11 @@ import {
   isStalledAcceptedParcelJobEnabled,
 } from "./app/jobs/stalledAcceptedParcelJob.js";
 import {
+  getParcelOfferSweepJobHandler,
+  getParcelOfferSweepJobInterval,
+  isParcelOfferSweepJobEnabled,
+} from "./app/jobs/parcelOfferSweepJob.js";
+import {
   getAbandonedCheckoutJobHandler,
   getAbandonedCheckoutJobInterval,
   isAbandonedCheckoutJobEnabled,
@@ -372,6 +377,18 @@ async function startScheduler() {
       'stalledAcceptedParcelJob',
       getStalledAcceptedParcelJobInterval(),
       getStalledAcceptedParcelJobHandler()
+    );
+  }
+
+  // Recovers a courier offer search whose in-memory timer was lost to an API
+  // restart — without this, a parcel can get stuck SEARCHING forever,
+  // visible only to whoever it was last offered to, with nobody else ever
+  // reached.
+  if (isParcelOfferSweepJobEnabled()) {
+    registerScheduledJob(
+      'parcelOfferSweepJob',
+      getParcelOfferSweepJobInterval(),
+      getParcelOfferSweepJobHandler()
     );
   }
 

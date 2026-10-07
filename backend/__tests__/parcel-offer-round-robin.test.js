@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 
 const mockParcelFindById = jest.fn();
 const mockParcelFindOneAndUpdate = jest.fn();
+const mockParcelFind = jest.fn();
+const mockParcelUpdateOne = jest.fn().mockResolvedValue({});
 const mockGetSearchSettings = jest.fn().mockResolvedValue({ deliveryRadiusKm: 5 });
 const mockGetActiveZoneById = jest.fn().mockResolvedValue(null);
 const mockGetSorted = jest.fn();
@@ -15,6 +17,8 @@ jest.unstable_mockModule("../app/models/parcel.js", () => ({
   default: {
     findById: mockParcelFindById,
     findOneAndUpdate: mockParcelFindOneAndUpdate,
+    updateOne: mockParcelUpdateOne,
+    find: mockParcelFind,
   },
 }));
 
@@ -75,7 +79,9 @@ jest.unstable_mockModule("../app/config/redis.js", () => ({
   getRedisClient: jest.fn().mockReturnValue(null),
 }));
 
-const { offerParcelToNextRider } = await import("../app/services/parcelWorkflowService.js");
+const { offerParcelToNextRider, sweepExpiredParcelOffers } = await import(
+  "../app/services/parcelWorkflowService.js"
+);
 
 const PARCEL = new mongoose.Types.ObjectId();
 const RIDER_A = new mongoose.Types.ObjectId();
@@ -183,6 +189,33 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
     expect(mockParcelFindOneAndUpdate.mock.calls[1][1].$set.searchMeta.offeredTo).toBe(String(RIDER_B));
   });
 
+  it("includes the attempt counter as an optimistic-concurrency guard, so two concurrent calls can't both win", async () => {
+    mockParcelFindById.mockResolvedValue({
+      _id: PARCEL,
+      status: "SEARCHING",
+      deliveryPartnerId: null,
+      pickupAddress: { lat: 1, lng: 1 },
+      skippedBy: [],
+      offerTimeoutBy: [],
+      searchMeta: { attempt: 3 },
+    });
+    await offerParcelToNextRider(PARCEL);
+
+    const filter = mockParcelFindOneAndUpdate.mock.calls[0][0];
+    expect(filter["searchMeta.attempt"]).toBe(3);
+
+    // The second of two near-simultaneous calls reads the same "attempt: 3"
+    // state (the first hasn't written yet) and must also filter on 3 — so
+    // once the first writer's update lands, the second's matching filter no
+    // longer applies and MongoDB legitimately returns null for it. Confirm
+    // the code treats that null as "someone else already handled this" and
+    // sends no broadcast of its own.
+    mockEmitParcelBroadcast.mockClear();
+    mockParcelFindOneAndUpdate.mockReturnValueOnce(null);
+    await offerParcelToNextRider(PARCEL);
+    expect(mockEmitParcelBroadcast).not.toHaveBeenCalled();
+  });
+
   it("falls back to manual assignment only when nobody is eligible at all", async () => {
     mockGetSorted.mockResolvedValue([]);
     mockParcelFindById.mockResolvedValue({
@@ -200,5 +233,68 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
       { _id: PARCEL, status: "SEARCHING" },
       expect.objectContaining({ $set: expect.objectContaining({ status: "REQUESTED" }) }),
     );
+  });
+});
+
+describe("sweepExpiredParcelOffers recovers a search whose in-memory timer was lost", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetSorted.mockResolvedValue([{ id: String(RIDER_A), distanceM: 100 }]);
+  });
+
+  const findChain = (docs) => ({
+    select: () => ({ limit: () => ({ lean: async () => docs }) }),
+  });
+
+  it("finds every SEARCHING parcel past its offer window and advances each one", async () => {
+    mockParcelFind.mockReturnValue(findChain([{ _id: PARCEL }]));
+    // processParcelSearchTimeout's own re-read: window has genuinely passed
+    // and nobody currently holds the offer, so it moves straight to picking
+    // a next rider — same as the in-memory timer would have done.
+    mockParcelFindById.mockResolvedValue({
+      _id: PARCEL,
+      status: "SEARCHING",
+      deliveryPartnerId: null,
+      pickupAddress: { lat: 1, lng: 1 },
+      searchExpiresAt: new Date(Date.now() - 1000),
+      skippedBy: [],
+      offerTimeoutBy: [],
+      searchMeta: { attempt: 0 },
+    });
+
+    const result = await sweepExpiredParcelOffers();
+
+    expect(mockParcelFind).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "SEARCHING", deliveryPartnerId: null }),
+    );
+    expect(result).toEqual({ found: 1, processed: 1 });
+    expect(mockEmitParcelBroadcast).toHaveBeenCalled();
+  });
+
+  it("finds nothing to do when no search has actually expired", async () => {
+    mockParcelFind.mockReturnValue(findChain([]));
+    const result = await sweepExpiredParcelOffers();
+    expect(result).toEqual({ found: 0, processed: 0 });
+  });
+
+  it("one parcel failing doesn't stop the rest of the sweep", async () => {
+    const OTHER = new mongoose.Types.ObjectId();
+    mockParcelFind.mockReturnValue(findChain([{ _id: PARCEL }, { _id: OTHER }]));
+    // First lookup throws; second succeeds normally.
+    mockParcelFindById
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValueOnce({
+        _id: OTHER,
+        status: "SEARCHING",
+        deliveryPartnerId: null,
+        pickupAddress: { lat: 1, lng: 1 },
+        searchExpiresAt: new Date(Date.now() - 1000),
+        skippedBy: [],
+        offerTimeoutBy: [],
+        searchMeta: { attempt: 0 },
+      });
+
+    const result = await sweepExpiredParcelOffers();
+    expect(result).toEqual({ found: 2, processed: 1 });
   });
 });
