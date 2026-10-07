@@ -328,21 +328,49 @@ export async function offerParcelToNextRider(parcelId) {
   }
 
   const nextAttempt = (parcel.searchMeta?.attempt || 0) + 1;
-  // Pick the eligible rider right after whoever just held the offer, in
-  // distance order, wrapping back to the nearest once everyone's had a
-  // turn — not an attempt-counter modulo, which drifts (and can land back
-  // on the same person two rounds in a row) whenever the eligible pool's
-  // size changes between rounds, e.g. someone goes offline or falls in or
-  // out of cash headroom.
-  const lastOfferedTo = String(
-    parcel.searchMeta?.offeredTo || parcel.searchMeta?.lastOfferedTo || "",
-  );
-  let startIndex = 0;
-  if (lastOfferedTo) {
-    const lastIndex = eligible.findIndex((r) => String(r.id) === lastOfferedTo);
-    if (lastIndex !== -1) startIndex = (lastIndex + 1) % eligible.length;
+
+  // Walk a fixed, ordered list one rider at a time; once everyone on it has
+  // had a turn, draw a fresh list from who's eligible right now and start
+  // over — this is what makes the round genuinely never run out: A, B, C,
+  // then back to A, B, C, for as long as the parcel keeps searching. The
+  // list is snapshotted per cycle rather than re-derived each round from a
+  // live nearest-first query, because two riders tied on distance can
+  // legitimately swap order between queries (GPS jitter) — re-deriving
+  // "whoever comes after whoever held it last" from a reordered list can
+  // silently skip someone or repeat someone, which is exactly the bug this
+  // replaces.
+  let sequence = (parcel.searchMeta?.offerSequence || []).map(String);
+  let index = parcel.searchMeta?.offerIndex ?? -1;
+
+  // `eligibleIds` (already computed above by filterRidersWithCashHeadroom)
+  // holds exactly the same string ids `eligible` does, so it also serves as
+  // the membership check here.
+  const startFreshCycle = () => {
+    sequence = eligible.map((r) => String(r.id));
+    index = 0;
+  };
+
+  if (!sequence.length) {
+    startFreshCycle();
+  } else {
+    index += 1;
+    // Walk forward from here, skipping anyone who fell out of eligibility
+    // mid-cycle (went offline, hit their cash limit) rather than offering
+    // someone who can't actually take the job. Bounded by sequence.length,
+    // so this always terminates; if it walks off the end without finding
+    // anyone still eligible — including the ordinary case of having simply
+    // finished the cycle — a fresh one starts, which `eligible.length > 0`
+    // (checked above) guarantees always has someone on it.
+    while (index < sequence.length && !eligibleIds.has(sequence[index])) {
+      index += 1;
+    }
+    if (index >= sequence.length) {
+      startFreshCycle();
+    }
   }
-  const next = eligible[startIndex];
+
+  const nextId = sequence[index];
+  const next = eligible.find((r) => String(r.id) === nextId);
 
   const now = new Date();
   const searchExpiresAt = new Date(now.getTime() + PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS());
@@ -351,11 +379,11 @@ export async function offerParcelToNextRider(parcelId) {
   // same parcel at nearly the same moment (the in-memory offer timer firing
   // right as a sweep/reject/online-trigger also calls it) — without this,
   // both calls would read the same "nobody holds it" state, independently
-  // pick a next rider (not always the same one), and both successfully
-  // write + emit, which is exactly how two different riders have ended up
-  // with a live offer for one parcel at once. Matching on the attempt
-  // counter we just read makes only the first writer's update succeed; the
-  // second gets null back and bails out below instead of emitting too.
+  // pick a next rider, and both successfully write + emit, which is exactly
+  // how two different riders have ended up with a live offer for one parcel
+  // at once. Matching on the attempt counter we just read makes only the
+  // first writer's update succeed; the second gets null back and bails out
+  // below instead of emitting too.
   const attemptFilter =
     parcel.searchMeta?.attempt == null ? { $exists: false } : parcel.searchMeta.attempt;
 
@@ -375,6 +403,8 @@ export async function offerParcelToNextRider(parcelId) {
           lastBroadcastAt: now,
           offeredTo: next.id,
           offeredAt: now,
+          offerSequence: sequence,
+          offerIndex: index,
         },
       },
     },
@@ -607,12 +637,8 @@ export async function processParcelSearchTimeout(parcelId) {
         $set: {
           "searchMeta.offeredTo": null,
           "searchMeta.offeredAt": null,
-          // Remembered so the very next round skips straight past whoever
-          // just timed out, instead of the attempt counter alone deciding —
-          // that counter drifts whenever the eligible pool's size changes
-          // between rounds (a rider going offline/online, falling in or out
-          // of cash headroom), which could land back on the same person.
-          "searchMeta.lastOfferedTo": offeredTo,
+          // offerSequence/offerIndex are left untouched — they're what
+          // offerParcelToNextRider reads next to know whose turn is next.
         },
       },
     );

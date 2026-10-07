@@ -378,16 +378,23 @@ const parcelSchema = new mongoose.Schema(
       },
       offeredAt: { type: Date, default: null },
       /**
-       * Set alongside clearing `offeredTo` on a timeout, so the next round
-       * knows who just had (and lost) the live offer — a timed-out rider
-       * stays eligible for later rounds (see offerTimeoutBy), but should
-       * never be the very next pick when someone else is available.
+       * The fixed, ordered list of riders for the cycle currently in
+       * progress (nearest-first at the moment the cycle started) — see
+       * parcelWorkflowService.offerParcelToNextRider. Walked one at a time
+       * by offerIndex; once everyone on it has had a turn, a fresh list is
+       * drawn from who's eligible right now and the cycle starts over. Kept
+       * as an explicit snapshot rather than re-deriving "whose turn is
+       * next" from a live nearest-first re-query each round — two riders
+       * tied on distance can legitimately swap order between queries (GPS
+       * jitter), which silently breaks a derived "next after whoever held
+       * it last" rule; a snapshot can't be disturbed by that.
        */
-      lastOfferedTo: {
+      offerSequence: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Delivery",
-        default: null,
-      },
+      }],
+      /** Position in offerSequence last (or about to be) offered. */
+      offerIndex: { type: Number, default: -1 },
     },
     skippedBy: [{
       type: mongoose.Schema.Types.ObjectId,

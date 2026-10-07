@@ -86,6 +86,7 @@ const { offerParcelToNextRider, sweepExpiredParcelOffers } = await import(
 const PARCEL = new mongoose.Types.ObjectId();
 const RIDER_A = new mongoose.Types.ObjectId();
 const RIDER_B = new mongoose.Types.ObjectId();
+const RIDER_C = new mongoose.Types.ObjectId();
 
 describe("sequential offers cycle back when nobody acts, instead of running out", () => {
   beforeEach(() => {
@@ -114,8 +115,11 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
     });
     await offerParcelToNextRider(PARCEL);
     expect(mockParcelFindOneAndUpdate.mock.calls[0][1].$set.searchMeta.offeredTo).toBe(String(RIDER_A));
+    expect(mockParcelFindOneAndUpdate.mock.calls[0][1].$set.searchMeta.offerIndex).toBe(0);
 
-    // A's offer timed out (offerTimeoutBy now has A); B gets the next round.
+    // A's offer timed out: offerTimeoutBy now has A, offeredTo cleared, but
+    // offerSequence/offerIndex (what processParcelSearchTimeout leaves alone)
+    // carry over exactly as offerParcelToNextRider's first call wrote them.
     mockParcelFindById.mockResolvedValue({
       _id: PARCEL,
       status: "SEARCHING",
@@ -123,15 +127,22 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
       pickupAddress: { lat: 1, lng: 1 },
       skippedBy: [],
       offerTimeoutBy: [RIDER_A],
-      searchMeta: { attempt: 1, offeredTo: null, lastOfferedTo: RIDER_A },
+      searchMeta: {
+        attempt: 1,
+        offeredTo: null,
+        offerSequence: [String(RIDER_A), String(RIDER_B)],
+        offerIndex: 0,
+      },
     });
     await offerParcelToNextRider(PARCEL);
     expect(mockParcelFindOneAndUpdate.mock.calls[1][1].$set.searchMeta.offeredTo).toBe(String(RIDER_B));
+    expect(mockParcelFindOneAndUpdate.mock.calls[1][1].$set.searchMeta.offerIndex).toBe(1);
   });
 
   it("cycles back to rider A after B also times out — a 2-rider pool never runs dry", async () => {
-    // B's offer also timed out. Neither rider explicitly rejected, so both
-    // are still eligible, and distance-order cycling brings it back to A.
+    // B's offer also timed out, and offerIndex (1) is now at the end of the
+    // 2-entry sequence — the next call must start a fresh cycle from A,
+    // not fall back to manual assignment just because everyone's had a turn.
     mockParcelFindById.mockResolvedValue({
       _id: PARCEL,
       status: "SEARCHING",
@@ -139,54 +150,60 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
       pickupAddress: { lat: 1, lng: 1 },
       skippedBy: [],
       offerTimeoutBy: [RIDER_A, RIDER_B],
-      searchMeta: { attempt: 2, offeredTo: null, lastOfferedTo: RIDER_B },
+      searchMeta: {
+        attempt: 2,
+        offeredTo: null,
+        offerSequence: [String(RIDER_A), String(RIDER_B)],
+        offerIndex: 1,
+      },
     });
     await offerParcelToNextRider(PARCEL);
 
     expect(mockParcelFindOneAndUpdate.mock.calls[0][1].$set.searchMeta.offeredTo).toBe(String(RIDER_A));
-    // Crucially: no fallback to manual assignment just because both riders
-    // already had a turn.
     expect(mockRetractBroadcast).not.toHaveBeenCalledWith(String(PARCEL), null);
   });
 
-  it("never re-offers to whoever just timed out, even if the eligible pool's size changed since (the reported bug)", async () => {
-    // Round 1: A, B and C are all eligible; A gets the offer.
-    mockGetSorted.mockResolvedValueOnce([
+  it("keeps cycling A, B, C, A, B, C forever — this is the exact scenario reported: a full pass through everyone must not stop the flow", async () => {
+    mockGetSorted.mockResolvedValue([
       { id: String(RIDER_A), distanceM: 100 },
       { id: String(RIDER_B), distanceM: 200 },
-      { id: "c3c3c3c3c3c3c3c3c3c3c3c3", distanceM: 300 },
+      { id: String(RIDER_C), distanceM: 300 },
     ]);
-    mockParcelFindById.mockResolvedValue({
-      _id: PARCEL,
-      status: "SEARCHING",
-      deliveryPartnerId: null,
-      pickupAddress: { lat: 1, lng: 1 },
-      skippedBy: [],
-      offerTimeoutBy: [],
-      searchMeta: { attempt: 0 },
-    });
-    await offerParcelToNextRider(PARCEL);
-    expect(mockParcelFindOneAndUpdate.mock.calls[0][1].$set.searchMeta.offeredTo).toBe(String(RIDER_A));
 
-    // Round 2: A timed out (lastOfferedTo: A, as processParcelSearchTimeout
-    // would set), but C has since gone offline — the pool shrank from 3 to 2
-    // between rounds. The old attempt-modulo selection could land back on A
-    // here; the fix must not.
-    mockGetSorted.mockResolvedValueOnce([
-      { id: String(RIDER_A), distanceM: 100 },
-      { id: String(RIDER_B), distanceM: 200 },
+    let searchMeta = { attempt: 0 };
+    const offeredOrder = [];
+
+    // Simulate 7 rounds (more than two full laps of 3 riders) of "offer,
+    // then that rider's window times out with no action" and confirm every
+    // single round still produces a live offer to someone — the flow never
+    // goes quiet once everyone's had one turn.
+    for (let round = 0; round < 7; round += 1) {
+      mockParcelFindById.mockResolvedValue({
+        _id: PARCEL,
+        status: "SEARCHING",
+        deliveryPartnerId: null,
+        pickupAddress: { lat: 1, lng: 1 },
+        skippedBy: [],
+        offerTimeoutBy: [],
+        searchMeta,
+      });
+      await offerParcelToNextRider(PARCEL);
+      const written = mockParcelFindOneAndUpdate.mock.calls[round][1].$set.searchMeta;
+      offeredOrder.push(written.offeredTo);
+      // Next round starts from exactly what this round wrote, the same way
+      // processParcelSearchTimeout hands off to the next call in practice.
+      searchMeta = { ...written, offeredTo: null };
+    }
+
+    expect(offeredOrder).toEqual([
+      String(RIDER_A),
+      String(RIDER_B),
+      String(RIDER_C),
+      String(RIDER_A),
+      String(RIDER_B),
+      String(RIDER_C),
+      String(RIDER_A),
     ]);
-    mockParcelFindById.mockResolvedValue({
-      _id: PARCEL,
-      status: "SEARCHING",
-      deliveryPartnerId: null,
-      pickupAddress: { lat: 1, lng: 1 },
-      skippedBy: [],
-      offerTimeoutBy: [RIDER_A],
-      searchMeta: { attempt: 1, offeredTo: null, lastOfferedTo: RIDER_A },
-    });
-    await offerParcelToNextRider(PARCEL);
-    expect(mockParcelFindOneAndUpdate.mock.calls[1][1].$set.searchMeta.offeredTo).toBe(String(RIDER_B));
   });
 
   it("includes the attempt counter as an optimistic-concurrency guard, so two concurrent calls can't both win", async () => {

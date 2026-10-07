@@ -10,6 +10,21 @@ let _io = null;
 
 const deliverySockets = new Map();
 
+/**
+ * A rider's app closing, losing network, or crashing never calls the "go
+ * offline" API — the socket just drops. Without this, `isOnline` in the
+ * database stays whatever it last was (often still `true`), so dispatch
+ * kept offering jobs to a rider who was never going to see them. A short
+ * grace period (rather than flipping offline the instant the socket drops)
+ * tolerates an ordinary reconnect blip — a brief mobile-network gap, an app
+ * resume — without bouncing availability for it.
+ */
+const DELIVERY_OFFLINE_GRACE_MS = parseInt(
+  process.env.DELIVERY_OFFLINE_GRACE_MS || "20000",
+  10,
+);
+const deliveryOfflineTimers = new Map();
+
 export const initSocket = (io) => {
   _io = io;
 
@@ -40,6 +55,13 @@ export const initSocket = (io) => {
       const dId = userId.toString();
       deliverySockets.set(dId, socket.id);
       socket.join(`delivery:${dId}`);
+      // Reconnected within the grace window (or opened a second tab/device)
+      // — cancel any pending offline flip from an earlier disconnect.
+      const pendingOfflineTimer = deliveryOfflineTimers.get(dId);
+      if (pendingOfflineTimer) {
+        clearTimeout(pendingOfflineTimer);
+        deliveryOfflineTimers.delete(dId);
+      }
       Delivery.findById(dId).select("isVerified").lean().then((partner) => {
         if (partner?.isVerified) {
           socket.join("delivery:online");
@@ -105,6 +127,25 @@ export const initSocket = (io) => {
       for (const [id, sid] of deliverySockets.entries()) {
         if (sid === socket.id) {
           deliverySockets.delete(id);
+
+          // Give them DELIVERY_OFFLINE_GRACE_MS to reconnect (a dropped
+          // socket is usually a blip, not a real go-offline) before actually
+          // marking them unavailable for new offers. A second connect from
+          // the same rider within the window cancels this via the handler
+          // above instead of racing it.
+          const timer = setTimeout(async () => {
+            deliveryOfflineTimers.delete(id);
+            if (deliverySockets.has(id)) return; // reconnected since
+            try {
+              await Delivery.updateOne(
+                { _id: id, isOnline: true },
+                { $set: { isOnline: false } },
+              );
+            } catch (err) {
+              console.warn("[socketManager] offline-grace flip failed", id, err.message);
+            }
+          }, DELIVERY_OFFLINE_GRACE_MS);
+          deliveryOfflineTimers.set(id, timer);
           break;
         }
       }
