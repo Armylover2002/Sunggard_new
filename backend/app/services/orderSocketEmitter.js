@@ -216,17 +216,25 @@ export async function emitParcelBroadcast(
     }
   }
 
-  // The "New Parcel Request" push is deliberately first-round only — a rider
-  // still in range on a retry already has the offer live on their screen
-  // (the socket emit above just went to them again), so a second push would
-  // just be a repeat alert for the same job.
-  if (!payload.retryAttempt) {
-    emitNotificationEvent(NOTIFICATION_EVENTS.NEW_PARCEL_BROADCAST, {
-      parcelId: payload.parcelId,
-      deliveryIds: ids,
-      data: offerPushData(payload),
-    });
-  }
+  // Every round gets its own push — the sequential dispatch flow (see
+  // offerParcelToNextRider) cycles back to the same rider once everyone
+  // eligible has had a turn, and each of those later turns is a brand new
+  // offer with its own accept window, not a repeat of the first one.
+  //
+  // `status` here is load-bearing, not cosmetic: notify()'s dedupe key is
+  // <event>:<role>:<riderId>:<parcelId>:<status>, and with no status it was
+  // identical across every round for the same rider+parcel. The 24h dedupe
+  // TTL then meant a rider's FIRST offer for a parcel claimed that key, and
+  // every later round's offer to that same rider was silently dropped as a
+  // stale duplicate — no push, no native overlay, nothing — for as long as
+  // the parcel kept searching. searchExpiresAt changes every round, so it
+  // doubles as a free, already-available round id here.
+  emitNotificationEvent(NOTIFICATION_EVENTS.NEW_PARCEL_BROADCAST, {
+    parcelId: payload.parcelId,
+    status: payload.searchExpiresAt ? String(payload.searchExpiresAt) : undefined,
+    deliveryIds: ids,
+    data: offerPushData(payload),
+  });
 
   /**
    * Tracks who currently holds a live offer for this parcel — every round,
