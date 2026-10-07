@@ -1,9 +1,7 @@
 // One-off: assigns ticketNumber ("TKT-000123") to every Ticket row created
 // before that field existed, ordered by createdAt so earlier tickets get
-// lower numbers. Uses the same atomic counter new tickets draw from — the
-// `ticketSequence` field on the Setting singleton (models/counter.js), not
-// its own collection, since the shared Atlas cluster is near its collection
-// cap — so numbers never collide with ones already issued.
+// lower numbers. Uses the same atomic counter new tickets draw from
+// (models/counter.js), so numbers never collide with ones already issued.
 // Dry run by default. Pass --apply to write.
 //   node scripts/backfill-ticket-numbers.js
 //   node scripts/backfill-ticket-numbers.js --apply
@@ -27,13 +25,13 @@ async function run() {
 
   for (const ticket of missing) {
     const counter = await db
-      .collection("settings")
+      .collection("counters")
       .findOneAndUpdate(
-        {},
-        { $inc: { ticketSequence: 1 } },
+        { _id: "ticket" },
+        { $inc: { seq: 1 } },
         { upsert: true, returnDocument: "after" },
       );
-    const seq = counter.value?.ticketSequence ?? counter.ticketSequence;
+    const seq = counter.value?.seq ?? counter.seq;
     const ticketNumber = `TKT-${String(seq).padStart(6, "0")}`;
 
     console.log(`${ticket._id} -> ${ticketNumber}${APPLY ? "" : " (dry run)"}`);
