@@ -298,9 +298,15 @@ export async function offerParcelToNextRider(parcelId) {
   // existed) — the lookup below then keeps the old, unzoned reach.
   const zone = await getActiveZoneById(parcel.zoneId);
 
+  // Only an explicit reject (skippedBy) takes a rider out of the round for
+  // good. A rider who just let the clock run out (offerTimeoutBy) stays in
+  // it — their request moved to their pending list, not off the table — so
+  // with a small pool everyone gets cycled back to in turn instead of the
+  // search running out of candidates and falling back to manual assignment
+  // the moment each rider has been tried once.
   const sorted = await getParcelRidersNearPickupSortedByDistance(lat, lng, radiusKm, {
     zone,
-    excludeIds: [...(parcel.skippedBy || []), ...(parcel.offerTimeoutBy || [])],
+    excludeIds: parcel.skippedBy || [],
   });
 
   // Cash-gate up front, not just inside emitParcelBroadcast: skipping a
@@ -314,16 +320,26 @@ export async function offerParcelToNextRider(parcelId) {
   const eligibleIds = new Set(
     await filterRidersWithCashHeadroom(sorted.map((r) => r.id)),
   );
-  const next = sorted.find((r) => eligibleIds.has(r.id));
+  const eligible = sorted.filter((r) => eligibleIds.has(r.id));
 
-  if (!next) {
+  if (!eligible.length) {
     await fallBackToManualAssignment(parcelId, parcel.customerId);
     return;
   }
 
+  const nextAttempt = (parcel.searchMeta?.attempt || 0) + 1;
+  // Round-robin by distance order: attempt 1 is the nearest, attempt 2 the
+  // next, and once everyone eligible has had a turn it wraps back to the
+  // nearest again. With more than one eligible rider, never re-offer to
+  // whoever we just offered to, so a round always moves on to someone else
+  // first instead of stalling on one person.
+  let next = eligible[(nextAttempt - 1) % eligible.length];
+  if (eligible.length > 1 && String(next.id) === String(parcel.searchMeta?.offeredTo || "")) {
+    next = eligible[nextAttempt % eligible.length];
+  }
+
   const now = new Date();
   const searchExpiresAt = new Date(now.getTime() + PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS());
-  const nextAttempt = (parcel.searchMeta?.attempt || 0) + 1;
 
   const updated = await Parcel.findOneAndUpdate(
     { _id: parcelId, status: "SEARCHING", deliveryPartnerId: null },

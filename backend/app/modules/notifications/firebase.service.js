@@ -91,8 +91,24 @@ export async function sendFCM(tokens = [], payload = {}) {
     const result = await messaging.sendEachForMulticast({
       tokens: chunk,
       ...(dataOnly
-        ? { android: { priority: "high", ttl: 60 * 1000 } }
+        ? {
+            // 60s matched the 30s offer window too closely — a phone that
+            // was in Doze for even a few seconds around send time could miss
+            // the message entirely instead of getting it late. A wider TTL
+            // still expires well before any offer round does, so a late
+            // delivery is never actionable, but the window to receive it at
+            // all is no longer this tight.
+            android: { priority: "high", ttl: 120 * 1000 },
+            apns: {
+              headers: { "apns-priority": "10" },
+              payload: { aps: { "content-available": 1 } },
+            },
+          }
         : {
+            // Explicit, not left to FCM's default: a notification+data
+            // message is supposed to default to high on Android, but relying
+            // on that default silently is how this went unnoticed.
+            android: { priority: "high" },
             notification: {
               title,
               body,
