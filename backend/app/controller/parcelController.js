@@ -337,7 +337,7 @@ export const calculateFare = async (req, res) => {
       courierCityCharge = cityCharge.charge;
     }
 
-    const daily = computeParcelDailyFare({ config, courierCharge: courierCityCharge, weightKg: pkgWeight });
+    const daily = computeParcelDailyFare({ config, courierCharge: courierCityCharge, weightKg: pkgWeight, isExpress: String(deliverySpeed || "normal").trim().toLowerCase() === "express" });
 
     const billableDays = resolveParcelBillableDays({
       pickupWindow,
@@ -478,7 +478,7 @@ export const validateBookingCoupon = async (req, res) => {
       courierCityCharge = cityCharge.charge;
     }
 
-    const daily = computeParcelDailyFare({ config, courierCharge: courierCityCharge, weightKg: pkgWeight });
+    const daily = computeParcelDailyFare({ config, courierCharge: courierCityCharge, weightKg: pkgWeight, isExpress: String(deliverySpeed || "normal").trim().toLowerCase() === "express" });
     const billableDays = resolveParcelBillableDays({
       pickupWindow,
       pickupWindowDays,
@@ -851,7 +851,7 @@ export const createParcel = async (req, res) => {
       courierCityCharge = cityCharge.charge;
     }
 
-    const daily = computeParcelDailyFare({ config, courierCharge: courierCityCharge, weightKg: weight });
+    const daily = computeParcelDailyFare({ config, courierCharge: courierCityCharge, weightKg: weight, isExpress: speedValue === "express" });
 
     const billableDays = resolveParcelBillableDays({
       pickupWindow: windowValue,
@@ -1834,6 +1834,7 @@ export const adminUpdatePricingConfig = async (req, res) => {
       fixedDeliveryCharge,
       weightCharge,
       maxWeightKg,
+      expressCharge,
       riderPerKmRate,
       deliveryRadiusKm,
       packageTypes,
@@ -1846,6 +1847,9 @@ export const adminUpdatePricingConfig = async (req, res) => {
     }
     if (weightCharge !== undefined) {
       config.weightCharge = Math.max(0, Number(weightCharge) || 0);
+    }
+    if (expressCharge !== undefined) {
+      config.expressCharge = Math.max(0, Number(expressCharge) || 0);
     }
     if (maxWeightKg !== undefined) {
       const cap = Number(maxWeightKg);
@@ -1869,7 +1873,7 @@ export const adminUpdatePricingConfig = async (req, res) => {
 
     await config.save();
     const fresh = await ParcelConfig.findById(config._id).select(
-      "fixedDeliveryCharge weightCharge maxWeightKg riderPerKmRate deliveryRadiusKm packageTypes packageCategories gst createdAt updatedAt",
+      "fixedDeliveryCharge weightCharge maxWeightKg expressCharge riderPerKmRate deliveryRadiusKm packageTypes packageCategories gst createdAt updatedAt",
     );
     return handleResponse(
       res,

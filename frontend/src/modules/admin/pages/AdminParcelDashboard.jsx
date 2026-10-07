@@ -239,6 +239,7 @@ const AdminParcelDashboard = () => {
     fixedDeliveryCharge: 0,
     weightCharge: 0,
     maxWeightKg: 50,
+    expressCharge: 0,
     deliveryRadiusKm: 5,
     riderPerKmRate: 0,
     packageCategories: [],
@@ -337,6 +338,7 @@ const AdminParcelDashboard = () => {
         fixedDeliveryCharge: cfg.fixedDeliveryCharge ?? 0,
         weightCharge: cfg.weightCharge ?? 0,
         maxWeightKg: cfg.maxWeightKg ?? 50,
+        expressCharge: cfg.expressCharge ?? 0,
         deliveryRadiusKm: cfg.deliveryRadiusKm ?? 5,
         riderPerKmRate: cfg.riderPerKmRate ?? 0,
         packageCategories: Array.isArray(cfg.packageCategories)
@@ -538,6 +540,7 @@ const AdminParcelDashboard = () => {
         fixedDeliveryCharge: Number(pricing.fixedDeliveryCharge) || 0,
         weightCharge: Number(pricing.weightCharge) || 0,
         maxWeightKg: Number(pricing.maxWeightKg),
+        expressCharge: Number(pricing.expressCharge) || 0,
         deliveryRadiusKm: Number(pricing.deliveryRadiusKm) || 5,
         riderPerKmRate: Number(pricing.riderPerKmRate) || 0,
         packageCategories: pricing.packageCategories,
@@ -550,6 +553,7 @@ const AdminParcelDashboard = () => {
           fixedDeliveryCharge: cfg.fixedDeliveryCharge ?? prev.fixedDeliveryCharge,
           weightCharge: cfg.weightCharge ?? prev.weightCharge,
           maxWeightKg: cfg.maxWeightKg ?? prev.maxWeightKg,
+          expressCharge: cfg.expressCharge ?? prev.expressCharge,
           deliveryRadiusKm: cfg.deliveryRadiusKm ?? prev.deliveryRadiusKm,
           riderPerKmRate: cfg.riderPerKmRate ?? prev.riderPerKmRate,
           packageCategories: Array.isArray(cfg.packageCategories)
@@ -1284,6 +1288,30 @@ const AdminParcelDashboard = () => {
                       <p className="text-[10px] text-slate-400 font-medium">
                         Heaviest package a customer can book. Weights
                         above this are rejected on the booking form.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">
+                        Express Charge (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        required
+                        value={pricing.expressCharge}
+                        onChange={(e) =>
+                          setPricing((p) => ({
+                            ...p,
+                            expressCharge: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-primary"
+                      />
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Added to the fare when a customer books Express.
+                        Shown as its own line to the customer, the rider and
+                        on the invoice. 0 = Express costs nothing extra.
                       </p>
                     </div>
                   </div>

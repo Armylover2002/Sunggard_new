@@ -88,6 +88,8 @@ export const adminUpdateParcelPricingSchema = Joi.object({
     "number.min": "Max weight must be at least 0.1 KG",
     "number.max": "Max weight cannot exceed 1000 KG",
   }),
+  // Charged on top of the fare when the customer picks Express. 0 = free.
+  expressCharge: money(),
   deliveryRadiusKm: Joi.number().min(1).max(100),
   riderPerKmRate: money(10000),
   // Passed through: the controller owns their shape, and stripping unknown

@@ -68,6 +68,19 @@ const parcelConfigSchema = new mongoose.Schema(
       min: 0.1,
       max: 1000,
     },
+    /**
+     * ₹ added to the fare when the customer picks Express at booking time
+     * (Parcel.deliverySpeed === "express"). 0 = Express costs nothing extra.
+     * Flows through utils/parcelFare.js into fareBreakdown.expressCharge,
+     * which the invoice, the customer's bill and the rider's job details all
+     * already read — see the comment there for how this used to be wired up
+     * and was temporarily zeroed.
+     */
+    expressCharge: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     /** Per-km rate paid to the rider for the pickup leg (see riderAcceptLocation on Parcel). */
     riderPerKmRate: {
       type: Number,
@@ -178,7 +191,10 @@ const LEGACY_FIELDS = [
   "riderBaseFareSharePercent",
   "riderDistanceFareSharePercent",
   "packageDescriptionPlaceholder",
-  "expressCharge",
+  // NOT expressCharge — same situation as weightCharge above: it was legacy
+  // when this list was written, but it's a real, current field again (the
+  // admin-set surcharge for Express bookings). Leaving it here would wipe
+  // whatever the admin just saved back to 0 on every process restart.
 ];
 
 // Runs the $unset at most once per process — getOrCreate is called on nearly
@@ -244,6 +260,7 @@ parcelConfigSchema.statics.getPublicBookingConfig = async function () {
       : DEFAULT_PACKAGE_TYPES.map(({ value, label }) => ({ value, label })),
     packageCategories,
     maxWeightKg: config.maxWeightKg,
+    expressCharge: Math.max(0, Number(config.expressCharge) || 0),
   };
 };
 

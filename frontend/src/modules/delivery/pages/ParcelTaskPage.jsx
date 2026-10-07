@@ -622,6 +622,11 @@ const ParcelTaskPage = () => {
             <p className="text-lg font-black text-amber-900">
               ₹{codAmount.toFixed(2)}
             </p>
+            {Number(parcel?.fareBreakdown?.expressCharge) > 0 && (
+              <p className="text-[10px] font-semibold text-amber-700/80">
+                Includes Express charge: ₹{Number(parcel.fareBreakdown.expressCharge).toFixed(2)}
+              </p>
+            )}
             <p className="text-[10px] font-semibold text-amber-700/80">
               Collect at customer pickup, then deposit the cash from Profile → Courier Cash Deposit
             </p>
@@ -646,6 +651,11 @@ const ParcelTaskPage = () => {
               <p className="text-[10px] font-semibold text-emerald-700/80">
                 Do not collect any cash from the customer.
               </p>
+              {Number(parcel?.fareBreakdown?.expressCharge) > 0 && (
+                <p className="text-[10px] font-semibold text-emerald-700/80">
+                  Includes Express charge: ₹{Number(parcel.fareBreakdown.expressCharge).toFixed(2)}
+                </p>
+              )}
             </div>
           )}
         {(courierName || courierCity) && (

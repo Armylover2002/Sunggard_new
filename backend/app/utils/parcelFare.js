@@ -14,17 +14,27 @@ import { applyGst, ceilGstTotal, gstBreakdownFields } from "./gst.js";
  *     and controller/parcelController.js). Passed in already resolved; this
  *     function does not do the lookup itself.
  *
- * Distance and delivery speed no longer affect price.
- * `distanceFare`/`platformCharge`/`companyCharge`/`expressCharge` are kept at
- * zero rather than removed from the shape, since fareBreakdown on the Parcel
- * model and the invoice/report code that reads it still expect those keys.
+ * Distance no longer affects price. `distanceFare`/`platformCharge`/
+ * `companyCharge` are kept at zero rather than removed from the shape,
+ * since fareBreakdown on the Parcel model and the invoice/report code that
+ * reads it still expect those keys. `expressCharge` is admin-set
+ * (ParcelConfig.expressCharge) and only applied when `isExpress` is true —
+ * 0 by default, so Express costs nothing extra until an admin sets it.
  */
-export function computeParcelDailyFare({ config, courierCharge = 0, weightKg = 0 } = {}) {
+export function computeParcelDailyFare({
+  config,
+  courierCharge = 0,
+  weightKg = 0,
+  isExpress = false,
+} = {}) {
   const baseFare = roundCurrency(Math.max(0, Number(config?.fixedDeliveryCharge) || 0));
   const courierFee = roundCurrency(Math.max(0, Number(courierCharge) || 0));
   const weightFare = roundCurrency(
     Math.max(0, Number(config?.weightCharge) || 0) * Math.max(0, Number(weightKg) || 0),
   );
+  const expressFare = isExpress
+    ? roundCurrency(Math.max(0, Number(config?.expressCharge) || 0))
+    : 0;
 
   return {
     baseFare,
@@ -33,8 +43,8 @@ export function computeParcelDailyFare({ config, courierCharge = 0, weightKg = 0
     platformCharge: 0,
     companyCharge: 0,
     courierCharge: courierFee,
-    expressCharge: 0,
-    fare: roundCurrency(baseFare + weightFare + courierFee),
+    expressCharge: expressFare,
+    fare: roundCurrency(baseFare + weightFare + courierFee + expressFare),
   };
 }
 
