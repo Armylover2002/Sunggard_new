@@ -259,7 +259,7 @@ const AdminParcelDashboard = () => {
     gstCollected: 0,
     riderPerKmRate: 0,
     riderPayout: 0,
-    adminCommission: 0,
+    adminEarning: 0,
     courierChargeCollected: 0,
   });
 
@@ -358,7 +358,7 @@ const AdminParcelDashboard = () => {
         revenue: 0,
         riderPerKmRate: 0,
         riderPayout: 0,
-        adminCommission: 0,
+        adminEarning: 0,
         ...(res.data.result || {}),
       });
     }
@@ -2232,13 +2232,13 @@ const AdminParcelDashboard = () => {
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100 text-xs">
                   <div className="bg-slate-50 p-4 rounded-2xl">
                     <span className="text-slate-400 font-bold block uppercase">
-                      Admin Commission
+                      Admin Earning
                     </span>
                     <span className="text-lg font-black text-slate-800 mt-1 block">
-                      ₹{Number(reports.adminCommission || 0).toFixed(2)}
+                      ₹{Number(reports.adminEarning || 0).toFixed(2)}
                     </span>
                     <span className="text-[10px] text-slate-400 font-medium block mt-1">
-                      Delivery charge − Rider payout
+                      Delivery + weight + express + courier company charge − rider payout
                     </span>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl">
@@ -2598,20 +2598,22 @@ const AdminParcelDashboard = () => {
                     {
                       label: `Courier company (${selectedParcel.courierCompany || "—"})`,
                       value: num(b.courierCharge),
-                      note: "pass-through",
                     },
-                    { label: "GST", value: num(b.gstAmount), onlyIfPositive: true, note: "pass-through" },
+                    {
+                      label: "GST",
+                      value: num(b.gstAmount),
+                      onlyIfPositive: true,
+                      note: "government's tax, not counted",
+                    },
                   ].filter((item) => !item.onlyIfPositive || item.value > 0);
                   const riderPayout = selectedParcel.riderEarningBreakdown?.earning ?? 0;
-                  // What the admin actually keeps: the charges that are truly
-                  // the platform's own (delivery + weight + express), minus
-                  // what the rider was paid. Courier company charge and GST
-                  // pass straight through — the admin collects them from the
-                  // customer and owes them in full elsewhere, so they are
-                  // shown above for transparency but never counted here.
+                  // Every customer-paid charge, including the courier
+                  // company's own charge, minus what the rider was paid.
+                  // GST is still excluded — it's the government's money,
+                  // never the business's at any point.
                   const adminEarning = Math.max(
                     0,
-                    num(b.baseFare) + num(b.weightFare) + num(b.expressCharge) - riderPayout,
+                    num(b.baseFare) + num(b.weightFare) + num(b.expressCharge) + num(b.courierCharge) - riderPayout,
                   );
                   return (
                     <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
@@ -2650,8 +2652,8 @@ const AdminParcelDashboard = () => {
                             <span className="font-black text-emerald-700">₹{adminEarning.toFixed(2)}</span>
                           </div>
                           <p className="text-[10px] text-slate-400 font-medium pt-0.5">
-                            Delivery + weight + express − rider payout. Courier company charge and GST
-                            are pass-through, not platform revenue.
+                            Delivery + weight + express + courier company charge − rider payout.
+                            GST excluded — it's the government's tax, never the business's.
                           </p>
                         </div>
                       )}

@@ -8,7 +8,6 @@ import {
     Loader2,
     RotateCw,
     ArrowRight,
-    AlertTriangle,
     Layers,
     Route,
     Boxes,
@@ -71,29 +70,17 @@ const tooltipStyle = {
     padding: "10px 14px",
 };
 
-/** The counters that mean someone has to do something. */
-const ATTENTION = [
-    { key: "unassigned", label: "Unassigned", hint: "No rider yet" },
-    { key: "failed", label: "Delivery failed", hint: "Needs a return call" },
-    { key: "withheldPayouts", label: "Payouts withheld", hint: "Blocked rider pay" },
-    { key: "refundRequests", label: "Refund requests", hint: "Awaiting a decision" },
-    { key: "cashDepositsPending", label: "Cash deposits", hint: "Awaiting review" },
-];
-
-/** Same counters, worded as an alert feed instead of a grid of tiles. */
-const ALERTS = [
-    { key: "unassigned", title: "Unassigned bookings", description: "Need driver assignment" },
-    { key: "failed", title: "Failed deliveries", description: "Delivery attempt did not go through" },
-    { key: "cashDepositsPending", title: "Cash deposits pending", description: "Awaiting review" },
-    { key: "withheldPayouts", title: "Payouts withheld", description: "Blocked rider pay" },
-    { key: "refundRequests", title: "Refund requests", description: "Awaiting a decision" },
-];
-
 const STATUS_DONUT = [
     { key: "completed", label: "Completed", color: "#10B981" },
     { key: "ongoing", label: "Ongoing", color: "#2563EB" },
     { key: "pending", label: "Pending", color: "#F59E0B" },
     { key: "cancelled", label: "Cancelled", color: "#EF4444" },
+];
+
+const PAYMENT_TABS = [
+    { key: "all", label: "All" },
+    { key: "cod", label: "COD" },
+    { key: "online", label: "Online" },
 ];
 
 const FLEET_DONUT = [
@@ -108,12 +95,13 @@ const PorterDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [days, setDays] = useState(14);
+    const [payment, setPayment] = useState("all");
 
     const fetchDashboard = useCallback(
         async (isManual = false) => {
             if (isManual) setRefreshing(true);
             try {
-                const res = await adminPorterApi.getPorterDashboard({ days });
+                const res = await adminPorterApi.getPorterDashboard({ days, payment });
                 if (res.data.success) setData(res.data.result);
             } catch (error) {
                 console.error("Courier dashboard error:", error);
@@ -125,7 +113,7 @@ const PorterDashboard = () => {
                 if (isManual) setRefreshing(false);
             }
         },
-        [days],
+        [days, payment],
     );
 
     useEffect(() => {
@@ -151,12 +139,10 @@ const PorterDashboard = () => {
     const marginBreakdown = data?.marginBreakdown || null;
     const statusOverview = data?.statusOverview || {};
     const topAreas = data?.topAreas || [];
+    const paymentSummary = data?.paymentSummary || {};
+    const drivers = data?.drivers || [];
 
     const trendChart = trend.map((row) => ({ ...row, label: shortDate(row.date) }));
-    const attentionTotal = ATTENTION.reduce(
-        (sum, item) => sum + (attention[item.key] || 0),
-        0,
-    );
 
     const statusTotal = STATUS_DONUT.reduce((sum, s) => sum + (statusOverview[s.key] || 0), 0);
     const statusChart = STATUS_DONUT.map((s) => ({ ...s, value: statusOverview[s.key] || 0 }));
@@ -283,6 +269,46 @@ const PorterDashboard = () => {
                 </div>
             </div>
 
+            {/* Payment filter: All / COD / Online */}
+            <div className="space-y-4">
+                <div className="inline-flex items-center gap-1.5 rounded-2xl bg-slate-100 p-1.5 dark:bg-slate-800">
+                    {PAYMENT_TABS.map((tab) => (
+                        <button
+                            key={tab.key}
+                            onClick={() => setPayment(tab.key)}
+                            className={cn(
+                                "rounded-xl px-5 py-2 text-xs font-bold uppercase transition",
+                                payment === tab.key
+                                    ? "bg-primary text-white shadow"
+                                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white",
+                            )}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                    {[
+                        { key: "all", label: "All payments", note: "COD + online combined" },
+                        { key: "cod", label: "COD amount", note: "Cash collected on delivery" },
+                        { key: "online", label: "Online amount", note: "UPI / card / wallet" },
+                    ].map((card) => {
+                        const row = paymentSummary[card.key] || {};
+                        return (
+                            <StatCard
+                                key={card.key}
+                                label={card.label}
+                                value={rupees(row.amount)}
+                                description={`${row.delivered || 0} delivered of ${row.bookings || 0} bookings · ${card.note}`}
+                                icon={card.key === "cod" ? Banknote : card.key === "online" ? CircleDollarSign : Wallet}
+                                color="text-orange-600"
+                                bg="bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900"
+                            />
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* KPIs */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 md:gap-6">
                 {kpis.map((kpi) => (
@@ -297,67 +323,6 @@ const PorterDashboard = () => {
                     />
                 ))}
             </div>
-
-            {/* Needs attention */}
-            <Card
-                className={cn(
-                    "p-5",
-                    attentionTotal > 0 && "border-amber-300/70 dark:border-amber-900",
-                )}
-            >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2.5">
-                        <AlertTriangle
-                            className={cn(
-                                "h-5 w-5",
-                                attentionTotal > 0 ? "text-amber-500" : "text-slate-300",
-                            )}
-                        />
-                        <div>
-                            <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                                Needs attention
-                            </h3>
-                            <p className="text-xs text-slate-500">
-                                {attentionTotal === 0
-                                    ? "Nothing is waiting on an operator."
-                                    : `${attentionTotal} item${attentionTotal === 1 ? "" : "s"} waiting on an operator.`}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                        {ATTENTION.map((item) => {
-                            const count = attention[item.key] || 0;
-                            return (
-                                <div
-                                    key={item.key}
-                                    title={item.hint}
-                                    className={cn(
-                                        "rounded-xl px-3 py-2 text-center",
-                                        count > 0
-                                            ? "bg-amber-50 dark:bg-amber-950/40"
-                                            : "bg-slate-50 dark:bg-slate-800/60",
-                                    )}
-                                >
-                                    <p
-                                        className={cn(
-                                            "font-mono text-lg font-extrabold",
-                                            count > 0
-                                                ? "text-amber-700 dark:text-amber-400"
-                                                : "text-slate-400",
-                                        )}
-                                    >
-                                        {count}
-                                    </p>
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                                        {item.label}
-                                    </p>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </Card>
 
             {/* Fleet & quality */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
@@ -480,7 +445,7 @@ const PorterDashboard = () => {
                             Booking Status
                         </h3>
                         <p className="mt-1 text-xs text-slate-500 md:text-sm">
-                            Completed, ongoing, pending and cancelled — merged across both modules
+                            Completed, ongoing, pending and cancelled courier bookings
                         </p>
                     </div>
 
@@ -587,43 +552,8 @@ const PorterDashboard = () => {
                 </Card>
             </div>
 
-            {/* Alerts & top areas. LOCAL CITY PARCEL DISABLED — the "Booking Type
-                Distribution" card (pickup vs city %) is removed; grid is now 2
-                columns instead of 3. Re-enable by restoring it from git history. */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <Card className="rounded-3xl p-6 shadow-sm md:p-7">
-                    <div className="flex items-center justify-between">
-                        <h3 className="flex items-center gap-2.5 text-lg font-extrabold text-slate-900 dark:text-white md:text-xl">
-                            <AlertTriangle className="h-5 w-5 text-amber-500" />
-                            Alerts &amp; Notifications
-                        </h3>
-                    </div>
-                    <div className="mt-4 space-y-1">
-                        {ALERTS.filter((a) => (attention[a.key] || 0) > 0).length === 0 ? (
-                            <p className="py-6 text-center text-sm text-slate-400">
-                                Nothing needs attention right now.
-                            </p>
-                        ) : (
-                            ALERTS.filter((a) => (attention[a.key] || 0) > 0).map((a) => (
-                                <div
-                                    key={a.key}
-                                    className="flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-slate-50 dark:hover:opacity-90/40"
-                                >
-                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-black text-amber-700 dark:bg-amber-950/50 dark:text-amber-400">
-                                        {attention[a.key]}
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
-                                            {a.title}
-                                        </p>
-                                        <p className="truncate text-xs text-slate-500">{a.description}</p>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </Card>
-
+            {/* Top areas */}
+            <div className="grid grid-cols-1 gap-6">
                 <Card className="rounded-3xl p-6 shadow-sm md:p-7">
                     <h3 className="flex items-center gap-2.5 text-lg font-extrabold text-slate-900 dark:text-white md:text-xl">
                         <MapPin className="h-5 w-5 text-primary" />
@@ -667,6 +597,74 @@ const PorterDashboard = () => {
                     </div>
                 </Card>
             </div>
+
+            {/* Driver list */}
+            <Card className="overflow-hidden rounded-3xl p-0 shadow-sm">
+                <div className="border-b border-slate-100 p-6 dark:border-slate-800">
+                    <h3 className="flex items-center gap-2.5 text-lg font-extrabold text-slate-900 dark:text-white">
+                        <Users className="h-5 w-5 text-primary" />
+                        Driver list
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500 md:text-sm">
+                        Delivered, accepted and rejected requests per driver in this window
+                    </p>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/50">
+                            <tr>
+                                {["Driver", "Status", "Accepted", "Delivered", "Rejected"].map((head) => (
+                                    <th
+                                        key={head}
+                                        className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500"
+                                    >
+                                        {head}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {drivers.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5}>
+                                        <EmptyState
+                                            icon={Users}
+                                            title="No drivers yet"
+                                            description="Courier drivers will appear here once they sign up."
+                                        />
+                                    </td>
+                                </tr>
+                            ) : (
+                                drivers.map((d) => (
+                                    <tr key={d.id} className="transition-colors hover:bg-slate-50/60 dark:hover:opacity-90/40">
+                                        <td className="px-6 py-4">
+                                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{d.name}</p>
+                                            <p className="text-xs text-slate-400">{d.phone}</p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span
+                                                className={cn(
+                                                    "rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-wide",
+                                                    !d.isOnline
+                                                        ? "bg-slate-100 text-slate-500"
+                                                        : d.isBusy
+                                                            ? "bg-blue-50 text-blue-700"
+                                                            : "bg-emerald-50 text-emerald-700",
+                                                )}
+                                            >
+                                                {!d.isOnline ? "Offline" : d.isBusy ? "Busy" : "Online"}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 font-mono text-sm font-bold text-slate-900 dark:text-white">{d.accepted}</td>
+                                        <td className="px-6 py-4 font-mono text-sm font-bold text-emerald-600">{d.delivered}</td>
+                                        <td className="px-6 py-4 font-mono text-sm font-bold text-rose-600">{d.rejected}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
 
             {/* Recent parcels */}
             <Card className="overflow-hidden rounded-3xl p-0 shadow-sm">
@@ -762,15 +760,11 @@ const PorterDashboard = () => {
                             { label: "Delivery charge", value: marginBreakdown.deliveryCharge },
                             { label: "Weight charge", value: marginBreakdown.weightCharge },
                             { label: "Express charge", value: marginBreakdown.expressCharge },
-                            {
-                                label: "Courier company charge",
-                                value: marginBreakdown.courierCompanyCharge,
-                                note: "pass-through, not platform revenue",
-                            },
+                            { label: "Courier company charge", value: marginBreakdown.courierCompanyCharge },
                             {
                                 label: "GST collected",
                                 value: marginBreakdown.gstCollected,
-                                note: "pass-through, not platform revenue",
+                                note: "government's tax, not counted",
                             },
                             { label: "Rider payout", value: -marginBreakdown.riderPayout, negative: true },
                         ].map((row) => (

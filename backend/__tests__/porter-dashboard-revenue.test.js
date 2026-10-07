@@ -18,16 +18,23 @@ jest.unstable_mockModule("../app/models/parcel.js", () => ({
   default: {
     aggregate: mockParcelAggregate,
     countDocuments: mockParcelCountDocuments,
+    distinct: jest.fn().mockResolvedValue([]),
     find: mockParcelFind,
   },
 }));
 
 jest.unstable_mockModule("../app/models/deliveryZone.js", () => ({
-  default: { countDocuments: jest.fn().mockResolvedValue(0) },
+  default: {
+    countDocuments: jest.fn().mockResolvedValue(0),
+    find: jest.fn(() => ({ select: () => ({ lean: async () => [] }) })),
+  },
 }));
 
 jest.unstable_mockModule("../app/models/delivery.js", () => ({
-  default: { countDocuments: jest.fn().mockResolvedValue(0) },
+  default: {
+    countDocuments: jest.fn().mockResolvedValue(0),
+    find: jest.fn(() => ({ select: () => ({ lean: async () => [] }) })),
+  },
 }));
 
 jest.unstable_mockModule("../app/models/parcelReview.js", () => ({
@@ -89,7 +96,9 @@ describe("porter dashboard excludes cancelled/in-flight bookings from revenue", 
     const res = makeRes();
     await adminGetPorterDashboard(req, res);
 
-    const courierPipeline = mockParcelAggregate.mock.calls.at(-1)[0];
+    const courierPipeline = mockParcelAggregate.mock.calls
+      .map((call) => call[0])
+      .find((pipeline) => pipeline.some((stage) => stage.$group?._id === "$courierCompanyId"));
     const groupStage = courierPipeline.find((stage) => stage.$group)?.$group;
 
     expect(groupStage._id).toBe("$courierCompanyId");
@@ -151,9 +160,9 @@ describe("admin earning is computed, not hardcoded to revenue", () => {
     ]);
 
     const body = res.json.mock.calls[0][0];
-    // 50 + 3 + 20 - 0.06 = 72.94 — courier charge (210) and GST (0) never
-    // enter this number, they're pass-through.
-    expect(body.result.overview.adminEarning).toBe(72.94);
+    // 50 + 3 + 20 + 210 - 0.06 = 282.94 — courier company charge is
+    // included; GST (0 here) is the only thing still excluded.
+    expect(body.result.overview.adminEarning).toBe(282.94);
     expect(body.result.overview.riderPayout).toBe(0.06);
     expect(body.result.marginBreakdown).toEqual({
       deliveryCharge: 50,
@@ -162,7 +171,7 @@ describe("admin earning is computed, not hardcoded to revenue", () => {
       courierCompanyCharge: 210,
       gstCollected: 0,
       riderPayout: 0.06,
-      adminEarning: 72.94,
+      adminEarning: 282.94,
     });
   });
 

@@ -1957,13 +1957,13 @@ export const adminGetReports = async (req, res) => {
     // `fareBreakdown.taxableAmount`, which is already rebased to whatever
     // was actually collected (discount included, see rebaseGstAfterDiscount).
     const gstCollected = Math.round((revenue - preTaxRevenue + Number.EPSILON) * 100) / 100;
-    // The platform's own margin: pre-tax revenue, minus the courier's
-    // pass-through cut (never the platform's to begin with), minus the
-    // rider's payout. A coupon discount only ever reduces this, never the
+    // Every customer-paid charge (delivery + weight + express + the courier
+    // company's own charge), minus the rider's payout — pre-tax revenue
+    // already includes the courier company charge, so it's not subtracted
+    // out here. GST is excluded: it's the government's money, never the
+    // platform's. A coupon discount only ever reduces this, never the
     // rider's share, since riderPayout is computed off distance, not fare.
-    const adminCommission = Math.round(
-      (preTaxRevenue - courierChargeCollected - riderPayout + Number.EPSILON) * 100,
-    ) / 100;
+    const adminEarning = Math.round((preTaxRevenue - riderPayout + Number.EPSILON) * 100) / 100;
 
     return handleResponse(res, 200, "Reports retrieved successfully", {
       totalDeliveries,
@@ -1976,7 +1976,7 @@ export const adminGetReports = async (req, res) => {
       courierChargeCollected,
       riderPerKmRate: settings.riderPerKmRate,
       riderPayout,
-      adminCommission,
+      adminEarning,
     });
   } catch (error) {
     return handleResponse(res, 500, error.message);

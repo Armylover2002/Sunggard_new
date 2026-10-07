@@ -79,7 +79,23 @@ export const adminGetPorterDashboard = async (req, res) => {
      * the gateway has something to attach an order id to. Counting those
      * made the console report bookings nobody made and revenue nobody owed.
      */
-    const pickupWindow = visibleParcels(window);
+    // Payment filter: "cod" = cash on delivery, "online" = UPI/card/wallet
+    // (a COD booking the customer paid by QR at the door is already
+    // UPI by then, so it counts as online). "all" is both combined.
+    const payment = ["cod", "online"].includes(String(req.query?.payment || "").toLowerCase())
+      ? String(req.query.payment).toLowerCase()
+      : "all";
+    const paymentFilter =
+      payment === "cod"
+        ? { paymentMethod: "COD" }
+        : payment === "online"
+          ? { paymentMethod: { $in: ["UPI", "CARD", "WALLET"] } }
+          : {};
+
+    const pickupWindow = visibleParcels({ ...window, ...paymentFilter });
+    // Same window with no payment filter — feeds the All / COD / Online
+    // totals, which must stay visible whichever tab is selected.
+    const unfilteredWindow = visibleParcels(window);
 
     const dailyGroup = {
       _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -109,6 +125,13 @@ export const adminGetPorterDashboard = async (req, res) => {
       cashDepositsPending,
       recentPickup,
       courierCompanyAgg,
+      paymentSplitAgg,
+      topAreaAgg,
+      busyRiders,
+      todayParcels,
+      riderParcelAgg,
+      riderRejectAgg,
+      riderDocs,
     ] = await Promise.all([
       Parcel.aggregate([
         { $match: pickupWindow },
@@ -199,6 +222,58 @@ export const adminGetPorterDashboard = async (req, res) => {
         },
         { $sort: { charge: -1 } },
       ]),
+
+      // COD vs online, delivered bookings only (same rule as revenue).
+      Parcel.aggregate([
+        { $match: unfilteredWindow },
+        {
+          $group: {
+            _id: { $cond: [{ $eq: ["$paymentMethod", "COD"] }, "cod", "online"] },
+            bookings: { $sum: 1 },
+            delivered: { $sum: { $cond: [{ $eq: ["$status", "DELIVERED"] }, 1, 0] } },
+            amount: { $sum: { $cond: [{ $eq: ["$status", "DELIVERED"] }, "$fare", 0] } },
+          },
+        },
+      ]),
+
+      Parcel.aggregate([
+        { $match: { ...pickupWindow, zoneId: { $ne: null } } },
+        { $group: { _id: "$zoneId", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 6 },
+      ]),
+
+      // A rider is busy while they hold a parcel that isn't finished.
+      Parcel.distinct("deliveryPartnerId", {
+        deliveryPartnerId: { $ne: null },
+        status: { $nin: PICKUP_TERMINAL },
+      }),
+      Parcel.countDocuments(
+        visibleParcels({
+          ...paymentFilter,
+          createdAt: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+        }),
+      ),
+
+      // Per-rider accepted / delivered in the window.
+      Parcel.aggregate([
+        { $match: { ...pickupWindow, deliveryPartnerId: { $ne: null } } },
+        {
+          $group: {
+            _id: "$deliveryPartnerId",
+            accepted: { $sum: 1 },
+            delivered: { $sum: { $cond: [{ $eq: ["$status", "DELIVERED"] }, 1, 0] } },
+          },
+        },
+      ]),
+      // Explicit rejects only (skippedBy); offers that merely timed out
+      // are not rejections.
+      Parcel.aggregate([
+        { $match: { ...pickupWindow, "skippedBy.0": { $exists: true } } },
+        { $unwind: "$skippedBy" },
+        { $group: { _id: "$skippedBy", rejected: { $sum: 1 } } },
+      ]),
+      Delivery.find({ isParcelService: true }).select("name phone isOnline").lean(),
     ]);
 
     const pickupStatusCounts = toStatusCounts(pickupByStatus);
@@ -233,21 +308,79 @@ export const adminGetPorterDashboard = async (req, res) => {
       : [];
     const riderPayout = riderPayoutAgg[0]?.amount || 0;
 
-    // What the platform actually keeps: the charges that are genuinely its
-    // own (delivery + weight + express), minus what riders were paid for
-    // these deliveries. Courier company charge and GST pass straight
-    // through — collected from the customer, owed in full elsewhere — so
-    // they are reported alongside this for transparency but never counted
-    // into it.
+    // Every customer-paid charge (delivery, weight, express, and the
+    // courier company's own charge) minus what riders were paid for these
+    // deliveries. GST is still excluded — it's the government's money, never
+    // the business's at any point, unlike the courier company charge, which
+    // does pass through the admin's own account.
     const adminEarning = Math.max(
       0,
       round2(
         (pickupTotals.baseFare || 0) +
           (pickupTotals.weightFare || 0) +
-          (pickupTotals.expressCharge || 0) -
+          (pickupTotals.expressCharge || 0) +
+          (pickupTotals.courierCharge || 0) -
           riderPayout,
       ),
     );
+
+    // Booking status donut: completed / ongoing / pending / cancelled.
+    const statusOverview = {
+      completed: pickupStatusCounts.DELIVERED || 0,
+      cancelled: pickupStatusCounts.CANCELLED || 0,
+      pending: (pickupStatusCounts.REQUESTED || 0) + (pickupStatusCounts.SEARCHING || 0),
+    };
+    statusOverview.ongoing = Math.max(
+      pickupTotal - statusOverview.completed - statusOverview.cancelled - statusOverview.pending,
+      0,
+    );
+
+    const paymentSummary = { all: { bookings: 0, delivered: 0, amount: 0 } };
+    for (const key of ["cod", "online"]) {
+      const row = paymentSplitAgg.find((r) => r._id === key) || {};
+      paymentSummary[key] = {
+        bookings: row.bookings || 0,
+        delivered: row.delivered || 0,
+        amount: round2(row.amount),
+      };
+      paymentSummary.all.bookings += paymentSummary[key].bookings;
+      paymentSummary.all.delivered += paymentSummary[key].delivered;
+      paymentSummary.all.amount = round2(paymentSummary.all.amount + paymentSummary[key].amount);
+    }
+
+    const zoneDocs = topAreaAgg.length
+      ? await DeliveryZone.find({ _id: { $in: topAreaAgg.map((r) => r._id) } })
+          .select("name city")
+          .lean()
+      : [];
+    const zoneById = new Map(zoneDocs.map((z) => [String(z._id), z]));
+    const topAreas = topAreaAgg.map((row) => ({
+      zoneId: String(row._id),
+      name: zoneById.get(String(row._id))?.name || "Unknown zone",
+      city: zoneById.get(String(row._id))?.city || "",
+      count: row.count,
+    }));
+
+    const busySet = new Set(busyRiders.map(String));
+    const fleetBusy = riderDocs.filter((r) => r.isOnline && busySet.has(String(r._id))).length;
+
+    const parcelStatsByRider = new Map(riderParcelAgg.map((r) => [String(r._id), r]));
+    const rejectsByRider = new Map(riderRejectAgg.map((r) => [String(r._id), r.rejected]));
+    const drivers = riderDocs
+      .map((rider) => {
+        const stats = parcelStatsByRider.get(String(rider._id)) || {};
+        return {
+          id: String(rider._id),
+          name: rider.name,
+          phone: rider.phone,
+          isOnline: !!rider.isOnline,
+          isBusy: busySet.has(String(rider._id)),
+          delivered: stats.delivered || 0,
+          accepted: stats.accepted || 0,
+          rejected: rejectsByRider.get(String(rider._id)) || 0,
+        };
+      })
+      .sort((a, b) => b.delivered - a.delivered || b.accepted - a.accepted);
 
     const recent = recentPickup
       .map((doc) => toRecentRow(doc, "pickup"))
@@ -275,6 +408,7 @@ export const adminGetPorterDashboard = async (req, res) => {
       overview: {
         totalParcels: pickupTotal,
         activeParcels: inFlight(pickupStatusCounts, PICKUP_TERMINAL),
+        todayParcels,
         deliveredParcels: pickupTotals.delivered || 0,
         cancelledParcels: pickupStatusCounts.CANCELLED || 0,
         revenue: round2(revenue),
@@ -285,7 +419,13 @@ export const adminGetPorterDashboard = async (req, res) => {
         adminEarning,
         distanceKm: round1(pickupTotals.distanceKm || 0),
         zones: { total: zoneTotal, active: zoneActive },
-        fleet: { total: riderTotal, online: riderOnline, verified: riderVerified },
+        fleet: {
+          total: riderTotal,
+          online: riderOnline,
+          busy: fleetBusy,
+          offline: Math.max(riderTotal - riderOnline, 0),
+          verified: riderVerified,
+        },
         rating: {
           average: round1(ratingAgg[0]?.average || 0),
           count: ratingAgg[0]?.count || 0,
@@ -311,6 +451,11 @@ export const adminGetPorterDashboard = async (req, res) => {
         adminEarning,
       },
       courierCompanies,
+      statusOverview,
+      topAreas,
+      paymentFilter: payment,
+      paymentSummary,
+      drivers,
       needsAttention: {
         unassigned: pickupUnassigned,
         failed: 0,
