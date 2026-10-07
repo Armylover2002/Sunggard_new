@@ -188,6 +188,21 @@ async function markItemsRemitted(items) {
       )
     : { modifiedCount: 0 };
 
+  // The per-booking "Cash Collection" row (see recordCodCollection) was
+  // written Pending at pickup time — true until this exact moment, when the
+  // cash the rider was holding actually comes back to the platform. Only
+  // now does it become Settled, so the admin Delivery Funds screen never
+  // shows a booking's cash as settled while the rider still has it.
+  if (parcelIds.length) {
+    await Transaction.updateMany(
+      {
+        reference: { $in: parcelIds.map((id) => `CASH-COL-PCL-${String(id)}`) },
+        type: "Cash Collection",
+      },
+      { $set: { status: "Settled" } },
+    );
+  }
+
   return {
     parcelsRemitted: parcelResult.modifiedCount || 0,
   };
@@ -465,7 +480,15 @@ export async function recordCodCollection({ riderId, kind, refId, amount }) {
     {
       $set: {
         amount: value,
-        status: "Settled",
+        // Written the moment the rider collects cash at delivery — the cash
+        // is still physically with them at this point, not with the
+        // platform, so this is not "Settled" yet. markItemsRemitted() below
+        // flips it to Settled once a deposit covering this booking is
+        // actually approved (or auto-settles for an ONLINE deposit). Was
+        // previously hardcoded to "Settled" here, which made the admin
+        // Delivery Funds screen show a booking's cash as settled while the
+        // rider was still holding every rupee of it.
+        status: "Pending",
         meta: { source: "porter_cod_collection", kind, refId: String(refId) },
       },
       $setOnInsert: {
