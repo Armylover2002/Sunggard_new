@@ -6,6 +6,19 @@ import {
 
 const settingSchema = new mongoose.Schema(
     {
+        /**
+         * Atomic counter for human-readable ticket numbers ("TKT-000123" —
+         * see controller/ticketController.js). Lives on this singleton
+         * instead of its own collection: the MongoDB Atlas cluster this app
+         * shares has a hard cap on total collections, and creating a new one
+         * for a single incrementing integer isn't worth spending from that
+         * budget.
+         */
+        ticketSequence: {
+            type: Number,
+            default: 0,
+        },
+
         // General
         appName: {
             type: String,

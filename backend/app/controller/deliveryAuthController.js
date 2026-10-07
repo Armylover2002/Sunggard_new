@@ -7,7 +7,7 @@ import { incrementWindowCounter } from "../utils/otpRateLimit.js";
 import { uploadImageWithFallback } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
 import { syncDeliveryPartnerBusyFlag } from "../services/deliveryBusyService.js";
-import { claimRoleSession } from "../services/sessionService.js";
+import { bumpOwnSession } from "../services/sessionService.js";
 import { offerOpenParcelsToRider } from "../services/parcelWorkflowService.js";
 import { getActiveZoneById, isZoneGatingActive } from "../services/deliveryZoneService.js";
 
@@ -565,7 +565,9 @@ export const verifyDeliveryOTP = async (req, res) => {
 
         await delivery.save();
 
-        await claimRoleSession("delivery", delivery.phone);
+        // Single active session for THIS account only — never touches a
+        // customer account that happens to share the same phone number.
+        delivery.sessionVersion = await bumpOwnSession(Delivery, delivery._id);
         const token = generateToken(delivery);
 
         return handleResponse(res, 200, "Login successful", {

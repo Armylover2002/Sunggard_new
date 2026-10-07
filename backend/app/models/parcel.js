@@ -377,6 +377,17 @@ const parcelSchema = new mongoose.Schema(
         default: null,
       },
       offeredAt: { type: Date, default: null },
+      /**
+       * Set alongside clearing `offeredTo` on a timeout, so the next round
+       * knows who just had (and lost) the live offer — a timed-out rider
+       * stays eligible for later rounds (see offerTimeoutBy), but should
+       * never be the very next pick when someone else is available.
+       */
+      lastOfferedTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Delivery",
+        default: null,
+      },
     },
     skippedBy: [{
       type: mongoose.Schema.Types.ObjectId,

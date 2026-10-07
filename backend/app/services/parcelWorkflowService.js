@@ -328,15 +328,21 @@ export async function offerParcelToNextRider(parcelId) {
   }
 
   const nextAttempt = (parcel.searchMeta?.attempt || 0) + 1;
-  // Round-robin by distance order: attempt 1 is the nearest, attempt 2 the
-  // next, and once everyone eligible has had a turn it wraps back to the
-  // nearest again. With more than one eligible rider, never re-offer to
-  // whoever we just offered to, so a round always moves on to someone else
-  // first instead of stalling on one person.
-  let next = eligible[(nextAttempt - 1) % eligible.length];
-  if (eligible.length > 1 && String(next.id) === String(parcel.searchMeta?.offeredTo || "")) {
-    next = eligible[nextAttempt % eligible.length];
+  // Pick the eligible rider right after whoever just held the offer, in
+  // distance order, wrapping back to the nearest once everyone's had a
+  // turn — not an attempt-counter modulo, which drifts (and can land back
+  // on the same person two rounds in a row) whenever the eligible pool's
+  // size changes between rounds, e.g. someone goes offline or falls in or
+  // out of cash headroom.
+  const lastOfferedTo = String(
+    parcel.searchMeta?.offeredTo || parcel.searchMeta?.lastOfferedTo || "",
+  );
+  let startIndex = 0;
+  if (lastOfferedTo) {
+    const lastIndex = eligible.findIndex((r) => String(r.id) === lastOfferedTo);
+    if (lastIndex !== -1) startIndex = (lastIndex + 1) % eligible.length;
   }
+  const next = eligible[startIndex];
 
   const now = new Date();
   const searchExpiresAt = new Date(now.getTime() + PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS());
@@ -581,7 +587,16 @@ export async function processParcelSearchTimeout(parcelId) {
       { _id: parcelId, status: "SEARCHING" },
       {
         $addToSet: { offerTimeoutBy: offeredTo },
-        $set: { "searchMeta.offeredTo": null, "searchMeta.offeredAt": null },
+        $set: {
+          "searchMeta.offeredTo": null,
+          "searchMeta.offeredAt": null,
+          // Remembered so the very next round skips straight past whoever
+          // just timed out, instead of the attempt counter alone deciding —
+          // that counter drifts whenever the eligible pool's size changes
+          // between rounds (a rider going offline/online, falling in or out
+          // of cash headroom), which could land back on the same person.
+          "searchMeta.lastOfferedTo": offeredTo,
+        },
       },
     );
     // A timeout is not a rejection: the rider's row stays so the request sits

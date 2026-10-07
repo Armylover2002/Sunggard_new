@@ -1,26 +1,20 @@
-import mongoose from "mongoose";
+import Setting from "./setting.js";
 
 /**
- * Generic atomic counter collection, one document per sequence name
- * (`_id` is the sequence's name, e.g. "ticket"). `nextSequence()` below is
- * the only way callers should touch this — it's what keeps the increment
- * race-free under concurrent requests.
+ * Atomic ticket-number sequence, stored as a field on the existing Setting
+ * singleton rather than its own collection — see the comment on
+ * `ticketSequence` in models/setting.js for why. `name` is accepted for a
+ * readable call site and so a second sequence has an obvious place to add
+ * its own field later, but only "ticket" is wired up today.
  */
-const counterSchema = new mongoose.Schema({
-  _id: { type: String, required: true },
-  seq: { type: Number, default: 0 },
-});
-
-const Counter = mongoose.model("Counter", counterSchema);
-
-/** Atomically returns the next number in the named sequence, starting at 1. */
 export async function nextSequence(name) {
-  const doc = await Counter.findOneAndUpdate(
-    { _id: name },
-    { $inc: { seq: 1 } },
-    { upsert: true, new: true },
+  if (name !== "ticket") {
+    throw new Error(`nextSequence: unknown sequence "${name}"`);
+  }
+  const doc = await Setting.findOneAndUpdate(
+    {},
+    { $inc: { ticketSequence: 1 } },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
   );
-  return doc.seq;
+  return doc.ticketSequence;
 }
-
-export default Counter;

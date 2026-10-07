@@ -1,22 +1,20 @@
-import Customer from "../models/customer.js";
-import Delivery from "../models/delivery.js";
-
-const lastTenDigits = (phone) => String(phone || "").replace(/\D/g, "").slice(-10);
-
 /**
- * One phone number, one role at a time. Logging in as a role signs out the
- * other role on the same number, on every device: the other role's tokens
- * carry an older sessionVersion, which verifyToken rejects with SESSION_REPLACED.
- * The role logging in keeps its own sessions, so a second device of the same
- * role is not affected.
+ * Single active session per account, scoped strictly to that one account —
+ * never across roles. A customer and a rider can share the same phone
+ * number and use both apps at once; logging in to one must never touch the
+ * other's session.
+ *
+ * Bumping sessionVersion on login invalidates any token already issued to
+ * THIS SAME account (other devices, old app installs) — verifyToken rejects
+ * a token whose `sv` no longer matches. The token minted right after this
+ * call carries the new value, so the device that just logged in keeps
+ * working.
  */
-export async function claimRoleSession(role, phone) {
-  const digits = lastTenDigits(phone);
-  if (digits.length !== 10) return;
-
-  const Other = role === "delivery" ? Customer : Delivery;
-  await Other.updateMany(
-    { phone: { $regex: `${digits}$` } },
+export async function bumpOwnSession(model, id) {
+  const updated = await model.findByIdAndUpdate(
+    id,
     { $inc: { sessionVersion: 1 } },
+    { new: true },
   );
+  return updated?.sessionVersion || 0;
 }

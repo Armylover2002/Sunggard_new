@@ -117,7 +117,7 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
       pickupAddress: { lat: 1, lng: 1 },
       skippedBy: [],
       offerTimeoutBy: [RIDER_A],
-      searchMeta: { attempt: 1, offeredTo: null },
+      searchMeta: { attempt: 1, offeredTo: null, lastOfferedTo: RIDER_A },
     });
     await offerParcelToNextRider(PARCEL);
     expect(mockParcelFindOneAndUpdate.mock.calls[1][1].$set.searchMeta.offeredTo).toBe(String(RIDER_B));
@@ -133,7 +133,7 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
       pickupAddress: { lat: 1, lng: 1 },
       skippedBy: [],
       offerTimeoutBy: [RIDER_A, RIDER_B],
-      searchMeta: { attempt: 2, offeredTo: null },
+      searchMeta: { attempt: 2, offeredTo: null, lastOfferedTo: RIDER_B },
     });
     await offerParcelToNextRider(PARCEL);
 
@@ -141,6 +141,46 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
     // Crucially: no fallback to manual assignment just because both riders
     // already had a turn.
     expect(mockRetractBroadcast).not.toHaveBeenCalledWith(String(PARCEL), null);
+  });
+
+  it("never re-offers to whoever just timed out, even if the eligible pool's size changed since (the reported bug)", async () => {
+    // Round 1: A, B and C are all eligible; A gets the offer.
+    mockGetSorted.mockResolvedValueOnce([
+      { id: String(RIDER_A), distanceM: 100 },
+      { id: String(RIDER_B), distanceM: 200 },
+      { id: "c3c3c3c3c3c3c3c3c3c3c3c3", distanceM: 300 },
+    ]);
+    mockParcelFindById.mockResolvedValue({
+      _id: PARCEL,
+      status: "SEARCHING",
+      deliveryPartnerId: null,
+      pickupAddress: { lat: 1, lng: 1 },
+      skippedBy: [],
+      offerTimeoutBy: [],
+      searchMeta: { attempt: 0 },
+    });
+    await offerParcelToNextRider(PARCEL);
+    expect(mockParcelFindOneAndUpdate.mock.calls[0][1].$set.searchMeta.offeredTo).toBe(String(RIDER_A));
+
+    // Round 2: A timed out (lastOfferedTo: A, as processParcelSearchTimeout
+    // would set), but C has since gone offline — the pool shrank from 3 to 2
+    // between rounds. The old attempt-modulo selection could land back on A
+    // here; the fix must not.
+    mockGetSorted.mockResolvedValueOnce([
+      { id: String(RIDER_A), distanceM: 100 },
+      { id: String(RIDER_B), distanceM: 200 },
+    ]);
+    mockParcelFindById.mockResolvedValue({
+      _id: PARCEL,
+      status: "SEARCHING",
+      deliveryPartnerId: null,
+      pickupAddress: { lat: 1, lng: 1 },
+      skippedBy: [],
+      offerTimeoutBy: [RIDER_A],
+      searchMeta: { attempt: 1, offeredTo: null, lastOfferedTo: RIDER_A },
+    });
+    await offerParcelToNextRider(PARCEL);
+    expect(mockParcelFindOneAndUpdate.mock.calls[1][1].$set.searchMeta.offeredTo).toBe(String(RIDER_B));
   });
 
   it("falls back to manual assignment only when nobody is eligible at all", async () => {

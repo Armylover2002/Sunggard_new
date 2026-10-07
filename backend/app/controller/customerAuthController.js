@@ -21,7 +21,7 @@ import {
     OWNER_TYPE,
 } from "../constants/finance.js";
 import { getCustomerBalance } from "../services/finance/walletService.js";
-import { claimRoleSession } from "../services/sessionService.js";
+import { bumpOwnSession } from "../services/sessionService.js";
 
 const generateToken = (customer) =>
     jwt.sign(
@@ -118,7 +118,9 @@ export const verifyCustomerOTP = async (req, res) => {
             otp: payload.otp,
             ipAddress: req.ip,
         });
-        await claimRoleSession("customer", customer.phone);
+        // Single active session for THIS account only — never touches a
+        // rider account that happens to share the same phone number.
+        customer.sessionVersion = await bumpOwnSession(Customer, customer._id);
         const token = generateToken(customer);
 
         return handleResponse(
