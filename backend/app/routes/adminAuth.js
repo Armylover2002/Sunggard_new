@@ -30,6 +30,7 @@ import {
     updatePlatformSettings
 } from "../controller/adminController.js";
 
+import { adminGetRiderRatings } from "../controller/riderRatingController.js";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 import { validate } from "../middleware/validate.js";
 import { adminSettleCashSchema } from "../validation/porterAdminValidation.js";
@@ -117,6 +118,13 @@ router.get(
     verifyToken,
     allowRoles("admin"),
     getLiveFleetLocations,
+);
+
+router.get(
+    "/delivery-partners/:id/ratings",
+    verifyToken,
+    allowRoles("admin"),
+    adminGetRiderRatings
 );
 
 router.get(

@@ -24,6 +24,8 @@ const DELIVERY_OFFLINE_GRACE_MS = parseInt(
   10,
 );
 const deliveryOfflineTimers = new Map();
+const AUTO_OFFLINE_ON_DISCONNECT =
+  String(process.env.DELIVERY_AUTO_OFFLINE_ON_DISCONNECT || "").toLowerCase() === "true";
 
 export const initSocket = (io) => {
   _io = io;
@@ -127,6 +129,14 @@ export const initSocket = (io) => {
       for (const [id, sid] of deliverySockets.entries()) {
         if (sid === socket.id) {
           deliverySockets.delete(id);
+
+          // Closing the app or going idle must NOT take a rider offline: they
+          // still receive job offers as push notifications with the app
+          // closed, and an unexpected "you are offline" is the bug this
+          // switch removes. A rider is offline only when they choose to be
+          // (or an admin deactivates them). The old behaviour is still
+          // available with DELIVERY_AUTO_OFFLINE_ON_DISCONNECT=true.
+          if (!AUTO_OFFLINE_ON_DISCONNECT) break;
 
           // Give them DELIVERY_OFFLINE_GRACE_MS to reconnect (a dropped
           // socket is usually a blip, not a real go-offline) before actually

@@ -19,6 +19,11 @@ export const parcelApi = {
   getMyReview: (parcelId) => axiosInstance.get(`/parcel/review/${parcelId}`),
   submitReview: (data) => axiosInstance.post("/parcel/review", data),
 
+  // Rating the rider who delivered
+  getRiderRating: (parcelId) => axiosInstance.get(`/parcel/rider-rating/${parcelId}`),
+  submitRiderRating: (data) => axiosInstance.post("/parcel/rider-rating", data),
+  getPendingRiderRating: () => axiosInstance.get("/parcel/rider-rating/pending/latest"),
+
   // Admin APIs
   adminGetParcels: () => axiosInstance.get("/parcel/admin/all"),
   adminGetParcel: (parcelId) => axiosInstance.get(`/parcel/admin/${parcelId}`),

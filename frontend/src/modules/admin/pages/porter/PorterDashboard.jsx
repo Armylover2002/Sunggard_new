@@ -40,6 +40,7 @@ import StatusBadge from "@shared/components/ui/StatusBadge";
 import StatCard from "@shared/components/ui/StatCard";
 import EmptyState from "@shared/components/ui/EmptyState";
 import { adminPorterApi } from "../../services/api/porterApi";
+import RiderRatingsModal from "../../components/RiderRatingsModal";
 import { cn } from "@/lib/utils";
 
 const RANGES = [
@@ -97,6 +98,7 @@ const PorterDashboard = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [days, setDays] = useState(14);
     const [payment, setPayment] = useState("all");
+    const [ratingsRider, setRatingsRider] = useState(null);
 
     const fetchDashboard = useCallback(
         async (isManual = false) => {
@@ -660,7 +662,7 @@ const PorterDashboard = () => {
                     <table className="w-full text-left">
                         <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-800/50">
                             <tr>
-                                {["Driver", "Status", "Accepted", "Delivered", "Rejected"].map((head) => (
+                                {["Driver", "Status", "Rating", "Accepted", "Delivered", "Rejected"].map((head) => (
                                     <th
                                         key={head}
                                         className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500"
@@ -673,7 +675,7 @@ const PorterDashboard = () => {
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {drivers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5}>
+                                    <td colSpan={6}>
                                         <EmptyState
                                             icon={Users}
                                             title="No drivers yet"
@@ -702,6 +704,23 @@ const PorterDashboard = () => {
                                                 {!d.isOnline ? "Offline" : d.isBusy ? "Busy" : "Online"}
                                             </span>
                                         </td>
+                                        <td className="px-6 py-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => setRatingsRider(d)}
+                                                title="See ratings and customer feedback"
+                                                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-bold text-slate-900 transition hover:bg-amber-50 dark:text-white">
+                                                <span className="text-amber-500">★</span>
+                                                {d.ratingCount > 0 ? (
+                                                    <>
+                                                        {Number(d.rating).toFixed(1)}
+                                                        <span className="text-xs font-semibold text-slate-400">({d.ratingCount})</span>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-xs font-semibold text-slate-400">No ratings</span>
+                                                )}
+                                            </button>
+                                        </td>
                                         <td className="px-6 py-4 font-mono text-sm font-bold text-slate-900 dark:text-white">{d.accepted}</td>
                                         <td className="px-6 py-4 font-mono text-sm font-bold text-emerald-600">{d.delivered}</td>
                                         <td className="px-6 py-4 font-mono text-sm font-bold text-rose-600">{d.rejected}</td>
@@ -712,6 +731,8 @@ const PorterDashboard = () => {
                     </table>
                 </div>
             </Card>
+
+            <RiderRatingsModal rider={ratingsRider} onClose={() => setRatingsRider(null)} />
 
             {/* Recent parcels */}
             <Card className="overflow-hidden rounded-3xl p-0 shadow-sm">

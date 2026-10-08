@@ -20,10 +20,42 @@ const deliverySchema = new mongoose.Schema(
             unique: true,
         },
 
+        // "cycle" is no longer offered to riders (signup, profile and admin
+        // all stop at bike / scooter). It stays valid here only so existing
+        // riders registered earlier as a cycle can still be saved — removing
+        // it would make every one of those documents fail validation.
         vehicleType: {
             type: String,
             enum: ["bike", "cycle", "scooter"],
             default: "bike",
+        },
+
+        /**
+         * A rider's request to change vehicle type / plate / licence, held
+         * until an admin decides (see services/riderVehicleChangeService.js).
+         * The live values above are NOT touched until approval; `previous`
+         * is what they were when the request was made and `requested` only
+         * the fields being changed.
+         */
+        vehicleChange: {
+            status: {
+                type: String,
+                enum: ["none", "pending", "approved", "rejected"],
+                default: "none",
+            },
+            requestedAt: { type: Date, default: null },
+            previous: {
+                vehicleType: { type: String, default: "" },
+                vehicleNumber: { type: String, default: "" },
+                drivingLicenseNumber: { type: String, default: "" },
+            },
+            requested: {
+                vehicleType: { type: String, default: "" },
+                vehicleNumber: { type: String, default: "" },
+                drivingLicenseNumber: { type: String, default: "" },
+            },
+            rejectionReason: { type: String, default: "" },
+            reviewedAt: { type: Date, default: null },
         },
 
         email: {
@@ -235,6 +267,16 @@ const deliverySchema = new mongoose.Schema(
                 ref: "DeliveryZone",
             },
         ],
+
+        /**
+         * Overall customer rating (see models/riderRating.js). `rating` is
+         * the average to one decimal, `ratingCount` how many ratings back
+         * it, `ratingSum` the running total it is derived from. All three are
+         * moved together by one atomic update per new rating.
+         */
+        rating: { type: Number, default: 0 },
+        ratingCount: { type: Number, default: 0 },
+        ratingSum: { type: Number, default: 0 },
 
         /** True while rider has an in-progress delivery / return / parcel job. */
         isBusy: {

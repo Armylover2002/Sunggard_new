@@ -292,7 +292,7 @@ export const adminGetPorterDashboard = async (req, res) => {
         { $unwind: "$skippedBy" },
         { $group: { _id: "$skippedBy", rejected: { $sum: 1 } } },
       ]),
-      Delivery.find({ isParcelService: true }).select("name phone isOnline").lean(),
+      Delivery.find({ isParcelService: true }).select("name phone isOnline rating ratingCount").lean(),
 
       // Cancelled online bookings in this window: refunded / pending / failed.
       getRefundTotals(pickupWindow),
@@ -372,6 +372,8 @@ export const adminGetPorterDashboard = async (req, res) => {
           phone: rider.phone,
           isOnline: !!rider.isOnline,
           isBusy: busySet.has(String(rider._id)),
+          rating: Number(rider.rating) || 0,
+          ratingCount: Number(rider.ratingCount) || 0,
           delivered: stats.delivered || 0,
           accepted: stats.accepted || 0,
           rejected: rejectsByRider.get(String(rider._id)) || 0,

@@ -122,6 +122,14 @@ export function emitToOrder(orderId, { event, payload }) {
 function offerPushData(payload = {}) {
   const preview = payload.preview || {};
   const deadlineFields = offerDeadlineFields(payload);
+  // The amount shown on the lock-screen push ("New order — ₹X"). The rider's
+  // own payout is 0 until they accept (distance is unknown before that), so
+  // showing it printed "₹0" on every offer. What the rider needs to see is
+  // the order amount — what they will collect for a COD booking, otherwise
+  // the booking's total — sent under every key the driver app might read.
+  const orderTotal = Number(preview.total ?? preview.fare) || 0;
+  const shownAmount = Number(preview.collectAmount) > 0 ? Number(preview.collectAmount) : orderTotal;
+  const preAcceptEarnings = Number(preview.earnings) > 0 ? preview.earnings : shownAmount;
   return {
     role: "delivery",
     displayId: payload.displayId,
@@ -130,8 +138,12 @@ function offerPushData(payload = {}) {
     dropAddress: preview.drop,
     weight: preview.weight,
     distanceKm: preview.distance ?? preview.distanceKm,
-    earnings: preview.earnings,
-    riderEarnings: preview.earnings,
+    earnings: preAcceptEarnings,
+    riderEarnings: preAcceptEarnings,
+    amount: shownAmount,
+    totalAmount: shownAmount,
+    orderAmount: shownAmount,
+    price: shownAmount,
     paymentMethod: preview.paymentMethod,
     collectAmount: preview.collectAmount,
     // `preview.total` was never set by parcelBroadcastPayloadFromDoc (the
@@ -141,7 +153,7 @@ function offerPushData(payload = {}) {
     // `earnings`, correctly 0 pre-accept since the real payout distance
     // isn't known until the rider's accept location is).
     fare: preview.fare,
-    total: preview.fare,
+    total: shownAmount,
     ...deadlineFields,
   };
 }
@@ -233,6 +245,10 @@ export async function emitParcelBroadcast(
     parcelId: payload.parcelId,
     status: payload.searchExpiresAt ? String(payload.searchExpiresAt) : undefined,
     deliveryIds: ids,
+    // Every round still sends its own push (above), but the rider's
+    // notification LIST keeps one entry per courier — the latest round —
+    // instead of one more identical "New Courier Request" per round.
+    replacePrevious: true,
     data: offerPushData(payload),
   });
 
@@ -257,19 +273,41 @@ export async function emitParcelBroadcast(
     const langById = new Map(riders.map((r) => [String(r._id), normalizeLanguage(r.language)]));
     const code = String(payload.parcelId || "").slice(-6);
 
-    await Notification.insertMany(
+    // One row per rider per parcel, refreshed each round — not a new row
+    // every time the cycle wraps back to the same rider. The retract queries
+    // only need to know WHO holds the offer, so one row is all they need.
+    await Notification.bulkWrite(
       ids.map((id) => {
         const lang = langById.get(String(id)) || "en";
+        const recipient = new mongoose.Types.ObjectId(id);
         return {
-          recipient: new mongoose.Types.ObjectId(id),
-          recipientModel: "Delivery",
-          title: translate(lang, "parcel_new_request_title"),
-          message: translate(lang, "parcel_nearby_body", { code }),
-          type: "parcel",
-          data: {
-            parcelId: payload.parcelId,
-            preview: payload.preview || null,
-            searchExpiresAt: payload.searchExpiresAt || null,
+          updateOne: {
+            filter: {
+              recipient,
+              recipientModel: "Delivery",
+              type: "parcel",
+              "data.parcelId": String(payload.parcelId),
+            },
+            update: {
+              $set: {
+                title: translate(lang, "parcel_new_request_title"),
+                message: translate(lang, "parcel_nearby_body", { code }),
+                body: translate(lang, "parcel_nearby_body", { code }),
+                data: {
+                  parcelId: String(payload.parcelId),
+                  preview: payload.preview || null,
+                  searchExpiresAt: payload.searchExpiresAt || null,
+                },
+              },
+              $setOnInsert: {
+                recipient,
+                recipientModel: "Delivery",
+                userId: recipient,
+                type: "parcel",
+                isRead: false,
+              },
+            },
+            upsert: true,
           },
         };
       }),

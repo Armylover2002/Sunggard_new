@@ -209,6 +209,11 @@ export const signupDelivery = async (req, res) => {
             return handleResponse(res, 400, "Name and phone are required");
         }
 
+        // Cycle is no longer an accepted vehicle.
+        if (!["bike", "scooter"].includes(String(vehicleType).toLowerCase())) {
+            return handleResponse(res, 400, "Choose Bike or Scooter as your vehicle type");
+        }
+
         const sendAllowed = await incrementWindowCounter(`otp:send:phone:delivery:${phone}`, {
             limit: OTP_SEND_LIMIT_PER_WINDOW(),
             windowSeconds: OTP_SEND_LIMIT_WINDOW_SECONDS(),
@@ -638,9 +643,23 @@ export const updateDeliveryProfile = async (req, res) => {
 
         if (typeof address !== 'undefined') delivery.address = String(address).trim();
 
-        if (vehicleType) delivery.vehicleType = vehicleType;
-        if (vehicleNumber) delivery.vehicleNumber = vehicleNumber;
-        if (drivingLicenseNumber) delivery.drivingLicenseNumber = drivingLicenseNumber;
+        // Vehicle details are admin-approved. Changing them here would skip
+        // that, so a different value is refused and pointed at the request flow
+        // (POST /delivery/vehicle-change). Sending the same value back is fine.
+        const vehicleEdits = [
+            [vehicleType, delivery.vehicleType, (v) => String(v).trim().toLowerCase()],
+            [vehicleNumber, delivery.vehicleNumber, (v) => String(v).replace(/\s/g, "").toUpperCase()],
+            [drivingLicenseNumber, delivery.drivingLicenseNumber, (v) => String(v).replace(/[\s-]/g, "").toUpperCase()],
+        ];
+        for (const [incoming, current, normalize] of vehicleEdits) {
+            if (incoming && normalize(incoming) !== normalize(current || "")) {
+                return handleResponse(
+                    res,
+                    400,
+                    "Vehicle details need admin approval. Use 'Request vehicle change' in Vehicle Information.",
+                );
+            }
+        }
         if (currentArea) delivery.currentArea = currentArea;
         if (typeof experience !== 'undefined') delivery.experience = experience;
         if (typeof experienceDetails !== 'undefined') delivery.experienceDetails = experienceDetails;

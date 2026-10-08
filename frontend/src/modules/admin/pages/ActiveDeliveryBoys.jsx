@@ -34,6 +34,7 @@ import Pagination from '@shared/components/ui/Pagination';
 import { adminApi } from '../services/adminApi';
 import { formatZoneLabel } from '@shared/utils/zoneGeometry';
 import { mapDeliveryPartner, DetailField, DOC_LABELS } from '../utils/riderProfile';
+import RiderRatingsModal from '../components/RiderRatingsModal';
 
 /** Mongo's 24-char hex id isn't something anyone reads at a glance — show
  *  the last 6 characters, which is plenty to tell riders apart on screen. */
@@ -51,6 +52,7 @@ const ActiveDeliveryBoys = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isOnboardModalOpen, setIsOnboardModalOpen] = useState(false);
     const [viewingRider, setViewingRider] = useState(null);
+    const [ratingsRider, setRatingsRider] = useState(null);
 
     // Keep the page behind the detail modal from scrolling with the wheel.
     useEffect(() => {
@@ -91,6 +93,8 @@ const ActiveDeliveryBoys = () => {
                 vehicle: r.vehicleType,
                 vehicleNum: r.vehicleNumber || 'N/A',
                 totalOrders: r.totalDeliveries || 0,
+                rating: Number(r.rating) || 0,
+                ratingCount: Number(r.ratingCount) || 0,
                 // Onboarding address is what the rider actually typed in; currentArea
                 // only fills in once they've sent a live GPS ping, so it's a fallback.
                 location: r.address || r.currentArea || 'Unknown',
@@ -361,12 +365,29 @@ return (
                                     </div>
 
                                     {/* Metrics Row */}
-                                    <div className="bg-slate-50 p-3 rounded-2xl">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Deliveries Completed</p>
-                                        <div className="flex items-center gap-1.5">
-                                            <ShieldCheck className="h-3.5 w-3.5 text-brand-500" />
-                                            <span className="text-xs font-black text-slate-900">{rider.totalOrders} Deliv.</span>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-slate-50 p-3 rounded-2xl">
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Deliveries Completed</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <ShieldCheck className="h-3.5 w-3.5 text-brand-500" />
+                                                <span className="text-xs font-black text-slate-900">{rider.totalOrders} Deliv.</span>
+                                            </div>
                                         </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setRatingsRider(rider)}
+                                            title="See this rider's ratings and feedback"
+                                            className="bg-amber-50 p-3 rounded-2xl text-left hover:bg-amber-100 transition-colors">
+                                            <p className="text-[8px] font-black text-amber-700/70 uppercase tracking-widest leading-none mb-1.5">Customer Rating</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-amber-500 text-sm leading-none">★</span>
+                                                <span className="text-xs font-black text-slate-900">
+                                                    {rider.ratingCount > 0
+                                                        ? `${rider.rating.toFixed(1)} (${rider.ratingCount})`
+                                                        : 'No ratings'}
+                                                </span>
+                                            </div>
+                                        </button>
                                     </div>
 
                                     {/* Location & Vehicle */}
@@ -444,6 +465,8 @@ return (
         {/* Profile Detail Modal — portaled to body so the page behind cannot take the scroll */}
         {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
+            <RiderRatingsModal rider={ratingsRider} onClose={() => setRatingsRider(null)} />
+
             {viewingRider && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <motion.div
@@ -648,7 +671,6 @@ return (
                                             <option value="">Select Vehicle</option>
                                             <option>Two Wheeler</option>
                                             <option>Electric Scooter</option>
-                                            <option>Cycle</option>
                                             <option>Three Wheeler</option>
                                         </select>
                                     </div>

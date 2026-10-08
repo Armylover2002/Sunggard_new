@@ -29,6 +29,7 @@ import LanguagePicker from "@shared/components/LanguagePicker";
 import { languageLabel, DEFAULT_LANGUAGE_CODE } from "@shared/constants/languages";
 import { getPushLanguage } from "@shared/services/pushLanguageApi";
 import { deliveryApi } from "../services/deliveryApi";
+import RiderRatingsCard from "../components/RiderRatingsCard";
 
 const Profile = () => {
   const [notificationLanguage, setNotificationLanguage] = useState(DEFAULT_LANGUAGE_CODE);
@@ -295,6 +296,11 @@ const Profile = () => {
           </p>
         </div>
       </motion.div>
+
+      {/* What customers think of this rider */}
+      <div className="mx-6 mb-6">
+        <RiderRatingsCard />
+      </div>
 
       {/* Wallet Section */}
       <motion.button

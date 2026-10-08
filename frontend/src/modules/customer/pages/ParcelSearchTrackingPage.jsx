@@ -8,6 +8,7 @@ import { getOrderSocket, onParcelStatusUpdate } from "@/core/services/orderSocke
 import { createSocketTokenReader } from "@core/utils/authStorage";
 import { STORAGE_KEYS } from "@core/utils/storage";
 import ParcelReviewPrompt from "../components/parcel/ParcelReviewPrompt";
+import RiderRatingPopup, { isRiderRatingSnoozed } from "../components/parcel/RiderRatingPopup";
 import { useMapsLoader } from "@core/maps/useMapsLoader";
 
 const getCustomerToken = createSocketTokenReader(STORAGE_KEYS.AUTH_CUSTOMER);
@@ -121,6 +122,7 @@ const ParcelSearchTrackingPage = () => {
   const mapRef = useRef(null);
   const [parcel, setParcel] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [riderRatingOpen, setRiderRatingOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [requestingLateRefund, setRequestingLateRefund] = useState(false);
   const [sliderIndex, setSliderIndex] = useState(0);
@@ -194,6 +196,19 @@ const ParcelSearchTrackingPage = () => {
   useEffect(() => {
     loadParcel(false);
   }, [loadParcel]);
+
+  // The moment the courier is delivered (live, or opening a delivered one),
+  // ask how the rider was — unless this customer snoozed it. The popup checks
+  // for itself whether the booking can still be rated.
+  useEffect(() => {
+    if (
+      parcel?.status === "DELIVERED" &&
+      parcel?.deliveryPartnerId &&
+      !isRiderRatingSnoozed(parcel._id || id)
+    ) {
+      setRiderRatingOpen(true);
+    }
+  }, [parcel?.status, parcel?.deliveryPartnerId, parcel?._id, id]);
 
   useEffect(() => {
     if (!SEARCH_STATUSES.has(parcel?.status)) return undefined;
@@ -742,6 +757,12 @@ const ParcelSearchTrackingPage = () => {
           </div>
         </div>
       </div>
+
+      <RiderRatingPopup
+        parcelId={parcel?._id || id}
+        open={riderRatingOpen}
+        onClose={() => setRiderRatingOpen(false)}
+      />
     </div>
   );
 };

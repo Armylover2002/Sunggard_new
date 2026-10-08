@@ -159,6 +159,9 @@ const Dashboard = () => {
                 <span className="flex items-center bg-yellow-50 text-yellow-600 px-1.5 py-0.5 rounded border border-yellow-100">
                   <Star size={12} fill="currentColor" className="mr-1" />
                   {Number(user.rating).toFixed(1)}
+                  {user?.ratingCount ? (
+                    <span className="ml-1 text-yellow-500/80">({user.ratingCount})</span>
+                  ) : null}
                 </span>
               ) : null}
               {user?.rating ? (

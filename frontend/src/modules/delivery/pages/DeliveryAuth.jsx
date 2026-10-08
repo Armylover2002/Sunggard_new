@@ -36,7 +36,6 @@ import { compressImage } from "@shared/utils/compressImage";
 const VEHICLE_TYPES = [
   { value: "bike", label: "Bike" },
   { value: "scooter", label: "Scooter" },
-  { value: "cycle", label: "Cycle" },
 ];
 
 /**

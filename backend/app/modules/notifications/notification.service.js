@@ -269,6 +269,23 @@ export async function notify(eventType, payload = {}) {
         continue;
       }
 
+      // A repeating offer (the same rider offered the same courier again on a
+      // later round) replaces its earlier row so the in-app list shows it once.
+      // The push for this round is unaffected — it is sent below either way.
+      if (payload.replacePrevious && payload.parcelId) {
+        await Notification.deleteMany({
+          userId: notification.userId,
+          role: notification.role,
+          type: notification.type,
+          "data.parcelId": String(payload.parcelId),
+        }).catch((error) => {
+          logger.warn("Could not clear the previous round's notification", {
+            eventType,
+            message: error?.message,
+          });
+        });
+      }
+
       const notificationDoc = await Notification.create({
         ...notification,
         dedupeKey,

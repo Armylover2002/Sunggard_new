@@ -13,6 +13,7 @@ import {
 } from "../components/sunguard/kit";
 import { unwrapList } from "@core/api/unwrap";
 import PorterBannerCarousel from "../components/porter/PorterBannerCarousel";
+import { PendingRiderRatingPrompt } from "../components/parcel/RiderRatingPopup";
 
 const getCustomerToken = createSocketTokenReader(STORAGE_KEYS.AUTH_CUSTOMER);
 
@@ -53,6 +54,7 @@ const ParcelHome = () => {
 
   return (
     <div className="mx-auto w-full max-w-lg px-5 pb-28 pt-4">
+      <PendingRiderRatingPrompt />
       {/* ---- porter promotional banner carousel ---- */}
       <PorterBannerCarousel service="outstation" />
 

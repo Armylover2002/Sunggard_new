@@ -177,6 +177,9 @@ export function parcelBroadcastPayloadFromDoc(parcel, extra = {}, settings = {})
   const pickup = parcel.pickupAddress?.fullAddress || "Pickup location";
   const drop = parcel.dropAddress?.fullAddress || "Drop location";
   const fare = Number(parcel.fare) || 0;
+  // What the customer is actually charged (coupon taken off) — the number a
+  // rider should see on an offer.
+  const total = Number(parcel.payableFare) || fare;
   // No riderAcceptLocation yet at broadcast time — the rider has not
   // accepted, so the real payout distance is unknown until they do. The
   // preview earning is 0 here by construction (see computeRiderParcelEarnings).
@@ -198,6 +201,7 @@ export function parcelBroadcastPayloadFromDoc(parcel, extra = {}, settings = {})
       pickup,
       drop,
       fare,
+      total,
       earnings,
       riderPerKmRate: settings.riderPerKmRate,
       weight: parcel.weight,

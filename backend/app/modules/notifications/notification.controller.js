@@ -36,6 +36,10 @@ function resolveNotificationFilter(req) {
 function queryFromFilter(filter = {}, options = {}) {
   const query = {
     $or: filter.$or || [],
+    // "parcel" rows are bookkeeping written by emitParcelBroadcast to track
+    // who holds a live offer (so a cancel knows who to dismiss). They are not
+    // something to read, and showing them duplicated every courier offer.
+    type: { $ne: "parcel" },
   };
   if (options.unreadOnly) {
     query.isRead = false;

@@ -180,8 +180,13 @@ useEffect(() => {
 const handleApprove = async (id) => {
     setIsProcessing(true);
     try {
+        const isVehicleChange = Boolean(pendingRiders.find((r) => r.id === id)?.vehicleChange);
         await adminApi.approveDeliveryPartner(id);
-        toast.success('Partner Approved & Activated!');
+        toast.success(
+            isVehicleChange
+                ? 'Vehicle change approved. The rider is active again with the new details.'
+                : 'Partner Approved & Activated!',
+        );
         setPendingRiders(pendingRiders.filter(r => r.id !== id));
         setViewingRider(null);
     } catch (error) {
@@ -195,8 +200,13 @@ const handleApprove = async (id) => {
 const handleReject = async (id, reason) => {
     setIsProcessing(true);
     try {
+        const isVehicleChange = Boolean(pendingRiders.find((r) => r.id === id)?.vehicleChange);
         await adminApi.rejectDeliveryPartner(id, reason);
-        toast.success('Application rejected. The rider can edit and reapply.');
+        toast.success(
+            isVehicleChange
+                ? 'Change rejected. The rider keeps their previous vehicle details and is active again.'
+                : 'Application rejected. The rider can edit and reapply.',
+        );
         setPendingRiders(pendingRiders.filter(r => r.id !== id));
         setViewingRider(null);
         setRejectTarget(null);
@@ -340,6 +350,9 @@ return (
                                                     {rider.reappliedAt && (
                                                         <Badge variant="warning" className="text-[9px] px-1.5 py-0.5">Reapplied</Badge>
                                                     )}
+                                                    {rider.vehicleChange && (
+                                                        <Badge variant="warning" className="text-[9px] px-1.5 py-0.5 uppercase">Vehicle change</Badge>
+                                                    )}
                                                     {/* CAR WASH DISABLED
                                                     {rider.isCarWashService && (
                                                         <Badge variant="info" className="text-[8px] font-black uppercase px-1.5 py-0.5">Washer</Badge>
@@ -362,6 +375,15 @@ return (
                                                 <Truck className="h-3.5 w-3.5" />
                                                 <span className="text-[10px] font-bold">{rider.vehicle}</span>
                                             </div>
+                                            {rider.vehicleChange && (
+                                                <div className="rounded-lg bg-amber-50 px-2 py-1.5 space-y-0.5">
+                                                    {rider.vehicleChange.rows.map((row) => (
+                                                        <p key={row.label} className="text-[10px] font-bold text-amber-800">
+                                                            {row.label}: <span className="line-through opacity-60">{row.from}</span> → {row.to}
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            )}
                                             <div className="flex items-center gap-2 text-slate-400">
                                                 <MapPin className="h-3.5 w-3.5" />
                                                 <span className="text-[10px] font-bold">{rider.location}</span>
@@ -599,6 +621,36 @@ return (
                                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
                                         <Truck className="h-4 w-4" /> Vehicle Details
                                     </h4>
+                                    {viewingRider.vehicleChange && (
+                                        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5">
+                                            <p className="text-xs font-black uppercase tracking-widest text-amber-800">
+                                                Vehicle change request — approval needed
+                                            </p>
+                                            <p className="mt-1 text-xs text-amber-900/80">
+                                                This rider is already approved and asked to change the details below. Their account is on
+                                                hold until you decide. The values under "Vehicle Details" are what they have today.
+                                            </p>
+                                            <div className="mt-4 overflow-hidden rounded-xl border border-amber-200 bg-white">
+                                                <div className="grid grid-cols-3 gap-3 border-b border-amber-100 bg-amber-100/50 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-amber-900">
+                                                    <span>Detail</span>
+                                                    <span>Before</span>
+                                                    <span>Requested now</span>
+                                                </div>
+                                                {viewingRider.vehicleChange.rows.map((row) => (
+                                                    <div key={row.label} className="grid grid-cols-3 gap-3 border-b border-amber-50 px-4 py-3 text-sm last:border-b-0">
+                                                        <span className="font-bold text-slate-500">{row.label}</span>
+                                                        <span className="font-semibold text-slate-500 line-through font-mono">{row.from}</span>
+                                                        <span className="font-black text-emerald-700 font-mono">{row.to}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {viewingRider.vehicleChange.requestedAt && (
+                                                <p className="mt-3 text-[11px] font-semibold text-amber-900/70">
+                                                    Requested on {new Date(viewingRider.vehicleChange.requestedAt).toLocaleString('en-IN')}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="p-5 bg-slate-50 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-5">
                                         <DetailField label="Vehicle Type" value={viewingRider.vehicle} />
                                         <DetailField label="Plate Number" value={viewingRider.vehicleNumber} mono />
@@ -767,7 +819,7 @@ return (
                                     ) : (
                                         <>
                                             <Check className="h-4 w-4" />
-                                            APPROVE & ACTIVATE RIDER
+                                            {viewingRider.vehicleChange ? 'APPROVE VEHICLE CHANGE' : 'APPROVE & ACTIVATE RIDER'}
                                         </>
                                     )}
                                 </button>
@@ -775,7 +827,7 @@ return (
                                     onClick={() => setRejectTarget(viewingRider.id)}
                                     className="py-5 px-5 bg-rose-50 text-rose-600 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-rose-100 transition-all active:scale-95"
                                 >
-                                    REJECT APPLICATION
+                                    {viewingRider.vehicleChange ? 'REJECT CHANGE' : 'REJECT APPLICATION'}
                                 </button>
                             </div>
                         </div>

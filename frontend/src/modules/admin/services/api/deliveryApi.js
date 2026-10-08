@@ -9,6 +9,9 @@ export const adminDeliveryApi = {
         axiosInstance.get('/admin/delivery-partners', { params }),
     getDeliveryPartnerById: (id) =>
         axiosInstance.get(`/admin/delivery-partners/${id}`),
+    /** A rider's overall rating, its 5-to-1 breakdown and customer feedback. */
+    getRiderRatings: (id, params) =>
+        axiosInstance.get(`/admin/delivery-partners/${id}/ratings`, { params }),
     updateDeliveryPartnerIdentity: (id, data) =>
         axiosInstance.patch(`/admin/delivery-partners/${id}/identity`, data),
     approveDeliveryPartner: (id) =>

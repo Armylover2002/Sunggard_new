@@ -3,7 +3,15 @@ import { jest } from "@jest/globals";
 const mockFindByIdAndUpdate = jest.fn();
 
 jest.unstable_mockModule("../app/models/delivery.js", () => ({
-  default: { findByIdAndUpdate: mockFindByIdAndUpdate },
+  default: {
+    findByIdAndUpdate: mockFindByIdAndUpdate,
+    // An ordinary application has no pending vehicle change.
+    findById: jest.fn().mockResolvedValue({ vehicleChange: { status: "none" } }),
+  },
+}));
+jest.unstable_mockModule("../app/services/riderVehicleChangeService.js", () => ({
+  approveVehicleChange: jest.fn().mockResolvedValue(null),
+  rejectVehicleChange: jest.fn().mockResolvedValue(null),
 }));
 
 jest.unstable_mockModule("../app/models/parcel.js", () => ({

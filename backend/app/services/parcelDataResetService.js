@@ -1,6 +1,7 @@
 import Parcel from "../models/parcel.js";
 import ParcelConfig from "../models/parcelConfig.js";
 import ParcelReview from "../models/parcelReview.js";
+import RiderRating from "../models/riderRating.js";
 import Notification from "../models/notification.js";
 import Delivery from "../models/delivery.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
@@ -25,6 +26,10 @@ export async function resetAllParcelData() {
   const [parcelDelete, reviewDelete, notificationDelete] = await Promise.all([
     Parcel.deleteMany({}),
     ParcelReview.deleteMany({}),
+    // Rider ratings belong to the bookings being wiped; the averages they
+    // fed on each rider are cleared below so nobody keeps a score with
+    // nothing behind it.
+    RiderRating.deleteMany({}),
     Notification.deleteMany({
       $or: [
         { type: { $in: PARCEL_NOTIFICATION_TYPES } },
@@ -35,6 +40,8 @@ export async function resetAllParcelData() {
       ],
     }),
   ]);
+
+  await Delivery.updateMany({}, { $set: { rating: 0, ratingCount: 0, ratingSum: 0 } });
 
   await ParcelConfig.deleteMany({});
   await ParcelConfig.getOrCreate();

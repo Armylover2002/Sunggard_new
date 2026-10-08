@@ -70,6 +70,11 @@ import {
   adminListParcelReviews,
   adminUpdateParcelReviewStatus,
 } from "../controller/parcelReviewController.js";
+import {
+  getRiderRatingForParcel,
+  getPendingRiderRating,
+  submitRiderRating,
+} from "../controller/riderRatingController.js";
 
 const router = express.Router();
 
@@ -111,6 +116,10 @@ router.post("/:parcelId/late-refund-request", verifyToken, requestParcelLateRefu
 router.get("/reviews", verifyToken, listPublicParcelReviews);
 router.get("/review/:parcelId", verifyToken, getMyParcelReview);
 router.post("/review", verifyToken, submitParcelReview);
+// Rating the rider who delivered. "pending/latest" must stay above ":parcelId".
+router.get("/rider-rating/pending/latest", verifyToken, requireActiveCustomer, getPendingRiderRating);
+router.get("/rider-rating/:parcelId", verifyToken, requireActiveCustomer, getRiderRatingForParcel);
+router.post("/rider-rating", verifyToken, requireActiveCustomer, submitRiderRating);
 router.get("/couriers/for-location", verifyToken, listCouriersForLocation);
 router.get("/city-rates/destinations", verifyToken, listCityRateDestinations);
 

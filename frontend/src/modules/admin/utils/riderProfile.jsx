@@ -47,7 +47,43 @@ export const formatLicenseDisplay = (value) => {
     return value;
 };
 
+const VEHICLE_TYPE_LABELS = { bike: 'Bike', scooter: 'Scooter', cycle: 'Cycle' };
+
+/**
+ * A pending vehicle change as rows of "what it was → what it is becoming",
+ * only for the fields the rider actually asked to change.
+ */
+export const buildVehicleChange = (change) => {
+    if (!change || change.status !== 'pending') return null;
+    const previous = change.previous || {};
+    const requested = change.requested || {};
+    const rows = [];
+    if (requested.vehicleType) {
+        rows.push({
+            label: 'Vehicle type',
+            from: VEHICLE_TYPE_LABELS[previous.vehicleType] || previous.vehicleType || '—',
+            to: VEHICLE_TYPE_LABELS[requested.vehicleType] || requested.vehicleType,
+        });
+    }
+    if (requested.vehicleNumber) {
+        rows.push({
+            label: 'Plate number',
+            from: formatPlateDisplay(previous.vehicleNumber) || '—',
+            to: formatPlateDisplay(requested.vehicleNumber),
+        });
+    }
+    if (requested.drivingLicenseNumber) {
+        rows.push({
+            label: 'Driving license',
+            from: formatLicenseDisplay(previous.drivingLicenseNumber) || '—',
+            to: formatLicenseDisplay(requested.drivingLicenseNumber),
+        });
+    }
+    return { requestedAt: change.requestedAt || null, rows };
+};
+
 export const mapDeliveryPartner = (r) => ({
+    vehicleChange: buildVehicleChange(r.vehicleChange),
     id: r._id || r.id,
     name: r.name,
     phone: r.phone,

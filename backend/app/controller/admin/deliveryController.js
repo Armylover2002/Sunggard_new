@@ -1,3 +1,4 @@
+import { approveVehicleChange, rejectVehicleChange } from "../../services/riderVehicleChangeService.js";
 import Delivery from "../../models/delivery.js";
 import Parcel from "../../models/parcel.js";
 import handleResponse from "../../utils/helper.js";
@@ -72,6 +73,9 @@ export const getDeliveryPartners = async (req, res) => {
       "isOnline",
       "isBusy",
       "isParcelService",
+      "rating",
+      "ratingCount",
+      "vehicleChange",
       // CAR WASH DISABLED — "isCarWashService",
       "experience",
       "experienceDetails",
@@ -123,7 +127,7 @@ export const getDeliveryPartnerById = async (req, res) => {
   try {
     const rider = await Delivery.findById(req.params.id)
       .select(
-        "name phone email address vehicleType vehicleNumber drivingLicenseNumber aadharNumber panNumber accountHolder accountNumber ifsc bankName upiId profileImage documents isVerified applicationStatus rejectionReason rejectedAt reappliedAt reapplyCount isParcelService experience experienceDetails currentArea zoneIds createdAt",
+        "name phone email address vehicleType vehicleNumber drivingLicenseNumber aadharNumber panNumber accountHolder accountNumber ifsc bankName upiId profileImage documents isVerified applicationStatus rejectionReason rejectedAt reappliedAt reapplyCount isParcelService experience experienceDetails currentArea zoneIds createdAt vehicleChange",
         // CAR WASH DISABLED — removed isCarWashService from select
       )
       .populate("zoneIds", "name city color")
@@ -177,6 +181,14 @@ export const updateDeliveryPartnerIdentity = async (req, res) => {
 export const approveDeliveryPartner = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // A rider waiting on a vehicle change: approving applies the new values
+    // and re-activates the account (see riderVehicleChangeService).
+    const changed = await approveVehicleChange(id);
+    if (changed) {
+      return handleResponse(res, 200, "Vehicle change approved. The rider's account is active again.", changed);
+    }
+
     const rider = await Delivery.findByIdAndUpdate(
       id,
       { isVerified: true, applicationStatus: "approved" },
@@ -216,6 +228,14 @@ export const rejectDeliveryPartner = async (req, res) => {
         "Enter a rejection reason (5 to 300 characters) so the rider knows what to fix",
       );
     }
+
+    // A rider waiting on a vehicle change keeps their account: rejecting only
+    // discards the request. They are NOT marked as a rejected applicant.
+    const reverted = await rejectVehicleChange(id, reason);
+    if (reverted) {
+      return handleResponse(res, 200, "Vehicle change rejected. The rider's account is active with their previous details.", reverted);
+    }
+
     const rider = await Delivery.findByIdAndUpdate(
       id,
       {

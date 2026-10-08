@@ -11,6 +11,13 @@ export const deliveryApi = {
   getProfile: () => axiosInstance.get("/delivery/profile"),
   updateProfile: (data) => axiosInstance.put("/delivery/profile", data),
   getStats: () => axiosInstance.get("/delivery/stats"),
+  /** The rider's own overall rating, its breakdown and customer feedback. */
+  getMyRatings: (params) => axiosInstance.get("/delivery/ratings", { params }),
+
+  /** Change vehicle type / plate / licence — held for admin approval. */
+  requestVehicleChange: (data) => axiosInstance.post("/delivery/vehicle-change", data),
+  /** Withdraw my own pending vehicle change. */
+  cancelVehicleChange: () => axiosInstance.delete("/delivery/vehicle-change"),
   getEarnings: () => axiosInstance.get("/delivery/earnings"),
   getWalletSummary: () => axiosInstance.get("/delivery/wallet/summary"),
   postLocation: (body, config = {}) =>

@@ -27,6 +27,11 @@ import {
   updateDeliveryLocation,
 } from "../controller/deliveryController.js";
 import { getRiderWalletSummaryController } from "../controller/adminFinanceController.js";
+import { getMyRiderRatings } from "../controller/riderRatingController.js";
+import {
+  riderRequestVehicleChange,
+  riderCancelVehicleChange,
+} from "../controller/riderVehicleChangeController.js";
 
 import { verifyToken, allowRoles, requireActiveDelivery } from "../middleware/authMiddleware.js";
 import multer from "multer";
@@ -52,6 +57,10 @@ router.get("/check-phone/:phone", checkDeliveryPhone);
 router.get("/profile", verifyToken, getDeliveryProfile);
 router.put("/profile", verifyToken, requireActiveDelivery, updateDeliveryProfile);
 router.get("/stats", verifyToken, requireActiveDelivery, getDeliveryStats);
+router.get("/ratings", verifyToken, allowRoles("delivery"), requireActiveDelivery, getMyRiderRatings);
+// Changing vehicle details goes through admin approval — see riderVehicleChangeService.
+router.post("/vehicle-change", verifyToken, allowRoles("delivery"), requireActiveDelivery, riderRequestVehicleChange);
+router.delete("/vehicle-change", verifyToken, allowRoles("delivery"), requireActiveDelivery, riderCancelVehicleChange);
 router.get("/earnings", verifyToken, requireActiveDelivery, getDeliveryEarnings);
 router.get("/wallet/summary", verifyToken, allowRoles("delivery"), requireActiveDelivery, getRiderWalletSummaryController);
 router.get(
