@@ -132,6 +132,24 @@ export async function sendAdminPasswordResetOtpEmail({ to, otp, expiresInMinutes
   });
 }
 
+/**
+ * A general-purpose send through the same mailbox and transporter — used by
+ * emails that carry their own subject, body and attachments (the delivered
+ * invoice). Throws if the mail transport is not configured or the send fails;
+ * callers that must never fail their own flow catch it.
+ */
+export async function sendEmail({ to, subject, text, html, attachments = [] }) {
+  const transporter = getTransporter();
+  return transporter.sendMail({
+    from: getMailFrom(),
+    to,
+    subject,
+    text,
+    html,
+    ...(attachments.length ? { attachments } : {}),
+  });
+}
+
 export function __resetEmailTransportForTests() {
   cachedTransporter = null;
 }

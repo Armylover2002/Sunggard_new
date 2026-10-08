@@ -2414,6 +2414,18 @@ export const riderUpdateStatus = async (req, res) => {
         },
       );
 
+      // Email the customer their bill and invoice PDF. Started in the
+      // background and deliberately not awaited: the delivery is already saved
+      // and paid out, and a slow or failing mail server must not touch it.
+      import("../services/porter/parcelDeliveredEmailService.js")
+        .then((mod) => mod.sendDeliveredInvoiceEmail(parcel._id))
+        .catch((err) =>
+          logger.error("parcel_delivered_invoice_email_not_started", {
+            parcelId: String(parcel._id),
+            message: err?.message,
+          }),
+        );
+
       const resultDoc = populated || parcel;
       const resultPayload = resultDoc.toObject ? resultDoc.toObject() : { ...resultDoc };
       delete resultPayload.otp;

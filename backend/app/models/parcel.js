@@ -311,6 +311,19 @@ const parcelSchema = new mongoose.Schema(
       paymentId: { type: String, default: null },
     },
     /**
+     * The "your courier is delivered" invoice email. `claimedAt` is taken
+     * atomically before anything is built so the customer is emailed at most
+     * once per booking; `sentAt` / `error` / `skippedReason` say how it
+     * ended, for an admin wondering why a customer got nothing.
+     */
+    invoiceEmail: {
+      claimedAt: { type: Date, default: null },
+      sentAt: { type: Date, default: null },
+      to: { type: String, default: "" },
+      error: { type: String, default: "" },
+      skippedReason: { type: String, default: "" },
+    },
+    /**
      * Paid from the customer's wallet (paymentMethod WALLET). The wallet is
      * debited when the booking is created and credited back — to the wallet,
      * not the card — if the booking is cancelled.
