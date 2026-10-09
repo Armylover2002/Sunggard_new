@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
@@ -33,6 +33,7 @@ import Pagination from '@shared/components/ui/Pagination';
 import { adminApi } from '../services/adminApi';
 import { formatZoneLabel } from '@shared/utils/zoneGeometry';
 import { mapDeliveryPartner, DetailField, DOC_LABELS } from '../utils/riderProfile';
+import useBodyScrollLock from '@shared/hooks/useBodyScrollLock';
 import RiderRatingsModal from '../components/RiderRatingsModal';
 
 /** Mongo's 24-char hex id isn't something anyone reads at a glance — show
@@ -52,12 +53,7 @@ const ActiveDeliveryBoys = () => {
     const [ratingsRider, setRatingsRider] = useState(null);
 
     // Keep the page behind the detail modal from scrolling with the wheel.
-    useEffect(() => {
-        if (!viewingRider) return;
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = prev; };
-    }, [viewingRider]);
+    useBodyScrollLock(Boolean(viewingRider) || Boolean(ratingsRider));
 
     // Form states
     const [formState, setFormState] = useState({
@@ -461,6 +457,7 @@ return (
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         className="w-full max-w-2xl relative z-10 bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain"
+                        data-lenis-prevent
                     >
                         <div className="p-5">
                             <div className="flex justify-between items-start mb-10">

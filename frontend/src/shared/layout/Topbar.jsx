@@ -222,12 +222,22 @@ const Topbar = ({ onMenuClick }) => {
                         {(user?.name?.[0] || 'A').toUpperCase()}
                     </span>
                     <span className="hidden text-left sm:block">
-                        <span className="block text-[13px] font-bold leading-none text-slate-900">
+                        <span
+                            className="text-[13px] font-bold text-slate-900"
+                            style={{ display: 'block', lineHeight: 1 }}
+                        >
                             {user?.name || 'Admin'}
                         </span>
                         <span
-                            className="mt-1.5 block text-[10px] font-medium uppercase leading-none text-slate-400"
-                            style={{ fontFamily: MONO, letterSpacing: '0.18em' }}
+                            className="text-[10px] font-medium text-slate-400"
+                            style={{
+                                display: 'block',
+                                lineHeight: 1,
+                                marginTop: 6,
+                                fontFamily: MONO,
+                                letterSpacing: '0.18em',
+                                textTransform: 'uppercase',
+                            }}
                         >
                             {user?.role || role || 'admin'}
                         </span>

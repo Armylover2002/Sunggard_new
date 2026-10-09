@@ -62,6 +62,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
 
                 <div
                     className="px-6 pt-3 pb-5 max-h-[80vh] overflow-y-auto overscroll-contain touch-pan-y"
+                    data-lenis-prevent
                     tabIndex={0}
                     onWheel={(e) => e.stopPropagation()}
                     onTouchMove={(e) => e.stopPropagation()}
