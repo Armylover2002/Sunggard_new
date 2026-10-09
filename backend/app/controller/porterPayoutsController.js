@@ -422,14 +422,27 @@ export const adminGetPorterWalletWithdrawals = async (req, res) => {
         status: row.status,
         reference: row.reference,
         date: row.date || row.createdAt,
-        payout: {
-          accountHolder: row.user?.accountHolder || "",
-          accountNumber: row.user?.accountNumber || "",
-          ifsc: row.user?.ifsc || "",
-          bankName: row.user?.bankName || "",
-          upiId: row.user?.upiId || "",
-          qrImageUrl: row.user?.qrImageUrl || "",
-        },
+        // The method the rider chose, and only its details. A request raised
+        // before riders could choose carries no method, so it keeps showing
+        // what the rider has saved, as before.
+        payout: row.meta?.payout?.method
+          ? {
+              method: row.meta.payout.method,
+              accountHolder: row.meta.payout.accountHolder || "",
+              accountNumber: row.meta.payout.accountNumber || "",
+              ifsc: row.meta.payout.ifsc || "",
+              bankName: row.meta.payout.bankName || "",
+              upiId: row.meta.payout.upiId || "",
+              qrImageUrl: row.meta.payout.qrImageUrl || "",
+            }
+          : {
+              accountHolder: row.user?.accountHolder || "",
+              accountNumber: row.user?.accountNumber || "",
+              ifsc: row.user?.ifsc || "",
+              bankName: row.user?.bankName || "",
+              upiId: row.user?.upiId || "",
+              qrImageUrl: row.user?.qrImageUrl || "",
+            },
       })),
       page,
       limit,

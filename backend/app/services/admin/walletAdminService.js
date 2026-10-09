@@ -72,8 +72,20 @@ export async function getDeliveryWithdrawalsData({ page, limit, skip }) {
     Transaction.countDocuments(query),
   ]);
 
+  // A request carries ONLY the payout method the rider chose (meta.payout.method).
+  // The populated rider would still bring along every other detail they have
+  // saved, so those are removed here — the admin is shown the chosen one only.
+  // Older requests (no method recorded) are left exactly as they were.
+  const PAYOUT_FIELDS = ["accountHolder", "accountNumber", "ifsc", "bankName", "upiId", "qrImageUrl"];
+  const items = transactions.map((tx) => {
+    if (!tx.meta?.payout?.method || !tx.user || typeof tx.user !== "object") return tx;
+    const user = { ...tx.user };
+    PAYOUT_FIELDS.forEach((field) => delete user[field]);
+    return { ...tx, user };
+  });
+
   return {
-    items: transactions,
+    items,
     page,
     limit,
     total,

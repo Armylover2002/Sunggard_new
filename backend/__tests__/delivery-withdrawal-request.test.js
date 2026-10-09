@@ -112,6 +112,62 @@ describe("requestWithdrawal", () => {
     expect(created.meta.requestedBalance).toBe(2000);
   });
 
+  describe("choosing bank or UPI", () => {
+    const BOTH = { ...FULL_BANK, upiId: "asha@okhdfc", qrImageUrl: "" };
+
+    beforeEach(() => {
+      transactionFind.mockReturnValue(chain(EARNINGS_ONLY));
+    });
+
+    it("sends only the bank details when the rider picks bank", async () => {
+      deliveryFindById.mockReturnValue(chain(BOTH));
+      const res = await call({ amount: 500, method: "bank" });
+
+      expect(res.statusCode).toBe(201);
+      const payout = transactionCreate.mock.calls[0][0].meta.payout;
+      expect(payout).toMatchObject({ method: "bank", accountNumber: "123456789012", ifsc: "HDFC0001234" });
+      expect(payout.upiId).toBeUndefined();
+      expect(payout.qrImageUrl).toBeUndefined();
+    });
+
+    it("sends only the UPI details when the rider picks UPI", async () => {
+      deliveryFindById.mockReturnValue(chain(BOTH));
+      const res = await call({ amount: 500, method: "upi" });
+
+      expect(res.statusCode).toBe(201);
+      const payout = transactionCreate.mock.calls[0][0].meta.payout;
+      expect(payout).toMatchObject({ method: "upi", upiId: "asha@okhdfc" });
+      expect(payout.accountNumber).toBeUndefined();
+      expect(payout.ifsc).toBeUndefined();
+    });
+
+    it("asks the rider to choose when both are saved and none was picked", async () => {
+      deliveryFindById.mockReturnValue(chain(BOTH));
+      const res = await call({ amount: 500 });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toMatch(/choose/i);
+      expect(transactionCreate).not.toHaveBeenCalled();
+    });
+
+    it("uses the only method saved without asking", async () => {
+      deliveryFindById.mockReturnValue(chain(FULL_BANK));
+      const res = await call({ amount: 500 });
+
+      expect(res.statusCode).toBe(201);
+      expect(transactionCreate.mock.calls[0][0].meta.payout.method).toBe("bank");
+    });
+
+    it("refuses a method the rider has not saved", async () => {
+      deliveryFindById.mockReturnValue(chain(FULL_BANK));
+      const res = await call({ amount: 500, method: "upi" });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toMatch(/UPI/i);
+      expect(transactionCreate).not.toHaveBeenCalled();
+    });
+  });
+
   it("refuses when the rider has saved no payout destination", async () => {
     deliveryFindById.mockReturnValue(
       chain({ _id: RIDER_ID, name: "Asha", phone: "9990001111" }),

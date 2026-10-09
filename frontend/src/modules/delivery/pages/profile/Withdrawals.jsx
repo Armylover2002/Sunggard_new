@@ -34,14 +34,33 @@ const Withdrawals = () => {
     // Mirrors the server's payout-destination rule so the rider is told
     // before submitting, not after a rejected request.
     const hasBank = Boolean(user?.accountHolder && user?.accountNumber && user?.ifsc);
-    const hasPayoutMethod = hasBank || Boolean(user?.upiId) || Boolean(user?.qrImageUrl);
-    const payoutLabel = user?.upiId
-        ? `UPI · ${user.upiId}`
-        : hasBank
-            ? `${user.bankName || "Bank"} · ****${String(user.accountNumber).slice(-4)}`
-            : user?.qrImageUrl
-                ? "Your saved QR"
-                : "";
+    const hasUpi = Boolean(user?.upiId) || Boolean(user?.qrImageUrl);
+    const hasPayoutMethod = hasBank || hasUpi;
+
+    // The rider picks ONE way to be paid; only that one goes to the admin. With
+    // just one saved there is nothing to choose, so it is picked for them.
+    const [method, setMethod] = useState("");
+    const chosenMethod = method || (hasBank && !hasUpi ? "bank" : hasUpi && !hasBank ? "upi" : "");
+    const payoutOptions = [
+        {
+            value: "bank",
+            label: "Bank account",
+            available: hasBank,
+            detail: hasBank
+                ? `${user.bankName || "Bank"} · ****${String(user.accountNumber).slice(-4)}`
+                : "Not added yet",
+        },
+        {
+            value: "upi",
+            label: "UPI",
+            available: hasUpi,
+            detail: user?.upiId
+                ? user.upiId
+                : user?.qrImageUrl
+                    ? "Your saved QR"
+                    : "Not added yet",
+        },
+    ];
 
     const fetchData = async () => {
         try {
@@ -92,10 +111,16 @@ const Withdrawals = () => {
         if (Number(amount) > stats.availableBalance) {
             return toast.error("Insufficient balance");
         }
+        if (!chosenMethod) {
+            return toast.error("Choose how you want to be paid — bank or UPI");
+        }
 
         setLoading(true);
         try {
-            const res = await deliveryApi.requestWithdrawal({ amount: Number(amount) });
+            const res = await deliveryApi.requestWithdrawal({
+                amount: Number(amount),
+                method: chosenMethod,
+            });
             if (res.data.success) {
                 toast.success("Withdrawal request submitted successfully!");
                 setAmount("");
@@ -178,43 +203,74 @@ const Withdrawals = () => {
                             </div>
                         </div>
 
-                        {/* Where this money actually lands. The screen used to
-                            promise "your primary bank account" without ever
-                            knowing whether one was on file. */}
+                        {/* Where this money actually lands. The rider picks one
+                            way to be paid; only that one is sent to the admin. */}
                         <div
                             className={cn(
-                                "flex items-start gap-2 p-3 rounded-xl",
+                                "p-3 rounded-xl space-y-2.5",
                                 hasPayoutMethod ? "bg-gray-50" : "bg-red-50",
                             )}
                         >
-                            <Landmark
-                                className={cn(
-                                    "shrink-0 mt-0.5",
-                                    hasPayoutMethod ? "text-gray-400" : "text-red-500",
-                                )}
-                                size={16}
-                            />
-                            <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                                <Landmark
+                                    className={cn(
+                                        "shrink-0",
+                                        hasPayoutMethod ? "text-gray-400" : "text-red-500",
+                                    )}
+                                    size={16}
+                                />
                                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                    Paying to
+                                    Receive money in
                                 </p>
-                                {hasPayoutMethod ? (
-                                    <p className="text-[11px] font-bold text-gray-700 break-all">
-                                        {payoutLabel}
-                                    </p>
-                                ) : (
-                                    <p className="text-[11px] font-bold text-red-600">
-                                        No payout details saved yet
-                                    </p>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={() => navigate("/delivery/profile/bank-account")}
-                                    className="mt-1 text-[10px] font-black text-primary"
-                                >
-                                    {hasPayoutMethod ? "Change" : "Add payout details"}
-                                </button>
                             </div>
+
+                            {hasPayoutMethod ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                    {payoutOptions.map((option) => {
+                                        const selected = chosenMethod === option.value;
+                                        return (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                disabled={!option.available}
+                                                onClick={() => setMethod(option.value)}
+                                                className={cn(
+                                                    "rounded-xl border px-3 py-2.5 text-left transition",
+                                                    selected
+                                                        ? "border-primary bg-white ring-2 ring-primary/20"
+                                                        : "border-gray-200 bg-white",
+                                                    !option.available && "opacity-50",
+                                                )}
+                                            >
+                                                <p className="text-[11px] font-black text-gray-900">
+                                                    {option.label}
+                                                </p>
+                                                <p className="mt-0.5 text-[10px] font-semibold text-gray-500 break-all">
+                                                    {option.detail}
+                                                </p>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-[11px] font-bold text-red-600">
+                                    No payout details saved yet
+                                </p>
+                            )}
+
+                            {hasPayoutMethod && !chosenMethod && (
+                                <p className="text-[10px] font-bold text-amber-600">
+                                    Choose bank or UPI to continue
+                                </p>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() => navigate("/delivery/profile/bank-account")}
+                                className="text-[10px] font-black text-primary"
+                            >
+                                {hasPayoutMethod ? "Edit payout details" : "Add payout details"}
+                            </button>
                         </div>
 
                         <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl">
@@ -227,7 +283,7 @@ const Withdrawals = () => {
 
                         <Button
                             onClick={handleRequest}
-                            disabled={loading || !amount || Number(amount) <= 0 || !hasPayoutMethod}
+                            disabled={loading || !amount || Number(amount) <= 0 || !hasPayoutMethod || !chosenMethod}
                             className="w-full py-4 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20"
                         >
                             {loading ? (

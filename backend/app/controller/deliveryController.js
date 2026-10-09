@@ -235,22 +235,51 @@ export const requestWithdrawal = async (req, res) => {
             return handleResponse(res, 404, "Delivery partner not found");
         }
 
-        const payout = {
-            accountHolder: rider.accountHolder || "",
-            accountNumber: rider.accountNumber || "",
-            ifsc: rider.ifsc || "",
-            bankName: rider.bankName || "",
-            upiId: rider.upiId || "",
-            qrImageUrl: rider.qrImageUrl || "",
-        };
-        const hasBank = Boolean(payout.accountHolder && payout.accountNumber && payout.ifsc);
-        if (!hasBank && !payout.upiId && !payout.qrImageUrl) {
+        const hasBank = Boolean(rider.accountHolder && rider.accountNumber && rider.ifsc);
+        const hasUpi = Boolean(rider.upiId || rider.qrImageUrl);
+        if (!hasBank && !hasUpi) {
             return handleResponse(
                 res,
                 400,
                 "Add your payout details first — bank account, UPI ID or a QR image",
             );
         }
+
+        // The rider picks ONE way to be paid, and only that one travels with the
+        // request — an admin shown a bank account AND a UPI ID has to guess which
+        // the rider meant. With just one on file there is nothing to choose.
+        let method = String(req.body?.method || "").trim().toLowerCase();
+        if (method !== "bank" && method !== "upi") {
+            if (hasBank && hasUpi) {
+                return handleResponse(
+                    res,
+                    400,
+                    "Choose how you want to be paid — bank account or UPI",
+                );
+            }
+            method = hasBank ? "bank" : "upi";
+        }
+        if (method === "bank" && !hasBank) {
+            return handleResponse(res, 400, "Add your bank account details first, or choose UPI");
+        }
+        if (method === "upi" && !hasUpi) {
+            return handleResponse(res, 400, "Add your UPI ID or QR image first, or choose bank");
+        }
+
+        const payout =
+            method === "bank"
+                ? {
+                      method,
+                      accountHolder: rider.accountHolder || "",
+                      accountNumber: rider.accountNumber || "",
+                      ifsc: rider.ifsc || "",
+                      bankName: rider.bankName || "",
+                  }
+                : {
+                      method,
+                      upiId: rider.upiId || "",
+                      qrImageUrl: rider.qrImageUrl || "",
+                  };
 
         const transactions = await Transaction.find({
             user: deliveryBoyId,

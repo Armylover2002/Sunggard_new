@@ -42,7 +42,10 @@ import { toast } from "sonner";
    still shows. */
 const resolvePayout = (req) => {
     const snapshot = req?.meta?.payout || {};
-    const live = req?.user || {};
+    // A request that records the method the rider chose shows ONLY that
+    // method's details — never fall back to the rider's other saved ones, or
+    // the admin sees both again. Older requests (no method) keep the old rule.
+    const live = snapshot.method ? {} : req?.user || {};
     const pick = (key) => snapshot[key] || live[key] || "";
     return {
         accountHolder: pick("accountHolder"),
