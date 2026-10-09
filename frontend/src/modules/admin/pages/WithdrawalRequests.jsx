@@ -179,7 +179,7 @@ const WithdrawalRequests = () => {
     const confirmAction = async () => {
         try {
             setLoading(true);
-            const status = actionModal.type === 'approve' ? 'Settled' : 'Failed';
+            const status = actionModal.type === 'approve' ? 'Settled' : 'Rejected';
             const res = await adminApi.updateWithdrawalStatus(actionModal.request._id, { status });
             if (res.data.success) {
                 toast.success(`Request ${status} successfully`);

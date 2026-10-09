@@ -206,7 +206,9 @@ const EarningsPage = () => {
                         className={`p-2 rounded-full mr-3 ${
                           txn.status === "Settled" || txn.status === "Completed"
                             ? "bg-brand-100 text-brand-600"
-                            : "bg-yellow-100 text-yellow-600"
+                            : txn.status === "Failed" || txn.status === "Rejected"
+                              ? "bg-red-100 text-red-600"
+                              : "bg-yellow-100 text-yellow-600"
                         }`}
                       >
                         <ArrowUpRight size={16} />
@@ -240,10 +242,12 @@ const EarningsPage = () => {
                         className={`text-xs font-bold ${
                           txn.status === "Settled" || txn.status === "Completed"
                             ? "text-brand-500"
-                            : "text-yellow-500"
+                            : txn.status === "Failed" || txn.status === "Rejected"
+                              ? "text-red-500"
+                              : "text-yellow-500"
                         }`}
                       >
-                        {txn.status}
+                        {txn.status === "Failed" ? "Rejected" : txn.status}
                       </p>
                     </div>
                   </div>

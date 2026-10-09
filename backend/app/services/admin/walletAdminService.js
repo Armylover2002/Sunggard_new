@@ -94,7 +94,7 @@ export async function getDeliveryWithdrawalsData({ page, limit, skip }) {
 }
 
 export async function updateWithdrawalStatusById({ id, status, reason }) {
-  if (!["Settled", "Failed", "Processing"].includes(status)) {
+  if (!["Settled", "Rejected", "Failed", "Processing"].includes(status)) {
     throw new Error("Invalid status");
   }
 

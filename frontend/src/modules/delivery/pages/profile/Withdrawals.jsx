@@ -323,11 +323,11 @@ const Withdrawals = () => {
                                         <div className={cn(
                                             "p-3 rounded-full mr-4",
                                             item.status === 'Settled' ? "bg-brand-50 text-brand-600" :
-                                                item.status === 'Failed' ? "bg-red-50 text-red-600" :
+                                                (item.status === 'Failed' || item.status === 'Rejected') ? "bg-red-50 text-red-600" :
                                                     "bg-amber-50 text-amber-600"
                                         )}>
                                             {item.status === 'Settled' ? <CheckCircle2 size={18} /> :
-                                                item.status === 'Failed' ? <XCircle size={18} /> :
+                                                (item.status === 'Failed' || item.status === 'Rejected') ? <XCircle size={18} /> :
                                                     <Clock size={18} />}
                                         </div>
                                         <div>
@@ -337,8 +337,8 @@ const Withdrawals = () => {
                                             </p>
                                         </div>
                                     </div>
-                                    <Badge variant={item.status === 'Settled' ? 'success' : item.status === 'Failed' ? 'destructive' : 'warning'}>
-                                        {item.status.toUpperCase()}
+                                    <Badge variant={item.status === 'Settled' ? 'success' : (item.status === 'Failed' || item.status === 'Rejected') ? 'destructive' : 'warning'}>
+                                        {(item.status === 'Failed' ? 'Rejected' : item.status).toUpperCase()}
                                     </Badge>
                                 </motion.div>
                             ))
