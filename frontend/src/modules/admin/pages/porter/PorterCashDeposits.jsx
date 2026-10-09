@@ -21,6 +21,7 @@ import Badge from "@shared/components/ui/Badge";
 import EmptyState from "@shared/components/ui/EmptyState";
 import { adminPorterApi } from "../../services/api/porterApi";
 import { cn } from "@/lib/utils";
+import useBodyScrollLock from "@shared/hooks/useBodyScrollLock";
 
 /**
  * Rider COD cash: what the fleet is still holding, and the deposits waiting
@@ -70,6 +71,8 @@ const PorterCashDeposits = () => {
   const [adminNote, setAdminNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [proofPreview, setProofPreview] = useState("");
+
+  useBodyScrollLock(Boolean(review) || Boolean(proofPreview));
 
   /**
    * Holdings barely change between tab switches, so it is fetched with the

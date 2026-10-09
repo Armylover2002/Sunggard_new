@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import useBodyScrollLock from '@shared/hooks/useBodyScrollLock';
 import Pagination from '@shared/components/ui/Pagination';
 import { adminApi } from '../services/adminApi';
 import { toast } from 'sonner';
@@ -54,6 +55,8 @@ const DeliveryFunds = () => {
     const [filterStatus, setFilterStatus] = useState('all');
     const [viewingTxn, setViewingTxn] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
+
+    useBodyScrollLock(Boolean(viewingTxn));
 
     const fetchTransactions = async (requestedPage = 1) => {
         setIsLoading(true);

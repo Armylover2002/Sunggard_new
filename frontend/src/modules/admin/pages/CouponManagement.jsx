@@ -22,6 +22,7 @@ import {
 } from 'react-icons/hi2';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import useBodyScrollLock from '@shared/hooks/useBodyScrollLock';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminApi } from '../services/adminApi';
 
@@ -31,6 +32,8 @@ const CouponManagement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [editingCoupon, setEditingCoupon] = useState(null);
+
+    useBodyScrollLock(Boolean(deleteTarget));
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [isLoading, setIsLoading] = useState(false);

@@ -23,16 +23,23 @@ const ADMIN_RAIL = '#E7E9EC';
  */
 
 /** The 10px uppercase mono caption, on ink — or on the admin's gray rail. */
-const RailCaption = ({ children, className }) => {
+const RailCaption = ({ children, className, style }) => {
     const { role } = useAuth();
     return (
         <span
             className={cn(
-                "block text-[10px] font-medium uppercase leading-none",
+                "text-[10px] font-medium",
                 role === "admin" ? "text-slate-500" : "text-white/40",
                 className,
             )}
-            style={{ fontFamily: MONO, letterSpacing: "0.18em" }}
+            style={{
+                display: "block",
+                lineHeight: 1,
+                textTransform: "uppercase",
+                fontFamily: MONO,
+                letterSpacing: "0.18em",
+                ...style,
+            }}
         >
             {children}
         </span>
@@ -342,13 +349,14 @@ const SidebarContent = ({ items, onClose, openMenu, handleToggle }) => {
                         <span className="min-w-0">
                             <span
                                 className={cn(
-                                    "block truncate text-[13px] font-bold leading-none",
+                                    "truncate text-[13px] font-bold",
                                     isAdmin ? "text-slate-900" : "text-white",
                                 )}
+                                style={{ display: "block", lineHeight: 1 }}
                             >
                                 {user?.name || "Admin"}
                             </span>
-                            <RailCaption className="mt-1.5">{role || "admin"}</RailCaption>
+                            <RailCaption style={{ marginTop: 6 }}>{role || "admin"}</RailCaption>
                         </span>
                     </div>
                     <button
