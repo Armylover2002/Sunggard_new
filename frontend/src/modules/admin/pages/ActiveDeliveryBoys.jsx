@@ -21,7 +21,6 @@ import {
     User,
     ShieldCheck,
     XCircle,
-    Pencil,
     Power,
     PowerOff,
     Eye,
@@ -48,8 +47,6 @@ const ActiveDeliveryBoys = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [selectedRider, setSelectedRider] = useState(null);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isOnboardModalOpen, setIsOnboardModalOpen] = useState(false);
     const [viewingRider, setViewingRider] = useState(null);
     const [ratingsRider, setRatingsRider] = useState(null);
@@ -159,10 +156,6 @@ const handleAction = async (type, rider) => {
             console.error('Fetch rider details error:', error);
             toast.error('Could not load rider details');
         }
-    } else if (type === 'edit') {
-        setFormState(rider);
-        setSelectedRider(rider);
-        setIsEditModalOpen(true);
     } else if (type === 'toggle-active') {
         const nextActive = !rider.isActive;
         const confirmMsg = nextActive
@@ -209,13 +202,6 @@ const handleOnboardSubmit = (e) => {
     setRiders([newRider, ...riders]);
     setIsOnboardModalOpen(false);
     setFormState({ name: '', phone: '', email: '', vehicle: '', vehicleNum: '', location: '' });
-};
-
-const handleEditSubmit = (e) => {
-    e.preventDefault();
-    setRiders(riders.map(r => r.id === selectedRider.id ? { ...r, ...formState } : r));
-    setIsEditModalOpen(false);
-    setSelectedRider(null);
 };
 
 const stats = [
@@ -422,12 +408,6 @@ return (
                                             VIEW PROFILE
                                         </button>
                                         <button
-                                            onClick={() => handleAction('edit', rider)}
-                                            className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-brand-50 hover:text-brand-600 transition-all"
-                                        >
-                                            <Pencil className="h-4 w-4" />
-                                        </button>
-                                        <button
                                             onClick={() => handleAction('toggle-active', rider)}
                                             title={rider.isActive ? 'Deactivate rider' : 'Reactivate rider'}
                                             className={cn(
@@ -608,19 +588,16 @@ return (
         document.body
         )}
 
-        {/* Onboard / Edit Modal */}
+        {/* Onboard Modal */}
         <AnimatePresence>
-            {(isOnboardModalOpen || isEditModalOpen) && (
+            {isOnboardModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="absolute inset-0 bg-slate-900/60 backdrop-blur-lg"
-                        onClick={() => {
-                            setIsOnboardModalOpen(false);
-                            setIsEditModalOpen(false);
-                        }}
+                        onClick={() => setIsOnboardModalOpen(false)}
                     />
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9, y: 30 }}
@@ -628,14 +605,12 @@ return (
                         exit={{ opacity: 0, scale: 0.9, y: 30 }}
                         className="w-full max-w-lg relative z-[120] bg-white rounded-2xl p-5 shadow-3xl"
                     >
-                        <h3 className="ds-h2 mb-2">
-                            {isEditModalOpen ? 'Edit Rider' : 'Add New Rider'}
-                        </h3>
+                        <h3 className="ds-h2 mb-2">Add New Rider</h3>
                         <p className="ds-label mt-1 text-slate-500">
-                            {isEditModalOpen ? 'Update rider details below.' : 'Enter details to register a new delivery partner.'}
+                            Enter details to register a new delivery partner.
                         </p>
 
-                        <form onSubmit={isEditModalOpen ? handleEditSubmit : handleOnboardSubmit} className="space-y-5">
+                        <form onSubmit={handleOnboardSubmit} className="space-y-5">
                             <div className="grid grid-cols-1 gap-5">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Identity Name</label>
@@ -700,7 +675,7 @@ return (
                             </div>
 
                             <button type="submit" className="w-full py-4.5 bg-[color:var(--primary)] text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-2xl hover:opacity-90 transition-all transform active:scale-[0.98] mt-4">
-                                {isEditModalOpen ? 'SAVE CHANGES' : 'ADD RIDER'}
+                                ADD RIDER
                             </button>
                         </form>
                     </motion.div>
