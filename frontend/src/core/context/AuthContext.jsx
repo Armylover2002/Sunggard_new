@@ -212,6 +212,19 @@ export const AuthProvider = ({ children }) => {
             console.warn('Failed to remove push token during logout:', error);
         }
 
+        // Tell the backend a rider is gone *before* their token is cleared below —
+        // otherwise isOnline stays true server-side and they keep getting
+        // broadcast new parcel offers (and a device that already drew the
+        // offer overlay is never told to withdraw it) after logging out.
+        if (currentRole === 'delivery') {
+            try {
+                const { deliveryApi } = await import('@/modules/delivery/services/deliveryApi');
+                await deliveryApi.logout();
+            } catch (error) {
+                console.warn('Failed to notify backend of delivery logout:', error);
+            }
+        }
+
         if (storageKey) {
             rawRemove(storageKey);
         }

@@ -107,9 +107,15 @@ export async function getPorterCustomersData({
         totalSpent: { $round: ["$totalSpent", 2] },
         lastBookingAt: 1,
         avatar: {
-          $concat: [
-            "https://api.dicebear.com/7.x/avataaars/svg?seed=",
-            { $ifNull: ["$customer.name", "Customer"] },
+          $cond: [
+            { $gt: [{ $strLenCP: { $ifNull: ["$customer.avatar", ""] } }, 0] },
+            "$customer.avatar",
+            {
+              $concat: [
+                "https://api.dicebear.com/7.x/avataaars/svg?seed=",
+                { $ifNull: ["$customer.name", "Customer"] },
+              ],
+            },
           ],
         },
       },
@@ -225,9 +231,11 @@ export async function getPorterCustomerByIdData(id) {
     name: customer.name || "Unnamed Customer",
     email: customer.email || "",
     phone: customer.phone,
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
-      customer.name || customer.phone || "Customer",
-    )}`,
+    avatar:
+      customer.avatar ||
+      `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
+        customer.name || customer.phone || "Customer",
+      )}`,
     isActive: customer.isActive !== false,
     status: customer.isActive === false ? "inactive" : "active",
     isVerified: Boolean(customer.isVerified),

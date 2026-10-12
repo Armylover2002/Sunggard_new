@@ -10,6 +10,9 @@ export const deliveryApi = {
     axiosInstance.get(`/delivery/check-phone/${encodeURIComponent(phone)}`),
   getProfile: () => axiosInstance.get("/delivery/profile"),
   updateProfile: (data) => axiosInstance.put("/delivery/profile", data),
+  // Flips isOnline off server-side and withdraws any offer still mid-flight —
+  // without this, a logged-out rider kept being broadcast new parcels.
+  logout: () => axiosInstance.post("/delivery/logout"),
   getStats: () => axiosInstance.get("/delivery/stats"),
   /** The rider's own overall rating, its breakdown and customer feedback. */
   getMyRatings: (params) => axiosInstance.get("/delivery/ratings", { params }),

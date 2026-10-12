@@ -321,6 +321,54 @@ export async function emitParcelBroadcast(
 }
 
 /**
+ * Drop every pending parcel offer a rider is currently holding and dismiss
+ * each on their device. Used on logout: the rider's row count drops to
+ * "logged out", but a device that already rendered an offer overlay before
+ * logging out has no other signal telling it to go away — this both clears
+ * the in-flight notifications server-side and fires the same
+ * `parcel:broadcast:withdrawn` event the accept/reject flow uses, so a
+ * listening client treats it exactly like any other withdrawn offer.
+ */
+export async function retractAllOffersForRider(deliveryId) {
+  const id = normalizeDeliveryId(deliveryId);
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) return { removedCount: 0 };
+
+  try {
+    const pending = await Notification.find({
+      recipient: new mongoose.Types.ObjectId(id),
+      recipientModel: "Delivery",
+      type: "parcel",
+    })
+      .select("data.parcelId")
+      .lean();
+
+    const s = getIo();
+    if (s && pending.length) {
+      const at = new Date().toISOString();
+      for (const row of pending) {
+        const parcelId = row.data?.parcelId;
+        if (!parcelId) continue;
+        s.to(`delivery:${id}`).emit("parcel:broadcast:withdrawn", {
+          parcelId: String(parcelId),
+          winnerDeliveryId: null,
+          at,
+        });
+      }
+    }
+
+    const result = await Notification.deleteMany({
+      recipient: new mongoose.Types.ObjectId(id),
+      recipientModel: "Delivery",
+      type: "parcel",
+    });
+    return { removedCount: result?.deletedCount || 0 };
+  } catch (error) {
+    console.warn("[retractAllOffersForRider] failed", deliveryId, error.message);
+    return { removedCount: 0 };
+  }
+}
+
+/**
  * Remove one rider's offer row and dismiss it on their device only. Used when
  * that rider rejects — the other riders' pending rows must stay so a later
  * accept can still withdraw them in real time.

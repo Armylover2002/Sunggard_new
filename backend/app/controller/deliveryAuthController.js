@@ -10,6 +10,7 @@ import { syncDeliveryPartnerBusyFlag } from "../services/deliveryBusyService.js"
 import { bumpOwnSession } from "../services/sessionService.js";
 import { offerOpenParcelsToRider } from "../services/parcelWorkflowService.js";
 import { getActiveZoneById, isZoneGatingActive } from "../services/deliveryZoneService.js";
+import { retractAllOffersForRider } from "../services/orderSocketEmitter.js";
 
 // Same OTP_RATE_LIMIT / OTP_RATE_WINDOW knob the customer OTP flow uses —
 // how many OTP sends a single phone number may request per window, so a
@@ -599,6 +600,40 @@ export const getDeliveryProfile = async (req, res) => {
         const busy = await syncDeliveryPartnerBusyFlag(req.user.id);
         delivery.isBusy = busy;
         return handleResponse(res, 200, "Profile fetched successfully", delivery);
+    } catch (error) {
+        return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   LOGOUT
+
+   Logging out used to be client-only: clear the token, remove the FCM
+   token. Nothing told the backend to stop treating this rider as
+   available — `isOnline` stayed true, so the broadcast eligibility filter
+   (deliveryNearbyService.buildParcelDeliveryFilter) kept counting them as a
+   candidate and the offer flow kept dispatching new parcels their way.
+   A device that had already drawn the "new order" overlay before the app
+   logged out never got told to take it down either. This flips the rider
+   offline the moment they sign out and withdraws anything mid-flight.
+================================ */
+export const logoutDelivery = async (req, res) => {
+    try {
+        const delivery = await Delivery.findById(req.user.id);
+        if (!delivery) {
+            return handleResponse(res, 404, "Delivery partner not found");
+        }
+
+        const wasOnline = delivery.isOnline === true;
+        delivery.isOnline = false;
+        await delivery.save();
+
+        if (wasOnline) {
+            clearRiderPresence(String(delivery._id)).catch(() => {});
+        }
+        retractAllOffersForRider(delivery._id).catch(() => {});
+
+        return handleResponse(res, 200, "Logged out successfully");
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }

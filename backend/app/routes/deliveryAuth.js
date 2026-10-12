@@ -7,6 +7,7 @@ import {
   getDeliveryProfile,
   updateDeliveryProfile,
   updateDeliveryPayoutDetails,
+  logoutDelivery,
 } from "../controller/deliveryAuthController.js";
 import {
   riderGetCashSummary,
@@ -56,6 +57,8 @@ router.get("/check-phone/:phone", checkDeliveryPhone);
 // they're locked out) rather than getting a bare, unexplained 403 on launch.
 router.get("/profile", verifyToken, getDeliveryProfile);
 router.put("/profile", verifyToken, requireActiveDelivery, updateDeliveryProfile);
+// No requireActiveDelivery: a deactivated rider must still be able to sign out.
+router.post("/logout", verifyToken, logoutDelivery);
 router.get("/stats", verifyToken, requireActiveDelivery, getDeliveryStats);
 router.get("/ratings", verifyToken, allowRoles("delivery"), requireActiveDelivery, getMyRiderRatings);
 // Changing vehicle details goes through admin approval — see riderVehicleChangeService.
