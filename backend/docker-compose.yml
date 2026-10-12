@@ -30,6 +30,13 @@ services:
       - "7000:7000"
     env_file:
       - .env
+    volumes:
+      # STORAGE_PROVIDER=local (mediaService.js saveUploadLocally) writes under
+      # process.cwd()/uploads, i.e. /app/uploads in this image. Without this
+      # bind mount, uploads only ever exist inside the container's writable
+      # layer — invisible to the /var/www/uploads Nginx serves, and wiped on
+      # every `docker compose up` recreate.
+      - /var/www/uploads:/app/uploads
     environment:
       PROCESS_ROLE: api
       NODE_ENV: production
