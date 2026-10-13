@@ -144,7 +144,7 @@ const SidebarItem = ({ item, isOpen, onToggle }) => {
                         />
                         {item.children.map((child) => {
                             const showChildBadge =
-                                badgeCount > 0 && String(child?.path || "") === "/admin/support-tickets";
+                                badgeCount > 0 && String(child?.path || "") === "/admin/porter/support";
                             return (
                                 <NavLink
                                     key={child.path}

@@ -10,6 +10,7 @@ import {
     Truck,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 import Card from "@shared/components/ui/Card";
 import Button from "@shared/components/ui/Button";
 import PageHeader from "@shared/components/ui/PageHeader";
@@ -103,6 +104,15 @@ const PorterTickets = () => {
     useEffect(() => {
         fetchTickets();
     }, [fetchTickets]);
+
+    // Deep link from a notification: /admin/porter/support?ticketId=...
+    const [searchParams] = useSearchParams();
+    const linkedTicketId = searchParams.get("ticketId");
+    useEffect(() => {
+        if (!linkedTicketId || tickets.length === 0) return;
+        const match = tickets.find((t) => String(t._id) === linkedTicketId);
+        if (match) setSelected((cur) => (cur?._id === match._id ? cur : match));
+    }, [linkedTicketId, tickets]);
 
     // Filtered client-side: the list is one page of tickets, so a round trip
     // per tab would cost more than it saves.

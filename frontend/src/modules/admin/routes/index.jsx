@@ -1,5 +1,11 @@
 import React, { useEffect } from "react";
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
+
+// Older support notifications stored /admin/support-tickets links.
+const LegacySupportRedirect = () => {
+  const { search } = useLocation();
+  return <Navigate to={`/admin/porter/support${search}`} replace />;
+};
 import DashboardLayout from "@shared/layout/DashboardLayout";
 import "../styles/admin-compact.css";
 import NotFoundPage from "@shared/components/NotFoundPage";
@@ -230,6 +236,7 @@ const AdminRoutes = () => {
         <Route path="/porter/gst" element={<PorterGst />} />
         <Route path="/porter/rider-payouts" element={<PorterRiderPayouts />} />
         <Route path="/porter/support" element={<PorterTickets />} />
+        <Route path="/support-tickets" element={<LegacySupportRedirect />} />
         <Route path="/porter/customers" element={<PorterCustomers />} />
         <Route path="/porter/customers/:id" element={<PorterCustomerDetail />} />
         <Route path="/delivery-boys/live-map" element={<FleetZoneMap />} />

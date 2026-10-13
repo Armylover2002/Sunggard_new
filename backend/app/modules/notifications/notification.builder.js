@@ -54,8 +54,8 @@ function buildAdminSupportLink(ticketId) {
   const baseUrl = getFrontendBaseUrl();
   const id = String(ticketId || "").trim();
   return id
-    ? `${baseUrl}/admin/support-tickets?ticketId=${encodeURIComponent(id)}`
-    : `${baseUrl}/admin/support-tickets`;
+    ? `${baseUrl}/admin/porter/support?ticketId=${encodeURIComponent(id)}`
+    : `${baseUrl}/admin/porter/support`;
 }
 
 function buildAdminParcelLink(parcelId) {
