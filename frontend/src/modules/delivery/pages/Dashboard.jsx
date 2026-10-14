@@ -9,6 +9,10 @@ import {
   XCircle,
   IndianRupee,
   AlertCircle,
+  Hourglass,
+  Play,
+  ListChecks,
+  ChevronRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,6 +25,12 @@ import { useAuth } from "@core/context/AuthContext";
 import { deliveryApi } from "../services/deliveryApi";
 import CashLimitBanner from "../components/CashLimitBanner";
 import { parcelApi } from "../../customer/services/parcelApi";
+import { onParcelAssigned } from "@/core/services/orderSocket";
+import { createSocketTokenReader } from "@core/utils/authStorage";
+import { STORAGE_KEYS } from "@core/utils/storage";
+
+const getDeliveryToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
+const displayIdOf = (id) => `PCL-${String(id || "").slice(-6).toUpperCase()}`;
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -28,6 +38,9 @@ const Dashboard = () => {
   const [isOnline, setIsOnline] = useState(user?.isOnline || false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [assignedParcel, setAssignedParcel] = useState(null);
+  // Jobs accepted while already on a delivery, oldest first; started by tap.
+  const [waitingParcels, setWaitingParcels] = useState([]);
+  const [startingId, setStartingId] = useState(null);
   const [earnings, setEarnings] = useState({
     today: 0,
     deliveries: 0,
@@ -94,12 +107,22 @@ const Dashboard = () => {
       });
       if (!res.data?.success) return;
       const list = res.data.results || res.data.result || [];
-      const active = list.find(
+      const open = list.filter(
         (p) => p.status && !["DELIVERED", "CANCELLED"].includes(p.status),
       );
-      setAssignedParcel(active || null);
+      setAssignedParcel(open.find((p) => !p.isQueued) || null);
+      setWaitingParcels(
+        open
+          .filter((p) => p.isQueued)
+          .sort(
+            (a, b) =>
+              new Date(a.queuedAt || a.acceptedAt || 0) -
+              new Date(b.queuedAt || b.acceptedAt || 0),
+          ),
+      );
     } catch {
       setAssignedParcel(null);
+      setWaitingParcels([]);
     } finally {
       assignedParcelRequestRef.current.inFlight = false;
       assignedParcelRequestRef.current.lastFetchedAt = Date.now();
@@ -117,6 +140,38 @@ const Dashboard = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: avoid user-object churn
   }, [isOnline, fetchAssignedParcel]);
+
+  // Waiting list changes when the rider accepts a job (popup or open list)
+  // or finishes one, so keep it fresh while the dashboard is open.
+  useEffect(() => {
+    if (!isOnline) return undefined;
+    const timer = setInterval(() => fetchAssignedParcel(true), 30000);
+    const off = onParcelAssigned(getDeliveryToken, () => fetchAssignedParcel(true));
+    return () => {
+      clearInterval(timer);
+      off();
+    };
+  }, [isOnline, fetchAssignedParcel]);
+
+  const handleStartWaiting = async (parcel) => {
+    if (startingId) return;
+    if (assignedParcel) {
+      toast.error("Finish your current delivery before starting the next one.");
+      return;
+    }
+    const parcelId = String(parcel._id);
+    setStartingId(parcelId);
+    try {
+      await parcelApi.riderStartParcel(parcelId);
+      toast.success("Courier started. Customer can now track you.");
+      navigate(`/delivery/parcel-task/${parcelId}`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not start this courier");
+      fetchAssignedParcel(true);
+    } finally {
+      setStartingId(null);
+    }
+  };
 
   const handleOnlineToggle = async () => {
     const newStatus = !isOnline;
@@ -348,6 +403,78 @@ const Dashboard = () => {
               </Button>
             </div>
           </Card>
+        )}
+
+        {waitingParcels.length > 0 && (
+          <Card className="bg-white border border-amber-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <Hourglass size={16} className="text-amber-600" />
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-700">
+                Waiting ({waitingParcels.length})
+              </p>
+            </div>
+            {assignedParcel && (
+              <p className="text-xs text-slate-500 mb-3">
+                Finish your current delivery, then start the next one.
+              </p>
+            )}
+            <div className="space-y-3">
+              {waitingParcels.map((parcel) => {
+                const id = String(parcel._id);
+                return (
+                  <div
+                    key={id}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50/60 p-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black tracking-wider text-gray-500">
+                        {displayIdOf(id)}
+                      </p>
+                      <p className="text-sm font-bold text-slate-900 truncate">
+                        {parcel.pickupAddress?.fullAddress || "Pickup location"}
+                      </p>
+                      {String(parcel.paymentMethod).toUpperCase() === "COD" && (
+                        <p className="text-xs font-black text-amber-700 mt-0.5">
+                          Collect COD ₹
+                          {Number(
+                            parcel.codSettlement?.collectAmount || parcel.fare || 0,
+                          ).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={Boolean(assignedParcel) || Boolean(startingId)}
+                      onClick={() => handleStartWaiting(parcel)}
+                      className="h-9 px-3 text-[11px] font-black uppercase tracking-wider shrink-0">
+                      <Play size={12} className="mr-1" />
+                      {startingId === id ? "Starting" : "Start"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {isOnline && (
+          <button
+            type="button"
+            onClick={() => navigate("/delivery/open-bookings")}
+            className="w-full flex items-center justify-between rounded-2xl bg-white border border-gray-100 shadow-sm px-4 py-3 text-left">
+            <span className="flex items-center gap-3">
+              <span className="h-10 w-10 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center">
+                <ListChecks size={18} className="text-brand-600" />
+              </span>
+              <span>
+                <span className="block text-sm font-bold text-slate-900">Open bookings</span>
+                <span className="block text-xs text-slate-500">
+                  See every booking in your area and pick one
+                </span>
+              </span>
+            </span>
+            <ChevronRight size={18} className="text-gray-400" />
+          </button>
         )}
 
         {/* Earnings Card */}

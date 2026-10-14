@@ -298,6 +298,14 @@ export function onParcelBroadcastWithdrawn(getToken, handler) {
   return () => s.off("parcel:broadcast:withdrawn", handler);
 }
 
+/** Open-bookings list changed (booking opened, taken or cancelled) — refetch it. */
+export function onOpenBookingsChanged(getToken, handler) {
+  const s = getOrderSocket(getToken);
+  if (!s || typeof handler !== "function") return () => {};
+  s.on("parcel:open:changed", handler);
+  return () => s.off("parcel:open:changed", handler);
+}
+
 export function onParcelStatusUpdate(getToken, handler) {
   const s = getOrderSocket(getToken);
   if (!s || typeof handler !== "function") return () => {};

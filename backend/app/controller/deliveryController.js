@@ -390,7 +390,7 @@ export const updateDeliveryLocation = async (req, res) => {
             }
 
             const parcel = await Parcel.findById(trimmedId)
-                .select("deliveryPartnerId")
+                .select("deliveryPartnerId isQueued")
                 .lean();
 
             if (!parcel) {
@@ -408,7 +408,9 @@ export const updateDeliveryLocation = async (req, res) => {
                 );
             }
 
-            activeOrderId = String(parcel._id);
+            // A job still in the rider's waiting list is not being worked yet:
+            // its customer gets no live tracking until the rider starts it.
+            activeOrderId = parcel.isQueued ? null : String(parcel._id);
         }
 
         const snapshot = {

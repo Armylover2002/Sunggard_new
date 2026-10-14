@@ -18,6 +18,9 @@ import {
   parcelAcceptAtomic,
   parcelRejectAtomic,
   fetchAvailableParcelsForRider,
+  fetchOpenBookingsForRider,
+  startQueuedParcel,
+  hideQueuedRiderLocation,
   fetchParcelsForSeller,
   cancelParcelSearch,
   computeRiderParcelEarnings,
@@ -1279,6 +1282,12 @@ export const trackParcel = async (req, res) => {
       delete plain.otp;
     }
 
+    // Queued behind the rider's current delivery: no live tracking for the
+    // customer until the rider taps Start.
+    if (plain.isQueued && viewerId !== riderId) {
+      Object.assign(plain, hideQueuedRiderLocation(plain));
+    }
+
     const deadline = getParcelPickupDeadline(plain);
     const lateEligible = canCustomerRequestLateRefund(plain);
     const lateSummary = getParcelLatePickupSummary(plain);
@@ -2227,6 +2236,15 @@ export const riderUpdateStatus = async (req, res) => {
       return handleResponse(res, 400, "Invalid status transition");
     }
 
+    // Waiting-list jobs are moved forward only after the rider starts them.
+    if (parcel.isQueued) {
+      return handleResponse(
+        res,
+        409,
+        "Start this courier from your waiting list first.",
+      );
+    }
+
     // After a rider has accepted, the parcel job cannot be cancelled.
     if (status === "CANCELLED") {
       return handleResponse(
@@ -2597,6 +2615,74 @@ export const riderAcceptParcel = async (req, res) => {
     );
   } catch (error) {
     return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+/** Every open booking in the rider's area they could take right now. */
+export const riderGetOpenBookings = async (req, res) => {
+  try {
+    const result = await fetchOpenBookingsForRider(req.user.id);
+    return handleResponse(
+      res,
+      200,
+      result.bookings.length ? "Open bookings fetched" : "No open bookings nearby",
+      result,
+    );
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+/** Claim a booking from the open list; first rider to claim it wins. */
+export const riderAcceptOpenBooking = async (req, res) => {
+  try {
+    const { parcelId } = req.params;
+    const idempotencyKey = req.headers?.["idempotency-key"] || req.body?.idempotencyKey;
+
+    const { parcel, duplicate } = await parcelAcceptAtomic(
+      req.user.id,
+      parcelId,
+      idempotencyKey,
+      { mode: "open" },
+    );
+
+    if (!duplicate) {
+      await syncDeliveryPartnerBusyFlag(req.user.id);
+    }
+
+    const settings = await ParcelConfig.getSearchSettings();
+    const queued = Boolean(parcel?.isQueued);
+    return handleResponse(
+      res,
+      200,
+      queued
+        ? "Booking accepted — added to your waiting list"
+        : "Booking accepted",
+      withRiderEarningBreakdown(parcel, settings),
+    );
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message, {
+      ...(error.code ? { code: error.code } : {}),
+    });
+  }
+};
+
+/** Start a job from the rider's waiting list; tracking begins for the customer. */
+export const riderStartQueuedParcel = async (req, res) => {
+  try {
+    const { parcelId } = req.params;
+    const { parcel, alreadyStarted } = await startQueuedParcel(req.user.id, parcelId);
+    const settings = await ParcelConfig.getSearchSettings();
+    return handleResponse(
+      res,
+      200,
+      alreadyStarted ? "Courier already started" : "Courier started",
+      withRiderEarningBreakdown(parcel, settings),
+    );
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message, {
+      ...(error.code ? { code: error.code } : {}),
+    });
   }
 };
 

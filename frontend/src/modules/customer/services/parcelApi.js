@@ -90,6 +90,16 @@ export const parcelApi = {
     ),
   riderRejectParcel: (parcelId, { timeout = false } = {}) =>
     axiosInstance.post(`/parcel/rider/reject/${parcelId}${timeout ? "?reason=timeout" : ""}`),
+  // Every open booking in the rider's area (not just their own offer turn).
+  riderGetOpenBookings: () => axiosInstance.get("/parcel/rider/open-bookings"),
+  riderAcceptOpenBooking: (parcelId, idempotencyKey) =>
+    axiosInstance.post(
+      `/parcel/rider/open-bookings/${parcelId}/accept`,
+      {},
+      idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : undefined,
+    ),
+  // Start a job from the rider's waiting list.
+  riderStartParcel: (parcelId) => axiosInstance.post(`/parcel/rider/start/${parcelId}`),
   riderUpdateStatus: (data) => axiosInstance.put("/parcel/rider/status", data),
   riderGetEarnings: () => axiosInstance.get("/parcel/rider/earnings"),
 };

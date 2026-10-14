@@ -401,10 +401,27 @@ export async function retractParcelOfferForRider(parcelId, deliveryId) {
 }
 
 /**
+ * Tell every online rider that the open-bookings list changed (a booking
+ * opened, was taken, or was cancelled). The payload is only a hint: clients
+ * re-fetch the list, which applies the rider's own radius/zone/eligibility.
+ */
+export function emitOpenBookingsChanged(parcelId, action = "changed") {
+  const s = getIo();
+  if (!s) return;
+  s.to("delivery:online").emit("parcel:open:changed", {
+    parcelId: parcelId ? String(parcelId) : null,
+    action,
+    at: new Date().toISOString(),
+  });
+}
+
+/**
  * Retract a parcel offer from losing riders after first-wins accept.
  */
 export async function retractParcelBroadcast(parcelId, winnerDeliveryId) {
   const s = getIo();
+  // Accepted, cancelled or fallen back: open-bookings lists need a refresh.
+  emitOpenBookingsChanged(parcelId, "changed");
   const winnerId = normalizeDeliveryId(winnerDeliveryId);
   const winnerObjectId =
     winnerId && mongoose.Types.ObjectId.isValid(winnerId)

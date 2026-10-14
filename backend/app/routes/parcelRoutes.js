@@ -40,6 +40,9 @@ import {
   getParcelRoute,
   riderAcceptParcel,
   riderRejectParcel,
+  riderGetOpenBookings,
+  riderAcceptOpenBooking,
+  riderStartQueuedParcel,
   riderUpdateStatus,
   riderGetEarnings,
   sellerGetParcels,
@@ -231,6 +234,11 @@ router.get("/rider/route/:parcelId", verifyToken, allowRoles("delivery"), getPar
 router.get("/rider/available", verifyToken, allowRoles("delivery"), riderGetAvailableParcels);
 router.post("/rider/accept/:parcelId", verifyToken, allowRoles("delivery"), riderAcceptParcel);
 router.post("/rider/reject/:parcelId", verifyToken, allowRoles("delivery"), riderRejectParcel);
+// Open bookings: every booking in the rider's area, claimable by any rider.
+router.get("/rider/open-bookings", verifyToken, allowRoles("delivery"), riderGetOpenBookings);
+router.post("/rider/open-bookings/:parcelId/accept", verifyToken, allowRoles("delivery"), riderAcceptOpenBooking);
+// Start a job waiting in the rider's queue (accepted while on another job).
+router.post("/rider/start/:parcelId", verifyToken, allowRoles("delivery"), riderStartQueuedParcel);
 router.put("/rider/status", verifyToken, allowRoles("delivery"), riderUpdateStatus);
 router.get("/rider/earnings", verifyToken, allowRoles("delivery"), riderGetEarnings);
 

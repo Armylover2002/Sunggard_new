@@ -58,7 +58,15 @@ function formatDistanceAway(meters) {
   return `${(meters / 1000).toFixed(1)} km away`;
 }
 
-function getStatusUi(status) {
+function getStatusUi(status, isQueued = false) {
+  // Accepted by a rider who is finishing another delivery first.
+  if (isQueued && (status === "ACCEPTED" || status === "RIDER_ASSIGNED")) {
+    return {
+      title: "Captain accepted — currently busy",
+      subtitle:
+        "Your captain is finishing another delivery and will start yours next. Live tracking begins once they set off.",
+    };
+  }
   switch (status) {
     case "ACCEPTED":
     case "RIDER_ASSIGNED":
@@ -263,8 +271,11 @@ const ParcelSearchTrackingPage = () => {
     [rider?.location?.coordinates?.[0], rider?.location?.coordinates?.[1]],
   );
 
+  // Rider queued this job behind another delivery: nothing to track yet.
+  const isQueued = Boolean(parcel?.isQueued);
   const trackingActive = Boolean(
     parcel &&
+      !isQueued &&
       !POST_PICKUP_STATUSES.has(parcel.status) &&
       !TERMINAL_STATUSES.has(parcel.status),
   );
@@ -361,7 +372,7 @@ const ParcelSearchTrackingPage = () => {
 
   const isSearching =
     SEARCH_STATUSES.has(parcel?.status) && !parcel?.deliveryPartnerId;
-  const statusUi = getStatusUi(parcel?.status);
+  const statusUi = getStatusUi(parcel?.status, isQueued);
   const riderName = typeof rider === "object" ? rider?.name : null;
   const riderPhone = typeof rider === "object" ? rider?.phone : null;
 
@@ -511,14 +522,18 @@ const ParcelSearchTrackingPage = () => {
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
             {trackingActive && riderPoint
               ? "Live tracking"
-              : POST_PICKUP_STATUSES.has(parcel.status)
+              : isQueued
+                ? "Captain busy"
+                : POST_PICKUP_STATUSES.has(parcel.status)
                 ? "Tracking ended"
                 : "Courier pickup"}
           </p>
           <p className="text-sm font-bold text-slate-800 truncate max-w-[200px]">
             {trackingActive && captainAwayText && riderPoint
               ? `Captain is ${captainAwayText}`
-              : POST_PICKUP_STATUSES.has(parcel.status)
+              : isQueued
+                ? "Will start after current delivery"
+                : POST_PICKUP_STATUSES.has(parcel.status)
                 ? "Courier handed to captain"
                 : parcel.pickupAddress?.fullAddress}
           </p>

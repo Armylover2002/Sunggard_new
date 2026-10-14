@@ -6,12 +6,14 @@ import { zoneIdsCoveringPickup } from "./deliveryZoneService.js";
 const HAVERSINE_FALLBACK_LIMIT = () =>
   parseInt(process.env.DELIVERY_BROADCAST_HAVERSINE_LIMIT || "2000", 10);
 
-function buildParcelDeliveryFilter() {
+function buildParcelDeliveryFilter({ includeBusy = false } = {}) {
   return {
     isOnline: true,
     isVerified: true,
     isParcelService: true,
-    isBusy: { $ne: true },
+    // A busy rider may still take jobs into their waiting list; the caller
+    // that asks for them checks queue room (see offerParcelToNextRider).
+    ...(includeBusy ? {} : { isBusy: { $ne: true } }),
   };
 }
 
@@ -61,7 +63,7 @@ function filterByHaversineWithDistance(
         continue;
       }
     }
-    out.push({ id: d._id.toString(), distanceM });
+    out.push({ id: d._id.toString(), distanceM, busy: Boolean(d.isBusy) });
   }
   return out;
 }
@@ -130,13 +132,13 @@ export async function getParcelRidersNearPickupSortedByDistance(
   lat,
   lng,
   radiusKm = 5,
-  { zone = null, excludeIds = [] } = {},
+  { zone = null, excludeIds = [], includeBusy = false } = {},
 ) {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
 
   const safeRadiusKm = Math.min(Math.max(Number(radiusKm) || 5, 1), 100);
   const maxDistanceM = safeRadiusKm * 1000;
-  const base = buildParcelDeliveryFilter();
+  const base = buildParcelDeliveryFilter({ includeBusy });
   const excludeSet = new Set((excludeIds || []).map(String));
 
   try {
@@ -146,7 +148,7 @@ export async function getParcelRidersNearPickupSortedByDistance(
       "location.coordinates.1": { $exists: true },
       ...(excludeSet.size ? { _id: { $nin: [...excludeSet] } } : {}),
     })
-      .select("_id location zoneIds")
+      .select("_id location zoneIds isBusy")
       .limit(HAVERSINE_FALLBACK_LIMIT())
       .lean();
 

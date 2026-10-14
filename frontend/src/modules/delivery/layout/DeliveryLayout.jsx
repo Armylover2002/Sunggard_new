@@ -3,7 +3,6 @@ import React, {
   useEffect,
   useRef,
   useCallback,
-  useMemo,
 } from "react";
 import { createPortal } from "react-dom";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -58,9 +57,7 @@ const DeliveryLayout = () => {
   const activeParcelRef = useRef(null);
   const activeParcelOfferRef = useRef(null);
   const riderOnJobRef = useRef(Boolean(user?.isBusy));
-  const userBusyRef = useRef(Boolean(user?.isBusy));
   const canReceiveParcelBroadcastRef = useRef(canReceiveParcelBroadcast);
-  const suppressIncomingModalRef = useRef(false);
   const availablePollLastAtRef = useRef(0);
   const notificationsRequestRef = useRef({ inFlight: false, controller: null });
   const locationRequestRef = useRef({ inFlight: false, controller: null });
@@ -70,7 +67,6 @@ const DeliveryLayout = () => {
 
   useEffect(() => {
     riderOnJobRef.current = Boolean(user?.isBusy);
-    userBusyRef.current = Boolean(user?.isBusy);
   }, [user?.isBusy]);
 
   useEffect(() => {
@@ -175,27 +171,20 @@ const DeliveryLayout = () => {
     }
   };
 
-  /** While working an active parcel task, do not stack the global incoming-offer modal. */
-  const suppressIncomingModal = useMemo(
-    () => /\/delivery\/parcel-task/.test(location.pathname),
-    [location.pathname],
-  );
-
-  useEffect(() => {
-    suppressIncomingModalRef.current = suppressIncomingModal;
-  }, [suppressIncomingModal]);
-
+  /**
+   * Only one offer dialog at a time. A rider already on a job still gets
+   * offers (also on the task screen): accepting one adds it to their waiting
+   * list. The server stops offering once that list is full, so there is no
+   * busy check here.
+   */
   const shouldBlockIncomingOffers = useCallback(() => {
     return (
-      riderOnJobRef.current ||
-      userBusyRef.current ||
       Boolean(activeParcelRef.current) ||
-      Boolean(activeParcelOfferRef.current) ||
-      suppressIncomingModalRef.current
+      Boolean(activeParcelOfferRef.current)
     );
   }, []);
 
-  /** Block incoming parcel offers if rider has any active job, open offer, or busy state. */
+  /** Block incoming parcel offers while another offer dialog is open. */
   const shouldBlockParcelOffers = useCallback(() => {
     return shouldBlockIncomingOffers();
   }, [shouldBlockIncomingOffers]);
@@ -658,6 +647,11 @@ const DeliveryLayout = () => {
       setActiveParcel(null);
       setActiveParcelOffer(null);
       stopOrderRingtone();
+      if (parcel?.isQueued) {
+        // Accepted while on another job: it waits on the dashboard.
+        toast.success("Courier added to your waiting list.");
+        return;
+      }
       toast.success("Courier assigned. Continue with pickup workflow.");
       navigate(`/delivery/parcel-task/${parcelId}`);
     });
@@ -852,14 +846,19 @@ const DeliveryLayout = () => {
         typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID()
           : `${Date.now()}`;
-      await parcelApi.riderAcceptParcel(parcelId, idem);
+      const res = await parcelApi.riderAcceptParcel(parcelId, idem);
       shownParcelIdsRef.current = new Set(shownParcelIdsRef.current).add(
         parcelId,
       );
       riderOnJobRef.current = true;
       await refreshUser();
       stopOrderRingtone();
-      navigate(`/delivery/parcel-task/${parcelId}`);
+      if (res?.data?.result?.isQueued) {
+        // Rider is on another job: this one waits until they tap Start.
+        toast.success("Accepted — added to your waiting list. Start it after your current delivery.");
+      } else {
+        navigate(`/delivery/parcel-task/${parcelId}`);
+      }
     } catch (error) {
       const msg =
         error.response?.data?.message ||

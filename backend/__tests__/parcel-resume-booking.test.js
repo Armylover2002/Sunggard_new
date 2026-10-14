@@ -58,6 +58,8 @@ jest.unstable_mockModule("../app/modules/notifications/notification.constants.js
   NOTIFICATION_EVENTS: {},
 }));
 jest.unstable_mockModule("../app/services/orderSocketEmitter.js", () => ({
+  emitOpenBookingsChanged: jest.fn(),
+  emitToOrder: jest.fn(),
   emitToAdmins: jest.fn(),
   emitToDelivery: jest.fn(),
   emitToCustomer: jest.fn(),
@@ -70,6 +72,9 @@ jest.unstable_mockModule("../app/services/parcelWorkflowService.js", () => ({
   parcelAcceptAtomic: jest.fn(),
   parcelRejectAtomic: jest.fn(),
   fetchAvailableParcelsForRider: jest.fn(),
+  fetchOpenBookingsForRider: jest.fn(),
+  startQueuedParcel: jest.fn(),
+  hideQueuedRiderLocation: jest.fn((p) => p),
   fetchParcelsForSeller: jest.fn(),
   cancelParcelSearch: jest.fn(),
   computeRiderParcelEarnings: jest.fn(),
@@ -124,6 +129,16 @@ jest.unstable_mockModule("../app/services/parcelLateRefundService.js", () => ({
   NORMAL_PICKUP_SLA_MINUTES: 60,
 }));
 jest.unstable_mockModule("../app/services/deliveryBusyService.js", () => ({
+  getRiderJobLoad: jest.fn(async (id) =>
+    (await jest.fn(async () => false)(id)) ? { activeCount: 1, queuedCount: 0 } : { activeCount: 0, queuedCount: 0 },
+  ),
+  getRiderJobLoads: jest.fn(async () => new Map()),
+  // Waiting list off: these tests cover the one-job-at-a-time flow.
+  getMaxQueuedJobs: () => 0,
+  riderCapacity: (load = {}) =>
+    load.activeCount || load.queuedCount
+      ? { canTake: false, willQueue: true, reason: "Finish your current job before taking another." }
+      : { canTake: true, willQueue: false },
   syncDeliveryPartnerBusyFlag: jest.fn(),
   deliveryPartnerHasActiveJob: jest.fn().mockResolvedValue(false),
   getDeliveryPartnerActiveJobInfo: jest.fn().mockResolvedValue({ hasActiveJob: false }),

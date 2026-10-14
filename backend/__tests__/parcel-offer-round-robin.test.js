@@ -42,6 +42,8 @@ jest.unstable_mockModule("../app/services/deliveryZoneService.js", () => ({
 }));
 
 jest.unstable_mockModule("../app/services/orderSocketEmitter.js", () => ({
+  emitOpenBookingsChanged: jest.fn(),
+  emitToOrder: jest.fn(),
   emitParcelBroadcast: mockEmitParcelBroadcast,
   retractParcelBroadcast: mockRetractBroadcast,
   retractParcelOfferForRider: jest.fn().mockResolvedValue({}),
@@ -61,6 +63,16 @@ jest.unstable_mockModule("../app/modules/notifications/notification.emitter.js",
 }));
 
 jest.unstable_mockModule("../app/services/deliveryBusyService.js", () => ({
+  getRiderJobLoad: jest.fn(async (id) =>
+    (await jest.fn(async () => false)(id)) ? { activeCount: 1, queuedCount: 0 } : { activeCount: 0, queuedCount: 0 },
+  ),
+  getRiderJobLoads: jest.fn(async () => new Map()),
+  // Waiting list off: these tests cover the one-job-at-a-time flow.
+  getMaxQueuedJobs: () => 0,
+  riderCapacity: (load = {}) =>
+    load.activeCount || load.queuedCount
+      ? { canTake: false, willQueue: true, reason: "Finish your current job before taking another." }
+      : { canTake: true, willQueue: false },
   deliveryPartnerHasActiveJob: jest.fn(async () => false),
   markDeliveryPartnerBusy: jest.fn(),
   syncDeliveryPartnerBusyFlag: jest.fn(),

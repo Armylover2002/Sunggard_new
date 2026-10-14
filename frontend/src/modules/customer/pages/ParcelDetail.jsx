@@ -142,7 +142,11 @@ const ParcelDetail = () => {
   }
 
   const reference = `SG-${String(parcel._id).slice(-8).toUpperCase()}`;
-  const meta = STATUS_META[parcel.status] || STATUS_META.REQUESTED;
+  // Accepted while the rider finishes another delivery first.
+  const meta =
+    parcel.isQueued && parcel.status === "ACCEPTED"
+      ? { tone: "transit", label: "Accepted · Rider Busy" }
+      : STATUS_META[parcel.status] || STATUS_META.REQUESTED;
   const reached = REACHED[parcel.status] ?? 0;
   const cancelled = parcel.status === "CANCELLED";
   const isCod = String(parcel.paymentMethod).toUpperCase() === "COD";

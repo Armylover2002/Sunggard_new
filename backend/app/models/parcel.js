@@ -434,6 +434,26 @@ const parcelSchema = new mongoose.Schema(
       default: null,
     },
     /**
+     * Accepted by a rider who was already working another job, so it waits in
+     * their "waiting" list until they tap Start. While queued the customer
+     * sees "accepted, rider busy" and no live tracking; status stays ACCEPTED.
+     * See parcelWorkflowService.parcelAcceptAtomic / startQueuedParcel.
+     */
+    isQueued: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    queuedAt: {
+      type: Date,
+      default: null,
+    },
+    /** When the rider tapped Start on a queued job. */
+    riderStartedAt: {
+      type: Date,
+      default: null,
+    },
+    /**
      * Snapshot of the rider's own GPS fix the moment they accepted the job.
      *
      * Used only to compute payout distance — how far the rider actually has

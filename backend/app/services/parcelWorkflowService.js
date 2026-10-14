@@ -13,13 +13,17 @@ import {
   emitToCustomer,
   emitToAdmins,
   emitToSeller,
+  emitOpenBookingsChanged,
 } from "./orderSocketEmitter.js";
 import { findNearestParcelSellerNearPickup, getApprovedParcelSeller } from "./sellerNearbyService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 import { getRedisClient } from "../config/redis.js";
 import {
-  deliveryPartnerHasActiveJob,
+  getMaxQueuedJobs,
+  getRiderJobLoad,
+  getRiderJobLoads,
+  riderCapacity,
   markDeliveryPartnerBusy,
 } from "./deliveryBusyService.js";
 import { recordParcelEvent, PARCEL_EVENT_ACTOR } from "./parcelEventService.js";
@@ -311,10 +315,24 @@ export async function offerParcelToNextRider(parcelId) {
   // with a small pool everyone gets cycled back to in turn instead of the
   // search running out of candidates and falling back to manual assignment
   // the moment each rider has been tried once.
-  const sorted = await getParcelRidersNearPickupSortedByDistance(lat, lng, radiusKm, {
+  const queueEnabled = getMaxQueuedJobs() > 0;
+  let sorted = await getParcelRidersNearPickupSortedByDistance(lat, lng, radiusKm, {
     zone,
     excludeIds: parcel.skippedBy || [],
+    includeBusy: queueEnabled,
   });
+
+  // Riders already on a job can take this one into their waiting list, but
+  // only while it has room — and a free rider nearby is always offered
+  // first, so the waiting list never slows a booking down when someone is
+  // free to take it right now.
+  if (queueEnabled) {
+    const busyIds = sorted.filter((r) => r.busy).map((r) => r.id);
+    const loads = busyIds.length ? await getRiderJobLoads(busyIds) : new Map();
+    sorted = sorted
+      .filter((r) => riderCapacity(loads.get(r.id)).canTake)
+      .sort((a, b) => Number(a.busy) - Number(b.busy) || a.distanceM - b.distanceM);
+  }
 
   // Cash-gate up front, not just inside emitParcelBroadcast: skipping a
   // rider who can't take the job right now at pick time means the next
@@ -619,6 +637,8 @@ export async function startParcelBroadcast(parcelDoc) {
     },
   });
 
+  emitOpenBookingsChanged(parcelId, "added");
+
   // Offers the nearest rider in radius; falls back to manual assignment
   // itself if there's nobody to offer it to at all.
   await offerParcelToNextRider(parcelId);
@@ -774,7 +794,7 @@ export async function fetchAvailableParcelsForRider(deliveryId) {
     return [];
   }
 
-  if (await deliveryPartnerHasActiveJob(deliveryOid)) {
+  if (!riderCapacity(await getRiderJobLoad(deliveryOid)).canTake) {
     return [];
   }
 
@@ -850,7 +870,41 @@ export async function fetchAvailableParcelsForRider(deliveryId) {
   return filtered;
 }
 
-export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
+/**
+ * Who may claim the parcel, by how the rider reached it:
+ *  - "offer": the sequential push (the rider holding the live offer, or one
+ *    whose offer timed out and kept it pending) — the original flow.
+ *  - "open": the open-bookings list, where any eligible rider in range may
+ *    claim any booking still looking for a rider, first come first served.
+ */
+function claimableFilter(mode, deliveryOid, now) {
+  if (mode === "open") {
+    return {
+      $or: [
+        { status: "SEARCHING" },
+        // Fell back to manual assignment because nobody took it in time.
+        {
+          status: "REQUESTED",
+          searchFallbackAt: { $ne: null },
+          awaitingScheduledDispatch: { $ne: true },
+        },
+      ],
+    };
+  }
+  return {
+    status: "SEARCHING",
+    // Sequential dispatch offers one rider at a time (nearest first, see
+    // offerParcelToNextRider). The rider holding the live offer may claim it,
+    // and so may a rider whose earlier offer timed out — that request sits
+    // in their pending list until someone accepts it. Anyone else is refused.
+    $or: [
+      { "searchMeta.offeredTo": deliveryOid, searchExpiresAt: { $gt: now } },
+      { offerTimeoutBy: deliveryOid },
+    ],
+  };
+}
+
+export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey, { mode = "offer" } = {}) {
   const deliveryOid = toDeliveryObjectId(deliveryId);
   if (!deliveryOid) {
     const err = new Error("Invalid delivery account");
@@ -874,11 +928,16 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
     throw err;
   }
 
-  if (await deliveryPartnerHasActiveJob(deliveryOid)) {
-    const err = new Error("Finish your current job before taking another.");
+  // A rider already holding a job takes this one into their waiting list,
+  // as long as that list has room.
+  const capacity = riderCapacity(await getRiderJobLoad(deliveryOid));
+  if (!capacity.canTake) {
+    const err = new Error(capacity.reason);
     err.statusCode = 409;
+    err.code = "RIDER_QUEUE_FULL";
     throw err;
   }
+  const willQueue = capacity.willQueue;
 
   /**
    * Checked on the claim as well as on the feed. The feed is a view; this is
@@ -935,29 +994,25 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
       ? { lat: Number(acceptCoords[1]), lng: Number(acceptCoords[0]) }
       : null;
 
+  const before = await Parcel.findById(parcelId).select("status").lean();
+
   const updated = await Parcel.findOneAndUpdate(
     {
       _id: parcelId,
-      status: "SEARCHING",
       deliveryPartnerId: null,
       skippedBy: { $nin: [deliveryOid] },
-      // Sequential dispatch offers one rider at a time (nearest first, see
-      // offerParcelToNextRider). The rider holding the live offer may claim it,
-      // and so may a rider whose earlier offer timed out — that request sits
-      // in their pending list until someone accepts it. Anyone else is refused.
-      $or: [
-        { "searchMeta.offeredTo": deliveryOid, searchExpiresAt: { $gt: now } },
-        { offerTimeoutBy: deliveryOid },
-      ],
+      ...claimableFilter(mode, deliveryOid, now),
     },
     {
       $set: {
         deliveryPartnerId: deliveryOid,
         status: "ACCEPTED",
         acceptedAt: now,
+        isQueued: willQueue,
+        queuedAt: willQueue ? now : null,
         ...(riderAcceptLocation ? { riderAcceptLocation } : {}),
       },
-      $unset: { searchExpiresAt: 1, searchMeta: 1 },
+      $unset: { searchExpiresAt: 1, searchMeta: 1, searchFallbackAt: 1 },
     },
     { new: true },
   )
@@ -974,7 +1029,11 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
       throw err;
     }
     let msg = "Courier already assigned or not available";
-    if (existing.searchExpiresAt && new Date(existing.searchExpiresAt) <= now) {
+    if (mode === "open" && existing.deliveryPartnerId) {
+      msg = "Another rider already accepted this booking.";
+    } else if (mode === "open") {
+      msg = "This booking is no longer open.";
+    } else if (existing.searchExpiresAt && new Date(existing.searchExpiresAt) <= now) {
       msg = "Accept window has expired. Wait for the next courier request.";
     } else if (existing.deliveryPartnerId) {
       msg = "Another rider already accepted this courier.";
@@ -1004,13 +1063,20 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
   clearParcelSearchTimeout(parcelId);
   await retractParcelBroadcast(String(parcelId), deliveryOid);
 
+  // Off every other rider's open-bookings list straight away.
+  emitOpenBookingsChanged(String(parcelId), "removed");
+
   await recordParcelEvent({
     parcelId: updated._id,
     status: "ACCEPTED",
-    previousStatus: "SEARCHING",
+    previousStatus: before?.status || "SEARCHING",
     actor: PARCEL_EVENT_ACTOR.DELIVERY,
     actorId: deliveryOid,
-    note: "Rider accepted the delivery",
+    note: willQueue
+      ? "Rider accepted — waiting until they finish their current delivery"
+      : mode === "open"
+        ? "Rider accepted from open bookings"
+        : "Rider accepted the delivery",
   });
 
   emitToAdmins("parcel:status:update", updated);
@@ -1025,7 +1091,8 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
     payload: {
       parcelId: String(parcelId),
       status: "ACCEPTED",
-      parcel: updated,
+      isQueued: willQueue,
+      parcel: hideQueuedRiderLocation(updated),
     },
   });
 
@@ -1040,7 +1107,7 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
     userId: updated.customerId?._id || updated.customerId,
     customerId: updated.customerId?._id || updated.customerId,
     parcelId: String(parcelId),
-    bodyKey: "status_accepted",
+    bodyKey: willQueue ? "status_accepted_queued" : "status_accepted",
   });
 
   if (idempotencyKey) {
@@ -1060,6 +1127,228 @@ export async function parcelAcceptAtomic(deliveryId, parcelId, idempotencyKey) {
   }
 
   return { parcel: updated, duplicate: false };
+}
+
+/**
+ * A queued job's rider is out working someone else's delivery, so their
+ * live position is not this customer's business yet — and showing it would
+ * read as "the rider is coming" when they are not. Returns a plain copy with
+ * the rider's location removed while the job is queued.
+ */
+export function hideQueuedRiderLocation(parcel) {
+  if (!parcel) return parcel;
+  const plain = typeof parcel.toObject === "function" ? parcel.toObject() : { ...parcel };
+  if (plain.isQueued && plain.deliveryPartnerId && typeof plain.deliveryPartnerId === "object") {
+    plain.deliveryPartnerId = { ...plain.deliveryPartnerId };
+    delete plain.deliveryPartnerId.location;
+  }
+  return plain;
+}
+
+/**
+ * Rider taps Start on a job from their waiting list. Only allowed once the
+ * job they were working is finished, so a rider is only ever live on one
+ * delivery and the customer's tracking only begins when the rider is
+ * actually heading their way.
+ */
+export async function startQueuedParcel(deliveryId, parcelId) {
+  const deliveryOid = toDeliveryObjectId(deliveryId);
+  if (!deliveryOid) {
+    const err = new Error("Invalid delivery account");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const parcel = await Parcel.findById(parcelId)
+    .select("deliveryPartnerId status isQueued")
+    .lean();
+  if (!parcel || String(parcel.deliveryPartnerId) !== String(deliveryOid)) {
+    const err = new Error("Courier not found");
+    err.statusCode = 404;
+    throw err;
+  }
+  if (!parcel.isQueued) {
+    const current = await Parcel.findById(parcelId).select("-otp").lean();
+    return { parcel: current, alreadyStarted: true };
+  }
+
+  const { activeCount } = await getRiderJobLoad(deliveryOid);
+  if (activeCount > 0) {
+    const err = new Error("Finish your current delivery before starting the next one.");
+    err.statusCode = 409;
+    err.code = "ACTIVE_JOB_IN_PROGRESS";
+    throw err;
+  }
+
+  // Payout distance is measured from where the rider actually sets off,
+  // not from wherever they happened to be when they queued it.
+  const coords = (await Delivery.findById(deliveryOid).select("location").lean())?.location
+    ?.coordinates;
+  const startLocation =
+    Array.isArray(coords) && coords.length >= 2
+      ? { lat: Number(coords[1]), lng: Number(coords[0]) }
+      : null;
+
+  const now = new Date();
+  const updated = await Parcel.findOneAndUpdate(
+    { _id: parcelId, deliveryPartnerId: deliveryOid, isQueued: true, status: "ACCEPTED" },
+    {
+      $set: {
+        isQueued: false,
+        riderStartedAt: now,
+        ...(startLocation ? { riderAcceptLocation: startLocation } : {}),
+      },
+    },
+    { new: true },
+  )
+    .populate("customerId", "name phone")
+    .populate("deliveryPartnerId", "name phone vehicleType vehicleNumber profileImage location")
+    .populate("sellerId", "name shopName phone address location")
+    .populate("courierCompanyId", "name phone");
+
+  if (!updated) {
+    const err = new Error("This courier can no longer be started.");
+    err.statusCode = 409;
+    throw err;
+  }
+
+  await markDeliveryPartnerBusy(deliveryOid);
+
+  await recordParcelEvent({
+    parcelId: updated._id,
+    status: "ACCEPTED",
+    previousStatus: "ACCEPTED",
+    actor: PARCEL_EVENT_ACTOR.DELIVERY,
+    actorId: deliveryOid,
+    note: "Rider started this delivery",
+  });
+
+  const plain = updated.toObject();
+  delete plain.otp;
+
+  emitToAdmins("parcel:status:update", plain);
+  emitToCustomer(updated.customerId?._id || updated.customerId, {
+    event: "parcel:status:update",
+    payload: {
+      parcelId: String(parcelId),
+      status: updated.status,
+      isQueued: false,
+      parcel: plain,
+    },
+  });
+  emitNotificationEvent(NOTIFICATION_EVENTS.PARCEL_STATUS_UPDATE, {
+    userId: updated.customerId?._id || updated.customerId,
+    customerId: updated.customerId?._id || updated.customerId,
+    parcelId: String(parcelId),
+    bodyKey: "status_rider_assigned",
+  });
+
+  return { parcel: plain, alreadyStarted: false };
+}
+
+/**
+ * Every booking still looking for a rider that this rider could take: in
+ * their radius and zone, not one they rejected. Unlike the sequential feed
+ * (fetchAvailableParcelsForRider) this is not limited to the rider's own
+ * turn — it is the full list, and any rider in it may claim a booking
+ * (parcelAcceptAtomic with mode "open"); the first claim wins and the
+ * booking drops off everyone else's list.
+ */
+export async function fetchOpenBookingsForRider(deliveryId) {
+  const empty = (blockedReason) => ({
+    bookings: [],
+    canAccept: false,
+    willQueue: false,
+    blockedReason,
+  });
+
+  const deliveryOid = toDeliveryObjectId(deliveryId);
+  if (!deliveryOid) return empty("Invalid delivery account");
+
+  const rider = await Delivery.findById(deliveryOid)
+    .select("location isParcelService isVerified isOnline zoneIds")
+    .lean();
+
+  if (!rider?.isVerified) return empty("Your account is pending admin approval.");
+  if (!rider.isParcelService) {
+    return empty("Courier delivery service is not enabled on your account.");
+  }
+  if (!rider.isOnline) return empty("Go online to see open bookings.");
+
+  const coords = rider.location?.coordinates;
+  const lng = Number(Array.isArray(coords) ? coords[0] : NaN);
+  const lat = Number(Array.isArray(coords) ? coords[1] : NaN);
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    (Math.abs(lat) < 1e-5 && Math.abs(lng) < 1e-5)
+  ) {
+    return empty("Turn on location so we can show bookings near you.");
+  }
+
+  const capacity = riderCapacity(await getRiderJobLoad(deliveryOid));
+  const cashGate = await assertRiderCanTakeJobs(deliveryOid);
+
+  const settings = await ParcelConfig.getSearchSettings();
+  const radiusKm = settings.deliveryRadiusKm;
+
+  const parcels = await Parcel.find({
+    deliveryPartnerId: null,
+    skippedBy: { $ne: deliveryOid },
+    ...claimableFilter("open", deliveryOid, new Date()),
+  })
+    .select("-otp")
+    .populate("courierCompanyId", "name")
+    .sort({ createdAt: 1 })
+    .limit(200)
+    .lean();
+
+  const assignedZoneIds = (rider.zoneIds || []).map(String);
+  const bookings = [];
+  for (const parcel of parcels) {
+    const pickupLat = Number(parcel.pickupAddress?.lat);
+    const pickupLng = Number(parcel.pickupAddress?.lng);
+    if (!Number.isFinite(pickupLat) || !Number.isFinite(pickupLng)) continue;
+
+    const distanceM = distanceMeters(pickupLat, pickupLng, lat, lng);
+    if (distanceM > radiusKm * 1000) continue;
+
+    // Same zone rule as the offer, the feed and the accept gate.
+    if (parcel.zoneId) {
+      const covering = assignedZoneIds.length
+        ? await zoneIdsCoveringPickup(parcel.zoneId, pickupLat, pickupLng)
+        : null;
+      const inZone = assignedZoneIds.length
+        ? assignedZoneIds.some((id) => covering.has(id))
+        : await isPointInZoneId(parcel.zoneId, lat, lng);
+      if (!inZone) continue;
+    }
+
+    bookings.push({
+      ...parcel,
+      distanceToPickupKm: Math.round((distanceM / 1000) * 100) / 100,
+      riderPerKmRate: settings.riderPerKmRate,
+      // What the rider would earn if they accepted from where they stand now.
+      estimatedEarning: computeRiderParcelEarnings(
+        { ...parcel, riderAcceptLocation: { lat, lng } },
+        settings,
+      ),
+      offeredToMe: String(parcel.searchMeta?.offeredTo || "") === String(deliveryOid),
+    });
+  }
+
+  bookings.sort((a, b) => a.distanceToPickupKm - b.distanceToPickupKm);
+
+  let blockedReason = null;
+  if (!capacity.canTake) blockedReason = capacity.reason;
+  else if (!cashGate.allowed) blockedReason = cashGate.message;
+
+  return {
+    bookings,
+    canAccept: !blockedReason,
+    willQueue: capacity.willQueue,
+    blockedReason,
+  };
 }
 
 export async function parcelRejectAtomic(deliveryId, parcelId, { timeout = false } = {}) {

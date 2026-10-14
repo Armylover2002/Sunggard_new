@@ -123,6 +123,9 @@ export async function cancelStalledAcceptedParcels(now = new Date()) {
   const candidates = await Parcel.find({
     status: { $in: STALLED_STATUSES },
     deliveryPartnerId: { $ne: null },
+    // A job in the rider's waiting list is idle by design until they start
+    // it; its clock begins at Start (which records a status event).
+    isQueued: { $ne: true },
     acceptedAt: { $lte: cutoff },
   })
     .select("_id status deliveryPartnerId customerId acceptedAt")

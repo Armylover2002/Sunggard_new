@@ -22,6 +22,7 @@ import Withdrawals from "../pages/profile/Withdrawals";
 import Wallet from "../pages/profile/Wallet";
 import Notifications from "../pages/Notifications";
 import ParcelTaskPage from "../pages/ParcelTaskPage";
+import OpenBookings from "../pages/OpenBookings";
 import NotFoundPage from "@shared/components/NotFoundPage";
 // Legal / informational pages for delivery partners
 import DeliveryPrivacyPage from "../pages/DeliveryPrivacyPage";
@@ -62,6 +63,7 @@ const DeliveryRoutes = () => {
         <Route path="profile/about" element={<DeliveryAboutPage />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="parcel-task/:parcelId" element={<ParcelTaskPage />} />
+        <Route path="open-bookings" element={<OpenBookings />} />
         <Route path="/" element={<Navigate to="dashboard" replace />} />
       </Route>
       <Route path="*" element={<NotFoundPage homePath="/delivery/dashboard" />} />
