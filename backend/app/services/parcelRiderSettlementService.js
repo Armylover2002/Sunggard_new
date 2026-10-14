@@ -13,28 +13,12 @@ export async function applyParcelDeliveredRiderEarning(parcel) {
   if (!riderId || !parcel?._id) return null;
 
   const settings = await ParcelConfig.getSearchSettings();
-  let amount = roundCurrency(computeRiderParcelEarnings(parcel, settings));
-  // computeRiderParcelEarnings needs riderAcceptLocation — a GPS snapshot only
-  // taken when a rider accepts via the normal flow (parcelAcceptAtomic). A
-  // parcel assigned straight by an admin (adminAssignRider) has no such
-  // snapshot and always earns 0 here, with nothing to distance-price against.
-  // NOTE: this used to call computeRiderParcelEarnings(taxable, percent) —
-  // that function takes (parcel, settings), so `taxable` (a number) was being
-  // read as a parcel and always returned 0. The fallback never actually ran.
-  if (!(amount > 0) && !parcel.riderAcceptLocation && Number(parcel.fare) > 0) {
-    // The share is taken on the PRE-TAX value: `fare` is tax-inclusive since
-    // GST was added to the rate card, and a rider is never paid a cut of the tax.
-    const taxable =
-      Number(parcel.fareBreakdown?.taxableAmount) ||
-      Math.max(
-        0,
-        roundCurrency(
-          Number(parcel.fare) - (Number(parcel.fareBreakdown?.gstAmount) || 0),
-        ),
-      );
-    const legacyPercent = Math.max(0, Number(settings.riderSharePercent) || 80);
-    amount = roundCurrency((taxable * legacyPercent) / 100);
-  }
+  // Rider pay is always distance × riderPerKmRate — the distance from where
+  // the rider stood when they accepted (riderAcceptLocation) to the pickup
+  // point. No flat-percent-of-fare fallback: a parcel with no accept-location
+  // snapshot (e.g. admin-assigned with no rider GPS fix) earns 0 here rather
+  // than a flat share of the fare.
+  const amount = roundCurrency(computeRiderParcelEarnings(parcel, settings));
   if (!(amount > 0)) return null;
 
   const parcelId = String(parcel._id);
