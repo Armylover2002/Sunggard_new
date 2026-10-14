@@ -4,7 +4,7 @@ import ParcelConfig from "../models/parcelConfig.js";
 import Delivery from "../models/delivery.js";
 import { distanceMeters } from "../utils/geoUtils.js";
 import { getParcelRidersNearPickupSortedByDistance } from "./deliveryNearbyService.js";
-import { getActiveZoneById, isPointInZoneId } from "./deliveryZoneService.js";
+import { getActiveZoneById, isPointInZoneId, zoneIdsCoveringPickup } from "./deliveryZoneService.js";
 import {
   emitParcelBroadcast,
   retractParcelBroadcast,
@@ -65,8 +65,11 @@ async function assertRiderWithinPickupRadius(deliveryOid, parcelId) {
    */
   if (parcel.zoneId) {
     const assignedZoneIds = (rider.zoneIds || []).map(String);
+    const covering = assignedZoneIds.length
+      ? await zoneIdsCoveringPickup(parcel.zoneId, pickupLat, pickupLng)
+      : null;
     const inZone = assignedZoneIds.length
-      ? assignedZoneIds.includes(String(parcel.zoneId))
+      ? assignedZoneIds.some((id) => covering.has(id))
       : await isPointInZoneId(parcel.zoneId, lat, lng);
 
     if (!inZone) {
@@ -327,6 +330,11 @@ export async function offerParcelToNextRider(parcelId) {
   const eligible = sorted.filter((r) => eligibleIds.has(r.id));
 
   if (!eligible.length) {
+    console.warn(
+      `[parcelWorkflow] no eligible rider for parcel ${parcelId}: ` +
+        `${sorted.length} in radius/zone, ${eligible.length} after cash gate ` +
+        `(zone=${parcel.zoneId || "none"}, skipped=${(parcel.skippedBy || []).length})`,
+    );
     await fallBackToManualAssignment(parcelId, parcel.customerId);
     return;
   }
@@ -713,7 +721,11 @@ export async function offerOpenParcelsToRider(deliveryId) {
   const riderOid = toDeliveryObjectId(deliveryId);
   if (!riderOid) return;
 
-  const since = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  // A fallen-back booking stays reopenable for a day (configurable) rather
+  // than 2 h, and more than 10 at a time, so it isn't stranded for good.
+  const windowHours = Number(process.env.PARCEL_REOPEN_WINDOW_HOURS) || 24;
+  const reopenLimit = Number(process.env.PARCEL_REOPEN_LIMIT) || 50;
+  const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
   const open = await Parcel.find({
     status: "REQUESTED",
     deliveryPartnerId: null,
@@ -721,7 +733,7 @@ export async function offerOpenParcelsToRider(deliveryId) {
     awaitingScheduledDispatch: { $ne: true },
   })
     .sort({ createdAt: 1 })
-    .limit(10)
+    .limit(reopenLimit)
     .select("_id")
     .lean();
 
@@ -821,8 +833,13 @@ export async function fetchAvailableParcelsForRider(deliveryId) {
     // otherwise the pull feed would hand a rider a job the push would never
     // have sent them, and the claim would then refuse.
     if (parcel.zoneId) {
+      // Overlapping zones: the parcel is filed under the smallest one, so a
+      // rider assigned to an enclosing zone must still match.
+      const covering = assignedZoneIds.length
+        ? await zoneIdsCoveringPickup(parcel.zoneId, pickupLat, pickupLng)
+        : null;
       const inZone = assignedZoneIds.length
-        ? assignedZoneIds.includes(String(parcel.zoneId))
+        ? assignedZoneIds.some((id) => covering.has(id))
         : await isPointInZoneId(parcel.zoneId, lat, lng);
       if (!inZone) continue;
     }

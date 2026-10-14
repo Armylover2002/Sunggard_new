@@ -25,7 +25,10 @@ export const getDeliveryPartners = async (req, res) => {
       // already been decided and shouldn't clutter that queue. $ne also
       // matches documents from before this field existed, so older pending
       // riders keep showing up unaffected.
-      query.applicationStatus = { $ne: "rejected" };
+      // "draft" = signed up but never passed phone OTP; not a real application.
+      query.applicationStatus = { $nin: ["rejected", "draft"] };
+    } else {
+      query.applicationStatus = { $ne: "draft" };
     }
 
     if (["pending", "approved", "rejected"].includes(applicationStatus)) {

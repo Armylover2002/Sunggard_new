@@ -359,7 +359,8 @@ export const signupDelivery = async (req, res) => {
 
         // A rejected applicant resubmitting is a reapply: the admin queue shows
         // it as such, and the rejection stays on record.
-        const wasRejected = delivery?.applicationStatus === "rejected";
+        // Nothing here is live until verifyDeliveryOTP succeeds: the submission
+        // is staged on the record and applied only after the phone is proven.
         const deliveryData = {
             name,
             phone,
@@ -377,12 +378,6 @@ export const signupDelivery = async (req, res) => {
             experience: pickBodyString(body, ["experience"]),
             experienceDetails: pickBodyString(body, ["experienceDetails", "experience_details"]),
             isParcelService: serviceFlags.isParcelService,
-            // A resubmission after rejection is a fresh application, not a
-            // continuation of the rejected one — send it back to the queue.
-            applicationStatus: "pending",
-            ...(wasRejected
-                ? { reappliedAt: new Date(), reapplyCount: (delivery?.reapplyCount || 0) + 1 }
-                : {}),
             documents: {
                 aadhar: aadharUrl,
                 aadharFront: aadharFrontUrl,
@@ -390,8 +385,6 @@ export const signupDelivery = async (req, res) => {
                 pan: panUrl,
                 drivingLicense: dlUrl,
             },
-            otp,
-            otpExpiry: Date.now() + otpExpiryMs(),
         };
 
         if (resolvedAadharNumber) {
@@ -409,9 +402,26 @@ export const signupDelivery = async (req, res) => {
         }
 
         if (!delivery) {
-            delivery = await Delivery.create(deliveryData);
+            // Minimal shell so the OTP has somewhere to live. "draft" keeps it
+            // out of the admin review queue until the phone is verified.
+            delivery = await Delivery.create({
+                name,
+                phone,
+                vehicleType,
+                applicationStatus: "draft",
+                pendingSubmission: deliveryData,
+                pendingSubmissionAt: new Date(),
+                otp,
+                otpExpiry: Date.now() + otpExpiryMs(),
+            });
         } else {
-            mergeSignupData(delivery, deliveryData);
+            // Live fields and applicationStatus are NOT touched.
+            delivery.pendingSubmission = deliveryData;
+            delivery.pendingSubmissionAt = new Date();
+            delivery.otp = otp;
+            delivery.otpExpiry = Date.now() + otpExpiryMs();
+            delivery.otpFailedAttempts = 0;
+            delivery.otpLockedUntil = undefined;
             await delivery.save();
         }
 
@@ -420,7 +430,7 @@ export const signupDelivery = async (req, res) => {
             return handleResponse(
                 res,
                 502,
-                "We couldn't send your code just now. Your details are saved — tap resend in a moment.",
+                "We couldn't send your code just now. Tap resend in a moment.",
                 { code: "OTP_SMS_FAILED", canResend: true },
             );
         }
@@ -454,6 +464,13 @@ export const loginDelivery = async (req, res) => {
 
         if (!delivery) {
             return handleResponse(res, 404, "Delivery partner not found");
+        }
+
+        // Never passed signup OTP — send them back to finish registration.
+        if (delivery.applicationStatus === "draft") {
+            return handleResponse(res, 403, "Please complete your registration.", {
+                code: "SIGNUP_INCOMPLETE",
+            });
         }
 
         // A rejected rider may log in to read the reason and reapply; everyone
@@ -507,7 +524,7 @@ export const verifyDeliveryOTP = async (req, res) => {
         }
 
         const delivery = await Delivery.findOne({ phone }).select(
-            "+otp +otpExpiry +otpFailedAttempts +otpLockedUntil",
+            "+otp +otpExpiry +otpFailedAttempts +otpLockedUntil +pendingSubmission",
         );
 
         if (!delivery) {
@@ -555,6 +572,19 @@ export const verifyDeliveryOTP = async (req, res) => {
                 "Your account has been deactivated by admin. Please contact support for help.",
                 { code: "ACCOUNT_DEACTIVATED" },
             );
+        }
+
+        // OTP proven: only now does a staged signup / resubmission go live.
+        if (delivery.pendingSubmission) {
+            const wasRejected = delivery.applicationStatus === "rejected";
+            mergeSignupData(delivery, delivery.pendingSubmission);
+            delivery.applicationStatus = "pending";
+            if (wasRejected) {
+                delivery.reappliedAt = new Date();
+                delivery.reapplyCount = (delivery.reapplyCount || 0) + 1;
+            }
+            delivery.pendingSubmission = undefined;
+            delivery.pendingSubmissionAt = undefined;
         }
 
         // Only set isOnline to true if the rider is verified

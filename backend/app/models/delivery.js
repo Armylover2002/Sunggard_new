@@ -184,9 +184,22 @@ const deliverySchema = new mongoose.Schema(
          */
         applicationStatus: {
             type: String,
-            enum: ["pending", "approved", "rejected"],
+            // "draft": signed up but the phone never passed OTP. Not in the
+            // admin queue; verifyDeliveryOTP promotes it to "pending".
+            enum: ["draft", "pending", "approved", "rejected"],
             default: "pending",
         },
+
+        /**
+         * Signup / resubmission data waiting for OTP verification. Nothing in
+         * here is live: it is applied to the document only by verifyDeliveryOTP.
+         */
+        pendingSubmission: {
+            type: mongoose.Schema.Types.Mixed,
+            select: false,
+            default: undefined,
+        },
+        pendingSubmissionAt: { type: Date, select: false },
 
         /**
          * Why the admin rejected the application. Kept after a resubmission so

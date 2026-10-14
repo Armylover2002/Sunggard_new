@@ -38,6 +38,7 @@ jest.unstable_mockModule("../app/services/deliveryNearbyService.js", () => ({
 jest.unstable_mockModule("../app/services/deliveryZoneService.js", () => ({
   getActiveZoneById: mockGetActiveZoneById,
   isPointInZoneId: jest.fn(async () => true),
+  zoneIdsCoveringPickup: jest.fn(async (zoneId) => new Set(zoneId ? [String(zoneId)] : [])),
 }));
 
 jest.unstable_mockModule("../app/services/orderSocketEmitter.js", () => ({

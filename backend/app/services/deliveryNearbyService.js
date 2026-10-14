@@ -1,6 +1,7 @@
 import Delivery from "../models/delivery.js";
 import { distanceMeters } from "../utils/geoUtils.js";
 import { isPointInPolygon } from "../utils/zoneGeometry.js";
+import { zoneIdsCoveringPickup } from "./deliveryZoneService.js";
 
 const HAVERSINE_FALLBACK_LIMIT = () =>
   parseInt(process.env.DELIVERY_BROADCAST_HAVERSINE_LIMIT || "2000", 10);
@@ -32,7 +33,14 @@ function buildParcelDeliveryFilter() {
  * computed distance instead of discarding it, so callers that need a
  * nearest-first order don't have to look every rider's location back up a
  * second time. */
-function filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone = null) {
+function filterByHaversineWithDistance(
+    candidates,
+    lat,
+    lng,
+    maxDistanceM,
+    zone = null,
+    coveringZoneIds = null,
+) {
   const out = [];
   for (const d of candidates) {
     const c = d.location?.coordinates;
@@ -45,7 +53,10 @@ function filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone 
     if (zone) {
       const assignedZoneIds = (d.zoneIds || []).map(String);
       if (assignedZoneIds.length) {
-        if (!assignedZoneIds.includes(String(zone._id))) continue;
+        const covers = coveringZoneIds
+          ? assignedZoneIds.some((id) => coveringZoneIds.has(id))
+          : assignedZoneIds.includes(String(zone._id));
+        if (!covers) continue;
       } else if (!isPointInPolygon(dlat, dlng, zone.points || [])) {
         continue;
       }
@@ -55,8 +66,8 @@ function filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone 
   return out;
 }
 
-function filterByHaversine(candidates, lat, lng, maxDistanceM, zone = null) {
-  return filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone).map(
+function filterByHaversine(candidates, lat, lng, maxDistanceM, zone = null, coveringZoneIds = null) {
+  return filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone, coveringZoneIds).map(
     (r) => r.id,
   );
 }
@@ -94,7 +105,8 @@ export async function getParcelRiderIdsNearPickup(
       .limit(HAVERSINE_FALLBACK_LIMIT())
       .lean();
 
-    return filterByHaversine(candidates, lat, lng, maxDistanceM, zone);
+    const covering = zone ? await zoneIdsCoveringPickup(zone._id, lat, lng) : null;
+    return filterByHaversine(candidates, lat, lng, maxDistanceM, zone, covering);
   } catch (e) {
     console.warn("[deliveryNearby] courier radius scan failed:", e.message);
     return [];
@@ -138,7 +150,8 @@ export async function getParcelRidersNearPickupSortedByDistance(
       .limit(HAVERSINE_FALLBACK_LIMIT())
       .lean();
 
-    return filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone).sort(
+    const covering = zone ? await zoneIdsCoveringPickup(zone._id, lat, lng) : null;
+    return filterByHaversineWithDistance(candidates, lat, lng, maxDistanceM, zone, covering).sort(
       (a, b) => a.distanceM - b.distanceM,
     );
   } catch (e) {

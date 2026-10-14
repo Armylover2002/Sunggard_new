@@ -147,3 +147,21 @@ export async function isPointInZoneId(zoneId, lat, lng) {
 
   return isPointInPolygon(numLat, numLng, zone.points || []);
 }
+
+/**
+ * Every zone id a rider could be assigned to and still legitimately cover a
+ * job: the zone the parcel was filed under, plus every other active zone that
+ * contains its pickup point.
+ *
+ * A parcel is filed under only the *smallest* containing zone, so a rider who
+ * picked an enclosing (larger) zone would never match by exact id even though
+ * the pickup is inside their zone. Overlaps are real (see zonesForPoint), so
+ * matching against this set instead keeps those riders in.
+ */
+export async function zoneIdsCoveringPickup(parcelZoneId, lat, lng) {
+  const ids = new Set();
+  if (parcelZoneId) ids.add(String(parcelZoneId));
+  const containing = await zonesForPoint(lat, lng);
+  containing.forEach((zone) => ids.add(String(zone._id)));
+  return ids;
+}
