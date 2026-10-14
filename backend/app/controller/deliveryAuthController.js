@@ -473,11 +473,11 @@ export const loginDelivery = async (req, res) => {
             });
         }
 
-        // A rejected rider may log in to read the reason and reapply; everyone
-        // else still waiting on the queue is kept out until approved.
-        if (!delivery.isVerified && delivery.applicationStatus !== "rejected") {
-            return handleResponse(res, 403, "Your application is pending admin approval.");
-        }
+        // Rejected and pending riders may log in too: they get a token (but
+        // stay unverified/offline, so no jobs) and the app reads
+        // applicationStatus from the profile to show "under review" or the
+        // rejection reason. Blocking them here made a returning applicant
+        // look unregistered, and the app sent them back to create an account.
 
         if (delivery.isActive === false) {
             return handleResponse(
