@@ -24,7 +24,10 @@ import {
     Power,
     PowerOff,
     Eye,
-    X
+    X,
+    Pencil,
+    Camera,
+    Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -51,6 +54,10 @@ const ActiveDeliveryBoys = () => {
     const [isOnboardModalOpen, setIsOnboardModalOpen] = useState(false);
     const [viewingRider, setViewingRider] = useState(null);
     const [ratingsRider, setRatingsRider] = useState(null);
+    // Admin may edit only a rider's phone number and profile photo.
+    const [editingPhone, setEditingPhone] = useState(false);
+    const [phoneDraft, setPhoneDraft] = useState('');
+    const [isSavingContact, setIsSavingContact] = useState(false);
 
     // Keep the page behind the detail modal from scrolling with the wheel.
     useBodyScrollLock(Boolean(viewingRider) || Boolean(ratingsRider));
@@ -66,10 +73,9 @@ const ActiveDeliveryBoys = () => {
         try {
             const params = { page: requestedPage, limit: pageSize, verified: 'true' };
             if (searchTerm.trim()) params.search = searchTerm.trim();
-            // Backend only understands online/offline; "available" and "busy" are
-            // both online, so narrow to online there and split the two client-side.
+            // Backend only understands online/offline.
             if (statusFilter === 'offline') params.status = 'offline';
-            else if (statusFilter === 'available' || statusFilter === 'busy') params.status = 'online';
+            else if (statusFilter === 'available') params.status = 'online';
 
             const response = await adminApi.getDeliveryPartners(params);
             const payload = response.data.result || {};
@@ -82,7 +88,7 @@ const ActiveDeliveryBoys = () => {
                 email: r.email,
                 avatar: r.profileImage || '',
                 isActive: r.isActive !== false,
-                status: r.isBusy ? 'busy' : (r.isOnline ? 'available' : 'offline'),
+                status: r.isOnline ? 'available' : 'offline',
                 vehicle: r.vehicleType,
                 vehicleNum: r.vehicleNumber || 'N/A',
                 totalOrders: r.totalDeliveries || 0,
@@ -117,9 +123,14 @@ React.useEffect(() => {
 
 // Filtering logic
 const filteredRiders = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    const idTerm = term.replace(/^rd[-\s]?/, '');
     return riders.filter(r => {
-        const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            r.phone.includes(searchTerm);
+        const matchesSearch = !term ||
+            r.name.toLowerCase().includes(term) ||
+            r.phone.includes(term) ||
+            (idTerm.length >= 4 && String(r.id).toLowerCase().endsWith(idTerm)) ||
+            shortRiderId(r.id).toLowerCase().includes(term);
         const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
@@ -186,6 +197,81 @@ const handleAction = async (type, rider) => {
     }
 };
 
+const saveContact = async (payload) => {
+    if (!viewingRider?.id) return;
+    setIsSavingContact(true);
+    try {
+        const response = await adminApi.updateDeliveryPartnerContact(viewingRider.id, payload);
+        const updated = response.data?.result;
+        if (!response.data?.success || !updated) {
+            toast.error(response.data?.message || 'Could not update rider');
+            return;
+        }
+        const patch = {
+            phone: updated.phone,
+            avatar: updated.profileImage || '',
+            ...(payload.phone !== undefined ? { status: 'offline' } : {}),
+        };
+        setRiders((prev) => prev.map((r) => (r.id === viewingRider.id ? { ...r, ...patch } : r)));
+        setViewingRider((prev) => (prev ? { ...prev, ...patch } : prev));
+        setEditingPhone(false);
+        toast.success(response.data.message || 'Rider updated');
+    } catch (error) {
+        console.error('Update rider contact error:', error);
+        toast.error(error.response?.data?.message || 'Could not update rider');
+    } finally {
+        setIsSavingContact(false);
+    }
+};
+
+const handlePhoneSave = () => {
+    const digits = phoneDraft.replace(/\D/g, '');
+    const normalized = digits.length > 10 ? digits.slice(-10) : digits;
+    if (!/^\d{10}$/.test(normalized)) {
+        toast.error('Enter a valid 10-digit mobile number');
+        return;
+    }
+    if (normalized === viewingRider.phone) {
+        setEditingPhone(false);
+        return;
+    }
+    if (!window.confirm(
+        `Change ${viewingRider.name}'s number from ${viewingRider.phone} to ${normalized}?\n\n` +
+        'They will be signed out right away and can only log in with the new number. ' +
+        'All their orders, wallet and ratings stay on this account.',
+    )) {
+        return;
+    }
+    saveContact({ phone: normalized });
+};
+
+const handlePhotoPick = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !viewingRider?.id) return;
+    if (!file.type.startsWith('image/')) {
+        toast.error('Please choose an image file');
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image must be under 5 MB');
+        return;
+    }
+    setIsSavingContact(true);
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await adminApi.uploadMedia(formData);
+        const url = res.data?.result?.secureUrl || res.data?.result?.url;
+        if (!url) throw new Error('Upload failed');
+        await saveContact({ profileImage: url });
+    } catch (error) {
+        console.error('Photo upload error:', error);
+        toast.error(error.response?.data?.message || 'Photo upload failed');
+        setIsSavingContact(false);
+    }
+};
+
 const handleOnboardSubmit = (e) => {
     e.preventDefault();
     const newRider = {
@@ -203,7 +289,6 @@ const handleOnboardSubmit = (e) => {
 const stats = [
     { label: 'Total Riders', value: riders.length, color: 'indigo', icon: Users, description: 'Total fleet size' },
     { label: 'Available', value: riders.filter(r => r.status === 'available').length, color: 'emerald', icon: UserCheck, description: 'Ready for orders' },
-    { label: 'Busy (On Task)', value: riders.filter(r => r.status === 'busy').length, color: 'amber', icon: Activity, description: 'Currently delivering' },
     { label: 'Deliveries Done', value: riders.reduce((sum, r) => sum + (r.totalOrders || 0), 0), color: 'rose', icon: Trophy, description: 'Completed on this page' },
 ];
 
@@ -226,7 +311,7 @@ return (
         />
 
         {/* Quick Stats Grid */}
-        <div className="ds-grid-cards-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {stats.map((stat, idx) => (
                 <StatCard
                     key={idx}
@@ -253,7 +338,7 @@ return (
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 group-focus-within:text-primary transition-colors" />
                     <input
                         type="text"
-                        placeholder="Search by name or phone number..."
+                        placeholder="Search by name, phone number or rider ID (RD-XXXXXX)..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-12 pr-4 py-3.5 bg-slate-100/50 border-none rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary/10 transition-all"
@@ -261,7 +346,7 @@ return (
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="bg-slate-100/50 p-1 rounded-2xl flex items-center">
-                        {['all', 'available', 'busy', 'offline'].map((status) => (
+                        {['all', 'available', 'offline'].map((status) => (
                             <button
                                 key={status}
                                 onClick={() => setStatusFilter(status)}
@@ -450,7 +535,7 @@ return (
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
-                        onClick={() => setViewingRider(null)}
+                        onClick={() => { setViewingRider(null); setEditingPhone(false); }}
                     />
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -462,11 +547,20 @@ return (
                         <div className="p-5">
                             <div className="flex justify-between items-start mb-10">
                                 <div className="flex gap-6">
-                                    <img 
-                                       src={viewingRider.avatar && !viewingRider.avatar.includes('emoji') && !viewingRider.avatar.includes('avatar') ? viewingRider.avatar : "https://cdn-icons-png.flaticon.com/512/149/149071.png"} 
-                                       alt="" 
-                                       className="h-24 w-24 rounded-xl bg-gray-100 ring-4 ring-slate-50 shadow-2xl object-cover" 
-                                    />
+                                    <div className="relative h-24 w-24 shrink-0">
+                                        <img
+                                           src={viewingRider.avatar && !viewingRider.avatar.includes('emoji') && !viewingRider.avatar.includes('avatar') ? viewingRider.avatar : "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
+                                           alt=""
+                                           className="h-24 w-24 rounded-xl bg-gray-100 ring-4 ring-slate-50 shadow-2xl object-cover"
+                                        />
+                                        <label
+                                            title="Change profile photo"
+                                            className="absolute -bottom-2 -right-2 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-orange-500 text-white shadow-lg hover:bg-orange-600"
+                                        >
+                                            {isSavingContact ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                                            <input type="file" accept="image/*" className="hidden" disabled={isSavingContact} onChange={handlePhotoPick} />
+                                        </label>
+                                    </div>
                                     <div>
                                         <h2 className="ds-h1">{viewingRider.name}</h2>
                                         <div className="flex items-center gap-3 mt-2">
@@ -480,7 +574,7 @@ return (
                                         </div>
                                     </div>
                                 </div>
-                                <button onClick={() => setViewingRider(null)} className="p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all">
+                                <button onClick={() => { setViewingRider(null); setEditingPhone(false); }} className="p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all">
                                     <XCircle className="h-6 w-6 text-slate-400" />
                                 </button>
                             </div>
@@ -488,7 +582,48 @@ return (
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact Number</p>
-                                    <p className="text-sm font-bold text-slate-900">{viewingRider.phone}</p>
+                                    {editingPhone ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <input
+                                                autoFocus
+                                                type="tel"
+                                                inputMode="numeric"
+                                                maxLength={10}
+                                                value={phoneDraft}
+                                                onChange={(e) => setPhoneDraft(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') handlePhoneSave(); }}
+                                                className="w-full min-w-0 rounded-lg bg-slate-50 px-2 py-1.5 text-sm font-bold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-orange-400"
+                                                placeholder="10-digit number"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handlePhoneSave}
+                                                disabled={isSavingContact}
+                                                className="rounded-lg bg-orange-500 px-2 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-50"
+                                            >
+                                                {isSavingContact ? '...' : 'Save'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingPhone(false)}
+                                                className="rounded-lg bg-slate-100 px-2 py-1.5 text-[10px] font-black uppercase text-slate-500"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-bold text-slate-900">{viewingRider.phone}</p>
+                                            <button
+                                                type="button"
+                                                title="Change phone number"
+                                                onClick={() => { setPhoneDraft(viewingRider.phone || ''); setEditingPhone(true); }}
+                                                className="rounded-md p-1 text-slate-400 hover:bg-orange-50 hover:text-orange-600"
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</p>

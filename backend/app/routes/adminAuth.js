@@ -13,6 +13,7 @@ import {
     getDeliveryPartners,
     getDeliveryPartnerById,
     updateDeliveryPartnerIdentity,
+    updateDeliveryPartnerContact,
     approveDeliveryPartner,
     rejectDeliveryPartner,
     setDeliveryPartnerActive,
@@ -139,6 +140,13 @@ router.patch(
     verifyToken,
     allowRoles("admin"),
     updateDeliveryPartnerIdentity
+);
+
+router.patch(
+    "/delivery-partners/:id/contact",
+    verifyToken,
+    allowRoles("admin"),
+    updateDeliveryPartnerContact
 );
 
 router.patch(

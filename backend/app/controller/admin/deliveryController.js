@@ -37,13 +37,28 @@ export const getDeliveryPartners = async (req, res) => {
 
     if (search && String(search).trim()) {
       const term = String(search).trim();
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       query.$or = [
-        { name: { $regex: term, $options: "i" } },
-        { phone: { $regex: term, $options: "i" } },
-        { email: { $regex: term, $options: "i" } },
-        { vehicleNumber: { $regex: term, $options: "i" } },
-        { drivingLicenseNumber: { $regex: term, $options: "i" } },
+        { name: { $regex: escaped, $options: "i" } },
+        { phone: { $regex: escaped, $options: "i" } },
+        { email: { $regex: escaped, $options: "i" } },
+        { vehicleNumber: { $regex: escaped, $options: "i" } },
+        { drivingLicenseNumber: { $regex: escaped, $options: "i" } },
       ];
+
+      // Rider ID: the admin UI shows "RD-" + the last 6 hex chars of the _id,
+      // so accept that (or any hex tail / the full 24-char id) as a search.
+      const idPart = term.replace(/^rd[-\s]?/i, "");
+      if (/^[0-9a-f]{4,24}$/i.test(idPart)) {
+        query.$or.push({
+          $expr: {
+            $regexMatch: {
+              input: { $toString: "$_id" },
+              regex: `${idPart.toLowerCase()}$`,
+            },
+          },
+        });
+      }
     }
 
     const { page, limit, skip } = getPagination(req, {
@@ -176,6 +191,88 @@ export const updateDeliveryPartnerIdentity = async (req, res) => {
     await rider.save();
 
     return handleResponse(res, 200, "Identity details updated", rider);
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+/**
+ * The only two things an admin may change on an existing rider: the profile
+ * photo and the login phone number. Everything else (name, vehicle, bank,
+ * documents…) belongs to the rider.
+ *
+ * Changing the phone edits the SAME account in place. Orders, wallet, ratings
+ * and cash records all point at the rider's _id, so the whole history moves to
+ * the new number with no data copying; the old number simply stops matching
+ * any account (login is a lookup by phone), and bumping sessionVersion makes
+ * every token issued under the old number fail on its next request, which
+ * signs the rider out. They log back in with the new number.
+ */
+export const updateDeliveryPartnerContact = async (req, res) => {
+  try {
+    const { phone, profileImage } = req.body || {};
+    const rider = await Delivery.findById(req.params.id);
+    if (!rider) {
+      return handleResponse(res, 404, "Delivery partner not found");
+    }
+
+    let phoneChanged = false;
+    if (phone !== undefined) {
+      const digits = String(phone).replace(/\D/g, "");
+      // Accept "+91 98765 43210" / "098765…" style input, store the bare 10 digits
+      // that the rider login flow looks up.
+      const normalized = digits.length > 10 ? digits.slice(-10) : digits;
+      if (!/^\d{10}$/.test(normalized)) {
+        return handleResponse(res, 400, "Enter a valid 10-digit mobile number");
+      }
+      if (normalized !== rider.phone) {
+        const taken = await Delivery.findOne({ phone: normalized, _id: { $ne: rider._id } })
+          .select("_id")
+          .lean();
+        if (taken) {
+          return handleResponse(res, 409, "This number is already registered to another rider");
+        }
+        rider.phone = normalized;
+        phoneChanged = true;
+      }
+    }
+
+    if (profileImage !== undefined) {
+      const url = String(profileImage || "").trim();
+      if (!url || !(/^https?:\/\//i.test(url) || url.startsWith("/uploads/"))) {
+        return handleResponse(res, 400, "Invalid profile image");
+      }
+      rider.profileImage = url;
+    }
+
+    if (!rider.isModified()) {
+      return handleResponse(res, 400, "Nothing to update");
+    }
+
+    if (phoneChanged) {
+      // Old-number sessions die on their next request; also take them offline
+      // so no new-order offers go to a device that is about to be signed out.
+      rider.sessionVersion = (rider.sessionVersion || 0) + 1;
+      rider.isOnline = false;
+    }
+
+    try {
+      await rider.save();
+    } catch (err) {
+      if (err?.code === 11000) {
+        return handleResponse(res, 409, "This number is already registered to another rider");
+      }
+      throw err;
+    }
+
+    return handleResponse(
+      res,
+      200,
+      phoneChanged
+        ? "Number updated. The rider has been signed out and must log in with the new number."
+        : "Profile photo updated",
+      { _id: rider._id, phone: rider.phone, profileImage: rider.profileImage, isOnline: rider.isOnline },
+    );
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

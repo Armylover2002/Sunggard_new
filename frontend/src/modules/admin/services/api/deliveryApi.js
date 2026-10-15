@@ -14,6 +14,13 @@ export const adminDeliveryApi = {
         axiosInstance.get(`/admin/delivery-partners/${id}/ratings`, { params }),
     updateDeliveryPartnerIdentity: (id, data) =>
         axiosInstance.patch(`/admin/delivery-partners/${id}/identity`, data),
+    /** Admin may change only a rider's phone number and profile photo. */
+    updateDeliveryPartnerContact: (id, data) =>
+        axiosInstance.patch(`/admin/delivery-partners/${id}/contact`, data),
+    uploadMedia: (formData) =>
+        axiosInstance.post('/media/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }),
     approveDeliveryPartner: (id) =>
         axiosInstance.patch(`/admin/delivery-partners/approve/${id}`),
     rejectDeliveryPartner: (id, reason) =>
