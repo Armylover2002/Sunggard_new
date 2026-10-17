@@ -17,7 +17,7 @@ import {
 } from "../services/delivery/deliveryEarningsService.js";
 import Parcel from "../models/parcel.js";
 import ParcelConfig from "../models/parcelConfig.js";
-import { computeRiderParcelEarnings } from "../services/parcelWorkflowService.js";
+import { computeRiderParcelEarnings, offerOpenParcelsToRider } from "../services/parcelWorkflowService.js";
 import { emitToOrder } from "../services/orderSocketEmitter.js";
 
 const PARCEL_ACTIVE_STATUSES = new Set([
@@ -349,7 +349,9 @@ export const updateDeliveryLocation = async (req, res) => {
         // Normalize to [lng, lat] as required by GeoJSON
         const coordinates = [Number(lng), Number(lat)];
 
-        const delivery = await Delivery.findByIdAndUpdate(
+        // `new: false` returns the document as it was BEFORE this fix, so we
+        // can tell how long the rider had been without a position.
+        const previous = await Delivery.findByIdAndUpdate(
             deliveryId,
             {
                 $set: {
@@ -360,11 +362,23 @@ export const updateDeliveryLocation = async (req, res) => {
                     lastLocationAt: new Date(),
                 },
             },
-            { new: true }
-        ).select("_id location isOnline");
+            { new: false }
+        ).select("_id isOnline lastLocationAt");
 
-        if (!delivery) {
+        if (!previous) {
             return handleResponse(res, 404, "Delivery partner not found");
+        }
+        const delivery = { location: { type: "Point", coordinates } };
+
+        // First fix after a long gap (rider just logged back in / came back
+        // online): their stored position was stale until now, so any booking
+        // that was looking for a rider could not match them. Re-run the
+        // catch-up offer now that the position is real.
+        const lastFixAt = previous.lastLocationAt ? new Date(previous.lastLocationAt).getTime() : 0;
+        if (previous.isOnline && Date.now() - lastFixAt > 5 * 60 * 1000) {
+            offerOpenParcelsToRider(deliveryId).catch((err) =>
+                logger.warn?.("[delivery] catch-up offer after first location failed", { message: err.message }),
+            );
         }
 
         // SECURITY: when an orderId (here, a parcel id) is supplied, the rider

@@ -606,6 +606,15 @@ export const verifyDeliveryOTP = async (req, res) => {
         delivery.sessionVersion = await bumpOwnSession(Delivery, delivery._id);
         const token = generateToken(delivery);
 
+        // Login puts a verified rider straight online, so they must get the
+        // same catch-up a manual go-online does: bookings that were looking
+        // for a rider while they were logged out are offered to them.
+        if (delivery.isOnline === true) {
+            offerOpenParcelsToRider(delivery._id).catch((err) =>
+                console.warn("[delivery] reopen parcels on login failed", err.message),
+            );
+        }
+
         return handleResponse(res, 200, "Login successful", {
             token,
             delivery,

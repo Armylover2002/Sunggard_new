@@ -776,6 +776,48 @@ export async function offerOpenParcelsToRider(deliveryId) {
       console.warn("[parcelWorkflow] reopen offer failed", parcelId, err.message),
     );
   }
+
+  // Bookings still searching were snapshotted into an offer sequence when the
+  // search started (or when the last cycle began), so a rider who was offline
+  // then — or only just logged in — is not on it and never gets a turn until
+  // the whole cycle finishes. Add them to the end of every live sequence.
+  // They are still checked for radius, zone and cash limit when their turn
+  // comes (offerParcelToNextRider skips anyone no longer eligible), so this
+  // cannot hand a rider a booking they are not allowed to take.
+  const searching = await Parcel.find({
+    status: "SEARCHING",
+    deliveryPartnerId: null,
+    awaitingScheduledDispatch: { $ne: true },
+    skippedBy: { $ne: riderOid },
+    "searchMeta.attempt": { $gt: 0 },
+    "searchMeta.offerSequence.0": { $exists: true },
+    "searchMeta.offerSequence": { $ne: riderOid },
+  })
+    .sort({ createdAt: 1 })
+    .limit(reopenLimit)
+    .select("_id searchMeta.offeredTo")
+    .lean();
+
+  for (const parcel of searching) {
+    const added = await Parcel.updateOne(
+      {
+        _id: parcel._id,
+        status: "SEARCHING",
+        deliveryPartnerId: null,
+        "searchMeta.offerSequence": { $ne: riderOid },
+      },
+      { $push: { "searchMeta.offerSequence": riderOid } },
+    );
+    if (!added.modifiedCount) continue;
+
+    // Nobody is holding the offer right now (e.g. the last rider timed out
+    // and the next turn has not fired yet): move it along immediately.
+    if (!parcel.searchMeta?.offeredTo) {
+      await offerParcelToNextRider(parcel._id).catch((err) =>
+        console.warn("[parcelWorkflow] offer after rider online failed", String(parcel._id), err.message),
+      );
+    }
+  }
 }
 
 export async function fetchAvailableParcelsForRider(deliveryId) {
