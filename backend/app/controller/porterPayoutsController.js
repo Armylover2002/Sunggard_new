@@ -95,7 +95,16 @@ export const adminGetPorterRiderPayouts = async (req, res) => {
     );
 
     // Cumulative earning up to each page row, per rider, oldest first.
-    const pageRiderIds = [...new Set(rows.map((r) => String(r.user?._id || r.user)))];
+    // A ledger row whose rider no longer exists populates to null; String(null)
+    // is "null", which can't be cast to an ObjectId and used to fail the whole
+    // screen. Only real ids go into the lookup.
+    const pageRiderIds = [
+      ...new Set(
+        rows
+          .map((r) => String(r.user?._id || r.user || ""))
+          .filter((id) => /^[0-9a-f]{24}$/i.test(id)),
+      ),
+    ];
     const priorRows = pageRiderIds.length
       ? await Transaction.find({ ...match, user: { $in: pageRiderIds } })
           .select("user amount createdAt")
