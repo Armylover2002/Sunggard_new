@@ -112,6 +112,13 @@ async function assertRiderWithinPickupRadius(deliveryOid, parcelId) {
 const PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS = () =>
   parseInt(process.env.PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS || "30000", 10);
 
+/** How soon to look again when every otherwise-eligible rider already has a
+ *  live offer open on a different parcel. Short on purpose: those offers
+ *  resolve (accept/reject/timeout) within one PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS
+ *  window, so there's no reason to wait nearly that long to check again. */
+const PARCEL_ALL_RIDERS_BUSY_RETRY_MS = () =>
+  parseInt(process.env.PARCEL_ALL_RIDERS_BUSY_RETRY_MS || "5000", 10);
+
 function money(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
@@ -345,17 +352,65 @@ export async function offerParcelToNextRider(parcelId) {
   const eligibleIds = new Set(
     await filterRidersWithCashHeadroom(sorted.map((r) => r.id)),
   );
-  const eligible = sorted.filter((r) => eligibleIds.has(r.id));
 
-  if (!eligible.length) {
+  if (!eligibleIds.size) {
     console.warn(
       `[parcelWorkflow] no eligible rider for parcel ${parcelId}: ` +
-        `${sorted.length} in radius/zone, ${eligible.length} after cash gate ` +
+        `${sorted.length} in radius/zone, 0 after cash gate ` +
         `(zone=${parcel.zoneId || "none"}, skipped=${(parcel.skippedBy || []).length})`,
     );
     await fallBackToManualAssignment(parcelId, parcel.customerId);
     return;
   }
+
+  // A rider mid-way through another parcel's 30s response window is not
+  // offered this one too — the app has one slot for an incoming offer, and a
+  // second unrelated "NEW ORDER" arriving on top of the first (before its
+  // clock runs out) is how the first offer's data got stomped. Each
+  // SEARCHING parcel holds at most one live, unexpired offer at a time via
+  // searchMeta.offeredTo/searchExpiresAt (see the write below) — a rider
+  // shows up here only while they have one open elsewhere right now.
+  const busyWithOtherOfferIds = new Set(
+    (
+      await Parcel.distinct("searchMeta.offeredTo", {
+        _id: { $ne: parcel._id },
+        status: "SEARCHING",
+        "searchMeta.offeredTo": { $exists: true, $ne: null },
+        searchExpiresAt: { $gt: new Date() },
+      })
+    ).map(String),
+  );
+
+  if (busyWithOtherOfferIds.size) {
+    for (const id of eligibleIds) {
+      if (busyWithOtherOfferIds.has(id)) eligibleIds.delete(id);
+    }
+  }
+
+  if (!eligibleIds.size) {
+    // Not "nobody wants this job" — everyone who could take it already has a
+    // live offer open elsewhere right now. That resolves on its own (accept,
+    // reject or timeout) within one PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS
+    // window, so ask again shortly instead of handing this off to manual
+    // assignment. searchMeta/searchExpiresAt are untouched here — this
+    // parcel never actually made an offer this attempt — so the retry below
+    // is the only thing standing between it and being stuck in SEARCHING
+    // with nothing scheduled.
+    clearParcelSearchTimeout(parcelId);
+    const retryTimer = setTimeout(() => {
+      offerParcelToNextRider(parcelId).catch((err) =>
+        console.warn(
+          "[parcelWorkflow] retry after all-riders-busy failed",
+          parcelId,
+          err.message,
+        ),
+      );
+    }, PARCEL_ALL_RIDERS_BUSY_RETRY_MS());
+    timeoutTimers.set(String(parcelId), retryTimer);
+    return;
+  }
+
+  const eligible = sorted.filter((r) => eligibleIds.has(r.id));
 
   const nextAttempt = (parcel.searchMeta?.attempt || 0) + 1;
 
@@ -372,9 +427,9 @@ export async function offerParcelToNextRider(parcelId) {
   let sequence = (parcel.searchMeta?.offerSequence || []).map(String);
   let index = parcel.searchMeta?.offerIndex ?? -1;
 
-  // `eligibleIds` (already computed above by filterRidersWithCashHeadroom)
-  // holds exactly the same string ids `eligible` does, so it also serves as
-  // the membership check here.
+  // `eligibleIds` (already narrowed above by cash headroom and by excluding
+  // riders busy with another live offer) holds exactly the same string ids
+  // `eligible` does, so it also serves as the membership check here.
   const startFreshCycle = () => {
     sequence = eligible.map((r) => String(r.id));
     index = 0;

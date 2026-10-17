@@ -5,6 +5,10 @@ const mockParcelFindById = jest.fn();
 const mockParcelFindOneAndUpdate = jest.fn();
 const mockParcelFind = jest.fn();
 const mockParcelUpdateOne = jest.fn().mockResolvedValue({});
+// No other parcel holds a live offer on anyone by default — preserves every
+// existing test's eligibility set exactly as it was before this exclusion
+// was added to offerParcelToNextRider.
+const mockParcelDistinct = jest.fn().mockResolvedValue([]);
 const mockGetSearchSettings = jest.fn().mockResolvedValue({ deliveryRadiusKm: 5 });
 const mockGetActiveZoneById = jest.fn().mockResolvedValue(null);
 const mockGetSorted = jest.fn();
@@ -19,6 +23,7 @@ jest.unstable_mockModule("../app/models/parcel.js", () => ({
     findOneAndUpdate: mockParcelFindOneAndUpdate,
     updateOne: mockParcelUpdateOne,
     find: mockParcelFind,
+    distinct: mockParcelDistinct,
   },
 }));
 
@@ -104,6 +109,7 @@ const RIDER_C = new mongoose.Types.ObjectId();
 describe("sequential offers cycle back when nobody acts, instead of running out", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockParcelDistinct.mockResolvedValue([]);
     mockGetSorted.mockResolvedValue([
       { id: String(RIDER_A), distanceM: 100 },
       { id: String(RIDER_B), distanceM: 200 },
@@ -264,11 +270,64 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
       expect.objectContaining({ $set: expect.objectContaining({ status: "REQUESTED" }) }),
     );
   });
+
+  it("skips a rider already holding a live offer on a different parcel, offers the next-nearest instead", async () => {
+    // Reported bug: a rider mid-way through one parcel's 30s response window
+    // would get a second, unrelated parcel's offer pushed on top of it. A
+    // currently holds one (searchMeta.offeredTo on some other parcel,
+    // unexpired) — this parcel must skip straight to B.
+    mockParcelDistinct.mockResolvedValue([String(RIDER_A)]);
+    mockParcelFindById.mockResolvedValue({
+      _id: PARCEL,
+      status: "SEARCHING",
+      deliveryPartnerId: null,
+      pickupAddress: { lat: 1, lng: 1 },
+      skippedBy: [],
+      offerTimeoutBy: [],
+      searchMeta: { attempt: 0 },
+    });
+    await offerParcelToNextRider(PARCEL);
+
+    expect(mockParcelFindOneAndUpdate.mock.calls[0][1].$set.searchMeta.offeredTo).toBe(
+      String(RIDER_B),
+    );
+    expect(mockEmitParcelBroadcast).toHaveBeenCalled();
+  });
+
+  it("retries shortly instead of falling back to manual assignment when every eligible rider already has a live offer elsewhere", async () => {
+    // Only one candidate in range, and they're busy with another parcel's
+    // offer right now — that resolves on its own shortly, so this must not
+    // be treated as "nobody wants this job." Fake timers so the real retry
+    // this schedules doesn't outlive the test.
+    jest.useFakeTimers();
+    try {
+      mockGetSorted.mockResolvedValue([{ id: String(RIDER_A), distanceM: 100 }]);
+      mockParcelDistinct.mockResolvedValue([String(RIDER_A)]);
+      mockParcelFindById.mockResolvedValue({
+        _id: PARCEL,
+        status: "SEARCHING",
+        deliveryPartnerId: null,
+        pickupAddress: { lat: 1, lng: 1 },
+        skippedBy: [],
+        offerTimeoutBy: [],
+        searchMeta: { attempt: 0 },
+      });
+      await offerParcelToNextRider(PARCEL);
+
+      expect(mockParcelFindOneAndUpdate).not.toHaveBeenCalled();
+      expect(mockEmitParcelBroadcast).not.toHaveBeenCalled();
+      expect(mockRetractBroadcast).not.toHaveBeenCalled();
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe("sweepExpiredParcelOffers recovers a search whose in-memory timer was lost", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockParcelDistinct.mockResolvedValue([]);
     mockGetSorted.mockResolvedValue([{ id: String(RIDER_A), distanceM: 100 }]);
   });
 

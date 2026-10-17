@@ -6,6 +6,10 @@ const mockParcelFind = jest.fn();
 const mockParcelFindById = jest.fn();
 const mockParcelFindOneAndUpdate = jest.fn();
 const mockParcelUpdateOne = jest.fn();
+// No other parcel holds a live offer on anyone by default — preserves every
+// existing test's eligibility set exactly as it was before this exclusion
+// was added to offerParcelToNextRider.
+const mockParcelDistinct = jest.fn().mockResolvedValue([]);
 const mockGetSearchSettings = jest.fn().mockResolvedValue({ baseSearchRadiusKm: 5, deliveryRadiusKm: 5 });
 const mockHasActiveJob = jest.fn().mockResolvedValue(false);
 const mockAssertCanTakeJobs = jest.fn().mockResolvedValue({ allowed: true });
@@ -30,6 +34,7 @@ jest.unstable_mockModule("../app/models/parcel.js", () => ({
     findById: mockParcelFindById,
     findOneAndUpdate: mockParcelFindOneAndUpdate,
     updateOne: mockParcelUpdateOne,
+    distinct: mockParcelDistinct,
   },
 }));
 
