@@ -317,6 +317,19 @@ describe("sequential offers cycle back when nobody acts, instead of running out"
       expect(mockParcelFindOneAndUpdate).not.toHaveBeenCalled();
       expect(mockEmitParcelBroadcast).not.toHaveBeenCalled();
       expect(mockRetractBroadcast).not.toHaveBeenCalled();
+
+      // The wait must be durable: a near-future searchExpiresAt (with
+      // offeredTo cleared) so a restart's lost in-memory timer still gets
+      // recovered by sweepExpiredParcelOffers, not just the setTimeout below.
+      expect(mockParcelUpdateOne).toHaveBeenCalledWith(
+        { _id: PARCEL, status: "SEARCHING" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            searchExpiresAt: expect.any(Date),
+            "searchMeta.offeredTo": null,
+          }),
+        }),
+      );
     } finally {
       jest.clearAllTimers();
       jest.useRealTimers();

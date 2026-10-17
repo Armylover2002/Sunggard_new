@@ -392,10 +392,30 @@ export async function offerParcelToNextRider(parcelId) {
     // live offer open elsewhere right now. That resolves on its own (accept,
     // reject or timeout) within one PARCEL_SEQUENTIAL_OFFER_TIMEOUT_MS
     // window, so ask again shortly instead of handing this off to manual
-    // assignment. searchMeta/searchExpiresAt are untouched here — this
-    // parcel never actually made an offer this attempt — so the retry below
-    // is the only thing standing between it and being stuck in SEARCHING
-    // with nothing scheduled.
+    // assignment.
+    //
+    // searchExpiresAt is written here (offeredTo cleared, offerSequence/
+    // offerIndex/attempt left exactly as they were — this isn't a new offer
+    // round, just "come back soon") purely so the wait survives a restart:
+    // sweepExpiredParcelOffers/parcelOfferSweepJob already recovers any
+    // parcel whose searchExpiresAt has passed by calling
+    // processParcelSearchTimeout, which — finding offeredTo empty — goes
+    // straight to offerParcelToNextRider, the exact same call the in-memory
+    // timer below makes. Without this write, a redeploy mid-wait drops the
+    // in-memory timer with nothing left watching this parcel, and it can
+    // stay stuck in SEARCHING forever.
+    const retryAt = new Date(Date.now() + PARCEL_ALL_RIDERS_BUSY_RETRY_MS());
+    await Parcel.updateOne(
+      { _id: parcelId, status: "SEARCHING" },
+      {
+        $set: {
+          searchExpiresAt: retryAt,
+          "searchMeta.offeredTo": null,
+          "searchMeta.offeredAt": null,
+        },
+      },
+    );
+
     clearParcelSearchTimeout(parcelId);
     const retryTimer = setTimeout(() => {
       offerParcelToNextRider(parcelId).catch((err) =>
