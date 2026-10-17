@@ -42,11 +42,14 @@ export async function getDeliveryPartnerActiveJobInfo(deliveryId) {
 
 /**
  * How many accepted jobs a rider may hold in their "waiting" list on top of
- * the one they are working. 0 turns the waiting list off entirely, which is
- * the old one-job-at-a-time behaviour.
+ * the one they are working. Unlimited by default (Infinity). Set
+ * RIDER_MAX_QUEUED_JOBS to a positive number to cap it, or to 0 to turn the
+ * waiting list off entirely (the old one-job-at-a-time behaviour).
  */
 export function getMaxQueuedJobs() {
-  const n = parseInt(process.env.RIDER_MAX_QUEUED_JOBS ?? "3", 10);
+  const raw = String(process.env.RIDER_MAX_QUEUED_JOBS ?? "").trim().toLowerCase();
+  if (raw === "" || raw === "unlimited" || raw === "infinity") return Infinity;
+  const n = parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
