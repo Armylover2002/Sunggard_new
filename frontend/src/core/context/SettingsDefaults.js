@@ -9,7 +9,6 @@ export const DEFAULT_SETTINGS = {
   logoUrl: "",
   faviconUrl: "",
   primaryColor: "var(--primary)",
-  secondaryColor: "#64748b",
   companyName: "",
   taxId: "",
   address: "",
@@ -60,7 +59,6 @@ export function applyThemeVariables(settings) {
   if (!settings) return;
   const root = document.documentElement;
   const primary = settings.primaryColor;
-  const secondary = settings.secondaryColor;
 
   if (primary && primary !== "var(--primary)" && primary.trim() !== "") {
     root.style.setProperty("--primary", primary);
@@ -77,11 +75,6 @@ export function applyThemeVariables(settings) {
         root.style.setProperty("--primary-foreground", contrastColor);
       }
     }
-  }
-
-  if (secondary && secondary !== "var(--secondary)" && secondary.trim() !== "") {
-    root.style.setProperty("--secondary", secondary);
-    root.style.setProperty("--secondary-color", secondary);
   }
 }
 

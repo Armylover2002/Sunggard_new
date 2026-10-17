@@ -399,7 +399,6 @@ const AdminSettings = () => {
         logoUrl: '',
         faviconUrl: '',
         primaryColor: 'var(--primary)',
-        secondaryColor: '#64748b',
         companyName: '',
         taxId: '',
         address: '',
@@ -763,23 +762,6 @@ const AdminSettings = () => {
                                             type="text"
                                             value={settings.primaryColor}
                                             onChange={(e) => handleInputChange('primaryColor', e.target.value)}
-                                            className="w-full px-5 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all font-mono"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Secondary Brand Color</label>
-                                    <div className="flex items-center gap-4">
-                                        <input
-                                            type="color"
-                                            value={settings.secondaryColor}
-                                            onChange={(e) => handleInputChange('secondaryColor', e.target.value)}
-                                            className="h-12 w-24 rounded-lg cursor-pointer bg-transparent"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={settings.secondaryColor}
-                                            onChange={(e) => handleInputChange('secondaryColor', e.target.value)}
                                             className="w-full px-5 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all font-mono"
                                         />
                                     </div>

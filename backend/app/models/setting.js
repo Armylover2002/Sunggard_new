@@ -39,10 +39,6 @@ const settingSchema = new mongoose.Schema(
             type: String,
             default: "#0C831F",
         },
-        secondaryColor: {
-            type: String,
-            default: "#64748b",
-        },
 
         // Legal
         companyName: String,

@@ -15,7 +15,6 @@ const ALLOWED_KEYS = [
   "logoUrl",
   "faviconUrl",
   "primaryColor",
-  "secondaryColor",
   "companyName",
   "taxId",
   "address",
@@ -69,7 +68,6 @@ const updateSettingsSchema = Joi.object({
   logoUrl: Joi.string().allow("").max(2000),
   faviconUrl: Joi.string().allow("").max(2000),
   primaryColor: Joi.string().allow("").max(50),
-  secondaryColor: Joi.string().allow("").max(50),
   companyName: Joi.string().allow("").max(200),
   taxId: Joi.string().allow("").max(100),
   address: Joi.string().allow("").max(500),
@@ -112,7 +110,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor legalContent createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor legalContent createdAt",
           )
           .lean();
         return existing || null;
