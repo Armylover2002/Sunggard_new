@@ -45,6 +45,11 @@ import {
   isStalledAcceptedParcelJobEnabled,
 } from "./app/jobs/stalledAcceptedParcelJob.js";
 import {
+  getStalledSearchParcelJobHandler,
+  getStalledSearchParcelJobInterval,
+  isStalledSearchParcelJobEnabled,
+} from "./app/jobs/stalledSearchParcelJob.js";
+import {
   getParcelOfferSweepJobHandler,
   getParcelOfferSweepJobInterval,
   isParcelOfferSweepJobEnabled,
@@ -377,6 +382,21 @@ async function startScheduler() {
       'stalledAcceptedParcelJob',
       getStalledAcceptedParcelJobInterval(),
       getStalledAcceptedParcelJobHandler()
+    );
+  }
+
+  // Nobody ever accepted the courier request (still SEARCHING, or fell back
+  // to REQUESTED/manual-assignment because no rider was ever eligible).
+  // Cancels it after the search window with no rider ever assigned, and
+  // refunds any online payment. deliveryPartnerId is only ever set once a
+  // rider accepts, so an accepted booking — queued/waiting-list or not —
+  // is never touched by this job; that's stalledAcceptedParcelJob's reach,
+  // not this one's.
+  if (isStalledSearchParcelJobEnabled()) {
+    registerScheduledJob(
+      'stalledSearchParcelJob',
+      getStalledSearchParcelJobInterval(),
+      getStalledSearchParcelJobHandler()
     );
   }
 
