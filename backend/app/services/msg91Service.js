@@ -27,7 +27,7 @@ export async function sendMsg91Otp({ phone, otp }) {
     throw error;
   }
 
-  const { data } = await axios.get(MSG91_OTP_URL, {
+  const { data } = await axios.post(MSG91_OTP_URL, null, {
     params: {
       template_id: templateId,
       mobile: toIndianNumber(phone),
