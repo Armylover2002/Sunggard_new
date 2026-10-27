@@ -186,12 +186,13 @@ export async function issueCustomerOtp({
      * code could not be delivered and that retrying is the fix.
      */
     try {
-      await dispatchCustomerOtpSms({ phone, otp });
+      const dispatchResult = await dispatchCustomerOtpSms({ phone, otp });
       otpAuditLog("customer_otp_sms_dispatched", {
         phone: maskPhone(phone),
         flow,
         ipAddress,
         mode: "real",
+        requestId: dispatchResult?.requestId,
       });
     } catch (smsError) {
       otpAuditLog("customer_otp_sms_failed", {
