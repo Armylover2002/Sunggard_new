@@ -40,6 +40,10 @@ const settingSchema = new mongoose.Schema(
             default: "#0C831F",
         },
 
+        // SMS (MSG91) — admin-configured, no env vars. See services/msg91Service.js.
+        msg91AuthKey: { type: String, default: "", trim: true },
+        msg91TemplateId: { type: String, default: "", trim: true },
+
         // Legal
         companyName: String,
         taxId: String,

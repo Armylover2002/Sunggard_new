@@ -399,6 +399,8 @@ const AdminSettings = () => {
         logoUrl: '',
         faviconUrl: '',
         primaryColor: 'var(--primary)',
+        msg91AuthKey: '',
+        msg91TemplateId: '',
         companyName: '',
         taxId: '',
         address: '',
@@ -548,6 +550,7 @@ const AdminSettings = () => {
     const tabs = [
         { id: 'general',  label: 'General',        icon: Settings  },
         { id: 'branding', label: 'Branding',        icon: Globe     },
+        { id: 'sms',      label: 'SMS',             icon: Phone     },
         { id: 'legal',    label: 'Legal Content',   icon: FileText  },
     ];
 
@@ -765,6 +768,41 @@ const AdminSettings = () => {
                                             className="w-full px-5 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all font-mono"
                                         />
                                     </div>
+                                </div>
+                            </div>
+                        </Card>
+                    )}
+
+                    {!isLoading && activeTab === 'sms' && (
+                        <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl overflow-hidden">
+                            <div className="p-6 border-b border-slate-50 bg-slate-50/30">
+                                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                                    SMS Provider (MSG91)
+                                </h3>
+                            </div>
+                            <div className="p-8 space-y-8">
+                                <p className="text-xs font-medium text-slate-500">
+                                    Used to send OTPs over real SMS. Leave blank to keep OTP in mock mode (fixed 1234, no SMS sent).
+                                </p>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">MSG91 Auth Key</label>
+                                    <input
+                                        type="text"
+                                        value={settings.msg91AuthKey}
+                                        onChange={(e) => handleInputChange('msg91AuthKey', e.target.value)}
+                                        placeholder="Auth key from MSG91 dashboard"
+                                        className="w-full px-5 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all font-mono"
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">DLT Template ID</label>
+                                    <input
+                                        type="text"
+                                        value={settings.msg91TemplateId}
+                                        onChange={(e) => handleInputChange('msg91TemplateId', e.target.value)}
+                                        placeholder="DLT-approved OTP template ID"
+                                        className="w-full px-5 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all font-mono"
+                                    />
                                 </div>
                             </div>
                         </Card>

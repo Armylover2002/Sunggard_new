@@ -10,8 +10,9 @@ const mockSellerFindOne = jest.fn();
 const mockCustomerFindOne = jest.fn();
 const mockDeliveryFindOne = jest.fn();
 
-const mockAxiosGet = jest.fn();
 const mockJwtSign = jest.fn();
+const mockSendMsg91Otp = jest.fn();
+const mockHasMsg91Config = jest.fn().mockResolvedValue(false);
 
 jest.unstable_mockModule("../app/modules/otp/otp.model.js", () => ({
   default: {
@@ -38,8 +39,9 @@ jest.unstable_mockModule("../app/models/delivery.js", () => ({
   default: { findOne: mockDeliveryFindOne },
 }));
 
-jest.unstable_mockModule("axios", () => ({
-  default: { get: mockAxiosGet },
+jest.unstable_mockModule("../app/services/msg91Service.js", () => ({
+  sendMsg91Otp: mockSendMsg91Otp,
+  hasMsg91Config: mockHasMsg91Config,
 }));
 
 jest.unstable_mockModule("jsonwebtoken", () => ({
@@ -69,6 +71,7 @@ function makeSession({
 describe("sms OTP service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockHasMsg91Config.mockResolvedValue(false);
     process.env.JWT_SECRET = "test-secret";
     process.env.JWT_EXPIRES_IN = "7d";
     process.env.OTP_EXPIRY_MINUTES = "5";
@@ -77,10 +80,6 @@ describe("sms OTP service", () => {
     process.env.USE_MOCK_OTP = "true";
     process.env.USE_REAL_SMS = "false";
     process.env.NODE_ENV = "test";
-    delete process.env.SMS_INDIA_HUB_API_KEY;
-    delete process.env.SMS_INDIA_HUB_SENDER_ID;
-    delete process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID;
-    delete process.env.SMS_INDIA_HUB_URL;
   });
 
   it("sends OTP in mock mode, replaces older OTP, and skips SMS provider", async () => {
@@ -112,22 +111,21 @@ describe("sms OTP service", () => {
         maxAttempts: 5,
       }),
     );
-    expect(mockAxiosGet).not.toHaveBeenCalled();
+    expect(mockSendMsg91Otp).not.toHaveBeenCalled();
     expect(result.sent).toBe(true);
     expect(result.provider).toBe("mock");
     expect(result.mockOtp).toMatch(/^\d{4}$/);
   });
 
-  it("fails real SMS send when provider returns a DLT template error", async () => {
+  it("fails real SMS send when MSG91 rejects the request", async () => {
     process.env.USE_MOCK_OTP = "false";
     process.env.USE_REAL_SMS = "true";
-    process.env.SMS_INDIA_HUB_API_KEY = "api";
-    process.env.SMS_INDIA_HUB_SENDER_ID = "SENDER";
-    process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID = "template";
-    process.env.SMS_INDIA_HUB_URL = "http://cloud.smsindiahub.in/vendorsms/pushsms.aspx";
+    mockHasMsg91Config.mockResolvedValue(true);
 
     mockSellerFindOne.mockResolvedValue({ _id: "seller-1", phone: "9876543210" });
-    mockAxiosGet.mockResolvedValue({ data: "006|Template error" });
+    const providerError = new Error("Invalid Template Id");
+    providerError.statusCode = 502;
+    mockSendMsg91Otp.mockRejectedValue(providerError);
 
     await expect(
       sendSmsOtp({
@@ -136,8 +134,7 @@ describe("sms OTP service", () => {
         purpose: "LOGIN",
       }),
     ).rejects.toMatchObject({
-      message: "SMS India HUB DLT template mismatch",
-      providerCode: "006",
+      message: "Invalid Template Id",
     });
   });
 

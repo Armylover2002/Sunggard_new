@@ -6,10 +6,7 @@ import Seller from "../../models/seller.js";
 import Customer from "../../models/customer.js";
 import Delivery from "../../models/delivery.js";
 import logger from "../../services/logger.js";
-import {
-  __testables as smsIndiaTestables,
-  sendSmsIndiaHubOtp,
-} from "../../services/smsIndiaHubService.js";
+import { sendMsg91Otp } from "../../services/msg91Service.js";
 import {
   generateOTP,
   getOtpLength,
@@ -47,8 +44,8 @@ function safeCompare(left, right) {
 }
 
 /** Mock mode is simply "real SMS is off". See utils/otp.js for the switch. */
-function isMockOtpEnabled() {
-  return !useRealSMS();
+async function isMockOtpEnabled() {
+  return !(await useRealSMS());
 }
 
 function getExpiryMinutes() {
@@ -111,8 +108,8 @@ function assertPurposeEligibility({ purpose, account, userType }) {
   }
 }
 
-async function sendSmsViaSmsIndiaHub({ mobile, otp }) {
-  return sendSmsIndiaHubOtp({ phone: mobile, otp });
+async function sendSmsViaMsg91({ mobile, otp }) {
+  return sendMsg91Otp({ phone: mobile, otp });
 }
 
 function buildToken(account, userType) {
@@ -169,9 +166,10 @@ export async function sendSmsOtp({ mobile, userType, purpose, ipAddress = "unkno
   await OtpSession.deleteMany({ mobile: normalizedMobile, userType, purpose });
 
   const otpHash = hashOtp(normalizedMobile, otp, userType, purpose);
-  const smsResult = isMockOtpEnabled()
+  const mockEnabled = await isMockOtpEnabled();
+  const smsResult = mockEnabled
     ? { provider: "mock", providerCode: "MOCK" }
-    : await sendSmsViaSmsIndiaHub({ mobile: normalizedMobile, otp });
+    : await sendSmsViaMsg91({ mobile: normalizedMobile, otp });
 
   await OtpSession.create({
     mobile: normalizedMobile,
@@ -200,7 +198,7 @@ export async function sendSmsOtp({ mobile, userType, purpose, ipAddress = "unkno
     provider: smsResult.provider,
   };
 
-  if (isMockOtpEnabled()) {
+  if (mockEnabled) {
     response.mockOtp = otp;
   }
 
@@ -304,7 +302,5 @@ export const __testables = {
   getPhoneCandidates,
   hashOtp,
   isMockOtpEnabled,
-  mapSmsIndiaError: smsIndiaTestables.mapSmsIndiaError,
-  parseSmsIndiaResponse: smsIndiaTestables.parseSmsIndiaResponse,
   sanitizeAccount,
 };

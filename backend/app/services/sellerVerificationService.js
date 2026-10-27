@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import Seller from "../models/seller.js";
 import OtpVerification from "../models/otpVerification.js";
 import { getRedisClient } from "../config/redis.js";
-import { sendSmsIndiaHubOtp } from "./smsIndiaHubService.js";
+import { sendMsg91Otp } from "./msg91Service.js";
 import { MOCK_OTP, useRealSMS } from "../utils/otp.js";
 import { sendSellerVerificationOtpEmail, useRealEmailOTP } from "./emailService.js";
 
@@ -51,9 +51,9 @@ function randomOtp(length) {
   return String(Math.floor(min + Math.random() * (max - min + 1)));
 }
 
-function generateSellerOtp(channel) {
+async function generateSellerOtp(channel) {
   const useRealDelivery =
-    channel === "email" ? useRealEmailOTP() : useRealSMS();
+    channel === "email" ? useRealEmailOTP() : await useRealSMS();
 
   return useRealDelivery ? randomOtp(OTP_LENGTH()) : MOCK_OTP;
 }
@@ -184,8 +184,8 @@ async function dispatchEmailOtp({ email, otp }) {
 }
 
 async function dispatchPhoneOtp({ phone, otp }) {
-  if (useRealSMS()) {
-    await sendSmsIndiaHubOtp({ phone, otp });
+  if (await useRealSMS()) {
+    await sendMsg91Otp({ phone, otp });
     return;
   }
 
@@ -288,7 +288,7 @@ export async function issueSellerVerificationOtp({
     }
   }
 
-  const otp = generateSellerOtp(normalizedChannel);
+  const otp = await generateSellerOtp(normalizedChannel);
   const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES() * 60 * 1000);
 
   if (!session) {
@@ -318,6 +318,8 @@ export async function issueSellerVerificationOtp({
     await dispatchPhoneOtp({ phone: target, otp });
   }
 
+  const realDelivery =
+    normalizedChannel === "email" ? useRealEmailOTP() : await useRealSMS();
   console.log(
     JSON.stringify({
       level: "info",
@@ -326,14 +328,7 @@ export async function issueSellerVerificationOtp({
       channel: normalizedChannel,
       target: normalizedChannel === "email" ? maskEmail(target) : maskPhone(target),
       ipAddress,
-      mode:
-        normalizedChannel === "email"
-          ? useRealEmailOTP()
-            ? "real"
-            : "mock"
-          : useRealSMS()
-            ? "real"
-            : "mock",
+      mode: realDelivery ? "real" : "mock",
     }),
   );
 

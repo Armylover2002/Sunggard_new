@@ -1,7 +1,7 @@
 import Delivery from "../models/delivery.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
-import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
+import { sendMsg91Otp } from "../services/msg91Service.js";
 import { generateOTP, useRealSMS } from "../utils/otp.js";
 import { incrementWindowCounter } from "../utils/otpRateLimit.js";
 import { uploadImageWithFallback } from "../services/mediaService.js";
@@ -149,9 +149,9 @@ const resolveServiceFlags = (body) => {
  * The applicant gets told their details are safe and to try the resend.
  */
 const deliverOtpSms = async (phone, otp) => {
-    if (!useRealSMS()) return { sent: true, mocked: true };
+    if (!(await useRealSMS())) return { sent: true, mocked: true };
     try {
-        await sendSmsIndiaHubOtp({ phone, otp });
+        await sendMsg91Otp({ phone, otp });
         return { sent: true, mocked: false };
     } catch (error) {
         console.error("[deliveryAuth] OTP SMS failed:", error?.message);
@@ -288,7 +288,7 @@ export const signupDelivery = async (req, res) => {
             return handleResponse(res, 400, "Please select the zone you will deliver in");
         }
 
-        let otp = generateOTP();
+        let otp = await generateOTP();
 
         let aadharUrl = delivery?.documents?.aadhar || "";
         let aadharFrontUrl = delivery?.documents?.aadharFront || "";
@@ -488,7 +488,7 @@ export const loginDelivery = async (req, res) => {
             );
         }
 
-        let otp = generateOTP();
+        let otp = await generateOTP();
 
         delivery.otp = otp;
         delivery.otpExpiry = Date.now() + otpExpiryMs();

@@ -147,7 +147,7 @@ async function validateDependencies() {
 /**
  * Log startup information with configuration summary
  */
-function logStartupInfo() {
+async function logStartupInfo() {
   const role = getProcessRole();
   const env = process.env.NODE_ENV || 'development';
   const components = {
@@ -167,12 +167,13 @@ function logStartupInfo() {
   console.log(`  - Scheduler: ${components.scheduler ? '✓' : '✗'}`);
   console.log(`Redis: ${isRedisEnabled() ? 'Enabled' : 'Disabled'}`);
   console.log(`MongoDB: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Connecting...'}`);
-  console.log(`OTP: ${useRealSMS() ? 'real SMS' : 'MOCK (1234)'}`);
-  if (env === 'production' && !useRealSMS()) {
+  const realSms = await useRealSMS();
+  console.log(`OTP: ${realSms ? 'real SMS' : 'MOCK (1234)'}`);
+  if (env === 'production' && !realSms) {
     console.warn('!'.repeat(60));
     console.warn('⚠  MOCK OTP IS ACTIVE IN PRODUCTION.');
     console.warn('⚠  Any phone number can sign in with the code 1234.');
-    console.warn('⚠  Set USE_DEFAULT_OTP=false (with SMS_INDIA_HUB_* filled in) before real users arrive.');
+    console.warn('⚠  Set USE_DEFAULT_OTP=false and add MSG91 keys in Admin → Settings → SMS before real users arrive.');
     console.warn('!'.repeat(60));
   }
   console.log('='.repeat(60));
@@ -290,7 +291,7 @@ async function startup() {
     }
 
     // Step 10: Log startup information
-    logStartupInfo();
+    await logStartupInfo();
     
     console.log('[Startup] Startup sequence completed successfully');
     

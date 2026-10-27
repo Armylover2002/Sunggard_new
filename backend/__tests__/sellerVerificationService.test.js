@@ -6,7 +6,7 @@ const mockCreateTransport = jest.fn(() => ({
 }));
 const mockSellerFindOne = jest.fn();
 const mockGetRedisClient = jest.fn();
-const mockSendSmsIndiaHubOtp = jest.fn();
+const mockSendMsg91Otp = jest.fn();
 
 let otpSessions;
 
@@ -60,8 +60,9 @@ jest.unstable_mockModule("../app/config/redis.js", () => ({
   getRedisClient: mockGetRedisClient,
 }));
 
-jest.unstable_mockModule("../app/services/smsIndiaHubService.js", () => ({
-  sendSmsIndiaHubOtp: mockSendSmsIndiaHubOtp,
+jest.unstable_mockModule("../app/services/msg91Service.js", () => ({
+  sendMsg91Otp: mockSendMsg91Otp,
+  hasMsg91Config: jest.fn().mockResolvedValue(false),
 }));
 
 const sellerVerificationService = await import(

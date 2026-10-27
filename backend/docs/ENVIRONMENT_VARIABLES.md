@@ -55,11 +55,7 @@ Redis and BullMQ (Bull) are gated by exactly two flags — no other env vars aff
 | `OTP_SEND_RATE_LIMIT_MAX` | `5` | No | Max send OTP requests per window |
 | `OTP_VERIFY_RATE_LIMIT_WINDOW_MS` | `900000` | No | Verify OTP rate-limit window |
 | `OTP_VERIFY_RATE_LIMIT_MAX` | `10` | No | Max verify OTP requests per window |
-| `SMS_INDIA_HUB_API_KEY` | â€” | Real SMS: **Yes** | SMS India HUB API key |
-| `SMS_INDIA_HUB_SENDER_ID` | â€” | Real SMS: **Yes** | DLT-registered sender ID |
-| `SMS_INDIA_HUB_DLT_TEMPLATE_ID` | â€” | Real SMS: **Yes** | Approved DLT template ID |
-| `SMS_INDIA_HUB_URL` | `http://cloud.smsindiahub.in/vendorsms/pushsms.aspx` | No | SMS India HUB endpoint |
-| `SMS_INDIA_HUB_TIMEOUT_MS` | `10000` | No | SMS provider request timeout |
+MSG91 Auth Key and DLT Template ID are **not** env vars — the admin sets them in Admin → Settings → SMS, stored on the `Setting` document (`msg91AuthKey`, `msg91TemplateId`). See `app/services/msg91Service.js`.
 
 ## Email / SMTP
 
