@@ -32,7 +32,10 @@ export async function sendMsg91Otp({ phone, otp }) {
       template_id: templateId,
       mobile: toIndianNumber(phone),
       otp,
-      // Fills the ##name## placeholder in the DLT-approved template.
+      // The DLT-approved template also has a ##name## placeholder. MSG91's
+      // OTP endpoint doesn't actually fill custom variables (confirmed by
+      // testing — the SMS arrives with ##name## blank regardless), but this
+      // is harmless to keep in case that ever changes.
       name: "SunGguard",
     },
     headers: {
