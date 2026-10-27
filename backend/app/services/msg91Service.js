@@ -31,8 +31,10 @@ export async function sendMsg91Otp({ phone, otp }) {
     params: {
       template_id: templateId,
       mobile: toIndianNumber(phone),
-      authkey: authKey,
       otp,
+    },
+    headers: {
+      authkey: authKey,
     },
     timeout: 10000,
   });
