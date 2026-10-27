@@ -1018,7 +1018,7 @@ export const createParcel = async (req, res) => {
 
     if (!parcel) {
       // Generate 6-digit OTP code
-      const otp = generateParcelOtp();
+      const otp = await generateParcelOtp();
       parcel = await Parcel.create({
         customerId: req.user.id,
         ...parcelFields,
