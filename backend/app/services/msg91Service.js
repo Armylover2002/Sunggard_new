@@ -32,6 +32,8 @@ export async function sendMsg91Otp({ phone, otp }) {
       template_id: templateId,
       mobile: toIndianNumber(phone),
       otp,
+      // Fills the ##name## placeholder in the DLT-approved template.
+      name: "SunGguard",
     },
     headers: {
       authkey: authKey,
@@ -46,5 +48,5 @@ export async function sendMsg91Otp({ phone, otp }) {
     throw error;
   }
 
-  return { provider: "msg91", requestId: data.message, rawResponse: data };
+  return { provider: "msg91", requestId: data.request_id, rawResponse: data };
 }
