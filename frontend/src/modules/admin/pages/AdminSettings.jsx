@@ -427,7 +427,7 @@ const AdminSettings = () => {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const res = await adminApi.getSettings();
+                const res = await adminApi.getPlatformSettings();
                 const data = res.data?.result ?? res.data;
                 if (data) {
                     setSettings(prev => ({
@@ -456,7 +456,7 @@ const AdminSettings = () => {
                 ...settings,
                 keywords: Array.isArray(settings.keywords) ? settings.keywords : (settings.metaKeywords ? settings.metaKeywords.split(',').map(k => k.trim()).filter(Boolean) : []),
             };
-            const res = await adminApi.updateSettings(payload);
+            const res = await adminApi.updatePlatformSettings(payload);
             const updatedData = res.data?.result ?? res.data;
 
             if (updatedData) {
