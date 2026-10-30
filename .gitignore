@@ -12,6 +12,9 @@ build/
 # Environment variables & secrets
 .env
 .env.*
+serviceAccountKey.json
+*serviceAccount*.json
+google-services.json
 !.env.example
 !.env.production.example
 

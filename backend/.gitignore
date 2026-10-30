@@ -1,5 +1,8 @@
 node_modules/
 .env
+serviceAccountKey.json
+*serviceAccount*.json
+google-services.json
 
 logs/
 *.log
