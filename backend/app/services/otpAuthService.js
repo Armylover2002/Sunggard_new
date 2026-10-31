@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import Customer from "../models/customer.js";
 import { sendMsg91Otp } from "./msg91Service.js";
-import { generateOTP, useRealSMS } from "../utils/otp.js";
+import { generateOTP, isStaticOtpPhone, useRealSMS } from "../utils/otp.js";
 import { incrementWindowCounter } from "../utils/otpRateLimit.js";
 import { isValidE164Phone, maskPhone, normalizePhoneNumber } from "../utils/phone.js";
 
@@ -161,7 +161,7 @@ export async function issueCustomerOtp({
     throw err;
   }
 
-  const otp = await generateOTP();
+  const otp = await generateOTP(phone);
   customer.otpHash = hashOtp(phone, otp);
   customer.otpExpiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES() * 60 * 1000);
   customer.otpFailedAttempts = 0;
@@ -175,7 +175,7 @@ export async function issueCustomerOtp({
 
   await customer.save();
 
-  if (await useRealSMS()) {
+  if (!isStaticOtpPhone(phone) && (await useRealSMS())) {
     /**
      * The account and its OTP are already saved by this point, so a courier
      * that is down or out of credit does not mean the request failed. Letting

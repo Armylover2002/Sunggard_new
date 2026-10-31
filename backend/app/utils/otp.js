@@ -39,7 +39,17 @@ function randomOtp(length) {
   return String(Math.floor(min + Math.random() * (max - min + 1)));
 }
 
-export const generateOTP = async () => ((await useRealSMS()) ? randomOtp(OTP_LENGTH) : MOCK_OTP);
+/**
+ * Test accounts that always log in with MOCK_OTP and never get an SMS, even
+ * when real SMS is on (customer 7878787878, driver 8787878787 — QA / app-store
+ * review). Matched on the last 10 digits so "+91…" and bare numbers both hit.
+ */
+const STATIC_OTP_PHONES = new Set(["7878787878", "8787878787"]);
+export const isStaticOtpPhone = (phone) =>
+  STATIC_OTP_PHONES.has(String(phone || "").replace(/\D/g, "").slice(-10));
+
+export const generateOTP = async (phone) =>
+  !isStaticOtpPhone(phone) && (await useRealSMS()) ? randomOtp(OTP_LENGTH) : MOCK_OTP;
 
 /**
  * 4-digit parcel pickup OTP shown on the customer app.

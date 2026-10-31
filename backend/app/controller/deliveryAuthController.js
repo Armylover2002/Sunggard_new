@@ -2,7 +2,7 @@ import Delivery from "../models/delivery.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
 import { sendMsg91Otp } from "../services/msg91Service.js";
-import { generateOTP, useRealSMS } from "../utils/otp.js";
+import { generateOTP, isStaticOtpPhone, useRealSMS } from "../utils/otp.js";
 import { incrementWindowCounter } from "../utils/otpRateLimit.js";
 import { uploadImageWithFallback } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
@@ -149,7 +149,7 @@ const resolveServiceFlags = (body) => {
  * The applicant gets told their details are safe and to try the resend.
  */
 const deliverOtpSms = async (phone, otp) => {
-    if (!(await useRealSMS())) return { sent: true, mocked: true };
+    if (isStaticOtpPhone(phone) || !(await useRealSMS())) return { sent: true, mocked: true };
     try {
         await sendMsg91Otp({ phone, otp });
         return { sent: true, mocked: false };
@@ -288,7 +288,7 @@ export const signupDelivery = async (req, res) => {
             return handleResponse(res, 400, "Please select the zone you will deliver in");
         }
 
-        let otp = await generateOTP();
+        let otp = await generateOTP(phone);
 
         let aadharUrl = delivery?.documents?.aadhar || "";
         let aadharFrontUrl = delivery?.documents?.aadharFront || "";
@@ -488,7 +488,7 @@ export const loginDelivery = async (req, res) => {
             );
         }
 
-        let otp = await generateOTP();
+        let otp = await generateOTP(phone);
 
         delivery.otp = otp;
         delivery.otpExpiry = Date.now() + otpExpiryMs();
