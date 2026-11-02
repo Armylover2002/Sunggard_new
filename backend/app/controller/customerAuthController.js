@@ -122,7 +122,7 @@ export const verifyCustomerOTP = async (req, res) => {
         });
         // Single active session for THIS account only — never touches a
         // rider account that happens to share the same phone number.
-        customer.sessionVersion = await bumpOwnSession(Customer, customer._id);
+        customer.sessionVersion = await bumpOwnSession(Customer, customer._id, "customer");
         const token = generateToken(customer);
 
         return handleResponse(
