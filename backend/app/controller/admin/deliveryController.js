@@ -1,5 +1,6 @@
 import { approveVehicleChange, rejectVehicleChange } from "../../services/riderVehicleChangeService.js";
 import Delivery from "../../models/delivery.js";
+import { revokeDeviceAccess } from "../../services/sessionService.js";
 import Parcel from "../../models/parcel.js";
 import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
@@ -264,6 +265,8 @@ export const updateDeliveryPartnerContact = async (req, res) => {
       }
       throw err;
     }
+
+    if (phoneChanged) await revokeDeviceAccess(rider._id, "delivery");
 
     return handleResponse(
       res,

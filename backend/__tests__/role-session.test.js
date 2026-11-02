@@ -6,6 +6,7 @@ process.env.JWT_SECRET = "test-secret";
 const mockCustomerFindById = jest.fn();
 const mockDeliveryFindById = jest.fn();
 const mockFindByIdAndUpdate = jest.fn();
+const mockPushTokenUpdateMany = jest.fn();
 
 const chain = (result) => ({
   select() {
@@ -22,6 +23,10 @@ jest.unstable_mockModule("../app/models/customer.js", () => ({
 
 jest.unstable_mockModule("../app/models/delivery.js", () => ({
   default: { findById: mockDeliveryFindById },
+}));
+
+jest.unstable_mockModule("../app/modules/notifications/token.model.js", () => ({
+  default: { updateMany: mockPushTokenUpdateMany },
 }));
 
 const { verifyToken } = await import("../app/middleware/authMiddleware.js");
@@ -83,5 +88,30 @@ describe("a single active session per account, never across roles", () => {
     // phone number stay logged in to both apps at once.
     expect(mockCustomerFindById).not.toHaveBeenCalled();
     expect(mockDeliveryFindById).not.toHaveBeenCalled();
+  });
+});
+
+describe("signing out old devices when the session is replaced", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("deactivates the account's push tokens so a stale device gets no offers", async () => {
+    mockFindByIdAndUpdate.mockResolvedValue({ sessionVersion: 4 });
+    mockPushTokenUpdateMany.mockResolvedValue({});
+    const DeliveryModel = { findByIdAndUpdate: mockFindByIdAndUpdate };
+
+    await bumpOwnSession(DeliveryModel, "rider1", "delivery");
+
+    expect(mockPushTokenUpdateMany).toHaveBeenCalledWith(
+      { userId: "rider1", role: "delivery", isActive: true },
+      { $set: expect.objectContaining({ isActive: false, invalidReason: "SESSION_REPLACED" }) },
+    );
+  });
+
+  it("leaves push tokens alone when no role is given", async () => {
+    mockFindByIdAndUpdate.mockResolvedValue({ sessionVersion: 5 });
+    await bumpOwnSession({ findByIdAndUpdate: mockFindByIdAndUpdate }, "rider1");
+    expect(mockPushTokenUpdateMany).not.toHaveBeenCalled();
   });
 });

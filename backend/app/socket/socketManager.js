@@ -5,6 +5,7 @@ import { verifySocketToken } from "./socketAuth.js";
 import mongoose from "mongoose";
 import Ticket from "../models/ticket.js";
 import Delivery from "../models/delivery.js";
+import Customer from "../models/customer.js";
 
 let _io = null;
 
@@ -30,7 +31,7 @@ const AUTO_OFFLINE_ON_DISCONNECT =
 export const initSocket = (io) => {
   _io = io;
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token =
       socket.handshake.auth?.token ||
       socket.handshake.query?.token ||
@@ -42,6 +43,19 @@ export const initSocket = (io) => {
     const user = verifySocketToken(token);
     if (!user) {
       return next(new Error("Unauthorized"));
+    }
+    // Same rule as verifyToken: a rider/customer JWT is only good while its
+    // session version is current, or a signed-out device keeps live events.
+    if (user.role === "delivery" || user.role === "customer") {
+      try {
+        const Model = user.role === "delivery" ? Delivery : Customer;
+        const account = await Model.findById(user.id).select("sessionVersion").lean();
+        if (!account || (account.sessionVersion || 0) !== (user.sv || 0)) {
+          return next(new Error("Unauthorized"));
+        }
+      } catch {
+        return next(new Error("Unauthorized"));
+      }
     }
     socket.user = user;
     next();
@@ -120,7 +134,11 @@ export const initSocket = (io) => {
     });
 
     socket.on("register_delivery", (deliveryId) => {
-      if (deliveryId && socket.user?.role === "delivery") {
+      if (
+        deliveryId &&
+        socket.user?.role === "delivery" &&
+        String(deliveryId) === String(socket.user.id)
+      ) {
         deliverySockets.set(deliveryId.toString(), socket.id);
       }
     });
