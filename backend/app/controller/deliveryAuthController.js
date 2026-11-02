@@ -7,7 +7,7 @@ import { incrementWindowCounter } from "../utils/otpRateLimit.js";
 import { uploadImageWithFallback } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
 import { syncDeliveryPartnerBusyFlag } from "../services/deliveryBusyService.js";
-import { bumpOwnSession } from "../services/sessionService.js";
+import { bumpOwnSession, revokeDeviceAccess } from "../services/sessionService.js";
 import { offerOpenParcelsToRider } from "../services/parcelWorkflowService.js";
 import { getActiveZoneById, isZoneGatingActive } from "../services/deliveryZoneService.js";
 import { retractAllOffersForRider } from "../services/orderSocketEmitter.js";
@@ -603,7 +603,7 @@ export const verifyDeliveryOTP = async (req, res) => {
 
         // Single active session for THIS account only — never touches a
         // customer account that happens to share the same phone number.
-        delivery.sessionVersion = await bumpOwnSession(Delivery, delivery._id);
+        delivery.sessionVersion = await bumpOwnSession(Delivery, delivery._id, "delivery");
         const token = generateToken(delivery);
 
         // Login puts a verified rider straight online, so they must get the
@@ -671,6 +671,8 @@ export const logoutDelivery = async (req, res) => {
             clearRiderPresence(String(delivery._id)).catch(() => {});
         }
         retractAllOffersForRider(delivery._id).catch(() => {});
+        // Single session: nothing else should keep pushing offers to this rider.
+        await revokeDeviceAccess(delivery._id, "delivery");
 
         return handleResponse(res, 200, "Logged out successfully");
     } catch (error) {
