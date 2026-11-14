@@ -10,8 +10,6 @@ build/
 *.local
 
 # Environment variables & secrets
-.env
-.env.*
 serviceAccountKey.json
 *serviceAccount*.json
 google-services.json
@@ -36,7 +34,6 @@ ehthumbs.db
 Thumbs.db
 
 # IDEs & Editor configurations
-.vscode/
 .idea/
 *.sublime-workspace
 *.sublime-project
@@ -64,3 +61,4 @@ temp_*.sh
 *.tmp
 temp_auto_push.bat
 temp_interactive_push.bat
+config.bat

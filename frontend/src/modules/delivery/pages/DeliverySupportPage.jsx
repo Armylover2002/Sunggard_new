@@ -7,7 +7,7 @@ import { useSettings } from '@core/context/SettingsContext';
  * listings can link to it. Contact details come from Admin → Settings.
  * (The signed-in help desk with tickets/chat is /delivery/profile/help-support.)
  */
-const DeliverySupportPage = () => {
+const DeliverySupportPage = ({ audience = 'Delivery Partner' }) => {
     const { settings } = useSettings();
     const appName = settings?.appName || 'CourierGo';
     const email = settings?.supportEmail || '';
@@ -25,8 +25,8 @@ const DeliverySupportPage = () => {
                             <LifeBuoy size={24} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-800">{appName} Delivery Partner Support</h2>
-                            <p className="text-xs text-slate-500 font-medium">Questions about orders, payouts or your account</p>
+                            <h2 className="text-xl font-bold text-slate-800">{appName} {audience} Support</h2>
+                            <p className="text-xs text-slate-500 font-medium">Questions about your bookings, payments or account</p>
                         </div>
                     </div>
                     <div className="space-y-3">
