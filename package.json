@@ -1,8 +1,8 @@
 {
-  "name": "sungguard",
+  "name": "couriergo",
   "version": "1.0.0",
   "private": true,
-  "description": "SunGguard - On-Demand Courier & Logistics Platform",
+  "description": "CourierGo - On-Demand Courier & Logistics Platform",
   "scripts": {
     "start": "npm --prefix backend start",
     "dev:backend": "npm --prefix backend run dev",

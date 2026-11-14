@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { parcelApi } from "../services/parcelApi";
 import {
   Card, Label, Data, Barcode, StatusChip, EmptyNote, PrimaryButton,
-} from "../components/sunguard/kit";
+} from "../components/couriergo/kit";
 import { unwrapList } from "@core/api/unwrap";
 
 /**

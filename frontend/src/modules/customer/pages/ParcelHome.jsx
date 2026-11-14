@@ -10,7 +10,7 @@ import { getOrderSocket } from "@core/services/orderSocket";
 import {
   Card, Label, Data, Barcode, StatusChip, PrimaryButton,
   EmptyNote,
-} from "../components/sunguard/kit";
+} from "../components/couriergo/kit";
 import { unwrapList } from "@core/api/unwrap";
 import PorterBannerCarousel from "../components/porter/PorterBannerCarousel";
 import { PendingRiderRatingPrompt } from "../components/parcel/RiderRatingPopup";

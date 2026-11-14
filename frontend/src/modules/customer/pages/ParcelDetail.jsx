@@ -12,7 +12,7 @@ import InvoiceDownloadButton from "@shared/components/InvoiceDownloadButton";
 import { unwrap } from "@core/api/unwrap";
 import {
   Card, Label, Data, Barcode, StatusChip, Perforation, PrimaryButton,
-} from "../components/sunguard/kit";
+} from "../components/couriergo/kit";
 
 /**
  * One outstation waybill, in full.

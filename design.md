@@ -1,4 +1,4 @@
-# SunGguard — Design System
+# CourierGo — Design System
 
 The single reference for how this product looks, reads, and moves. Every module
 follows it. If a screen disagrees with this document, the screen is wrong.
@@ -7,7 +7,7 @@ follows it. If a screen disagrees with this document, the screen is wrong.
 
 ## 1. What this product is
 
-SunGguard books courier parcels. A customer enters a pickup and a drop, picks a
+CourierGo books courier parcels. A customer enters a pickup and a drop, picks a
 carrier, pays, and tracks the consignment. That is the whole product.
 
 It used to be a quick-commerce app, and the codebase still carries scars from

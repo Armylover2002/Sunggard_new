@@ -33,15 +33,15 @@ const Setting = (await import("../app/models/setting.js")).default;
 
 const ADMIN = {
   name: "QA_ADMIN",
-  email: "qa_admin@sungguard-qa.com",
+  email: "qa_admin@couriergo-qa.com",
   password: "QaAdmin#2026",
   role: "admin",
   isVerified: true,
 };
 
 const CUSTOMERS = [
-  { name: "QA User One", phone: "9000000001", email: "qa_user_01@sungguard.test" },
-  { name: "QA User Two", phone: "9000000002", email: "qa_user_02@sungguard.test" },
+  { name: "QA User One", phone: "9000000001", email: "qa_user_01@couriergo.test" },
+  { name: "QA User Two", phone: "9000000002", email: "qa_user_02@couriergo.test" },
 ];
 
 /**
@@ -55,14 +55,14 @@ const DRIVERS = [
   {
     name: "QA Driver One",
     phone: "9000000011",
-    email: "qa_driver_01@sungguard.test",
+    email: "qa_driver_01@couriergo.test",
     vehicleNumber: "KA01QA0001",
     location: { type: "Point", coordinates: [77.5946, 12.9716] },
   },
   {
     name: "QA Driver Two",
     phone: "9000000012",
-    email: "qa_driver_02@sungguard.test",
+    email: "qa_driver_02@couriergo.test",
     vehicleNumber: "KA01QA0002",
     location: { type: "Point", coordinates: [77.6, 12.975] },
   },
@@ -125,10 +125,10 @@ async function seedSettings() {
     return existing;
   }
   const doc = await Setting.create({
-    appName: "SunGguard QA",
-    companyName: "SunGguard QA Logistics Pvt Ltd",
+    appName: "CourierGo QA",
+    companyName: "CourierGo QA Logistics Pvt Ltd",
     address: "1 Test Street, Bengaluru, Karnataka 560001",
-    supportEmail: "qa_support@sungguard.test",
+    supportEmail: "qa_support@couriergo.test",
     supportPhone: "9000000000",
     currencySymbol: "₹",
   });

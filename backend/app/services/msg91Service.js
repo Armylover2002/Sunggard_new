@@ -36,7 +36,7 @@ export async function sendMsg91Otp({ phone, otp }) {
       // OTP endpoint doesn't actually fill custom variables (confirmed by
       // testing — the SMS arrives with ##name## blank regardless), but this
       // is harmless to keep in case that ever changes.
-      name: "SunGguard",
+      name: "CourierGo",
     },
     headers: {
       authkey: authKey,

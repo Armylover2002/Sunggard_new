@@ -349,7 +349,7 @@ const CourierCompanySelect = ({ companies, value, onChange }) => {
 
 /**
  * The page's thesis, drawn: we carry the first leg, the courier carries the
- * rest. Solid brand line = the part SunGguard does; dashed = the courier's.
+ * rest. Solid brand line = the part CourierGo does; dashed = the courier's.
  */
 const HandoffDiagram = ({ counter, destination, compact = false }) => {
   const reduce = useReducedMotion();
@@ -1508,7 +1508,7 @@ const ParcelDeliveryPage = () => {
               <Caption>Draft waybill</Caption>
               <Barcode
                 ratio={completion}
-                seed="SUNGGUARD-PARCEL"
+                seed="COURIERGO-PARCEL"
                 bars={38}
                 className="mt-2"
               />

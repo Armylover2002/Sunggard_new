@@ -1,5 +1,5 @@
 # ==============================================================================
-# Render Blueprint — SunGguard
+# Render Blueprint — CourierGo
 #
 # This file MUST live at the repository root. Render only reads `render.yaml`
 # from the root of the connected repo, which is why the previous copy at

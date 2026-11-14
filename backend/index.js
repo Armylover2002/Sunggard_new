@@ -223,7 +223,7 @@ function createApp() {
     res.status(200).json({
       success: true,
       error: false,
-      message: "SunGguard Courier API",
+      message: "CourierGo Courier API",
       result: {
         version: "1.0.0",
         status: "running",

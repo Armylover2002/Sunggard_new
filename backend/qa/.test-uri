@@ -1,1 +1,1 @@
-mongodb://127.0.0.1:60123/sungguard_qa?replicaSet=testset
+mongodb://127.0.0.1:60123/couriergo_qa?replicaSet=testset

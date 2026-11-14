@@ -18,7 +18,7 @@ const replSet = await MongoMemoryReplSet.create({
   replSet: { count: 1, storageEngine: "wiredTiger" },
 });
 
-const uri = replSet.getUri("sungguard_qa");
+const uri = replSet.getUri("couriergo_qa");
 
 if (uri.includes("mongodb.net") || !/^mongodb:\/\/(127\.0\.0\.1|localhost)/.test(uri)) {
   console.error(`ABORT: not a disposable local URI: ${uri}`);

@@ -1,5 +1,5 @@
 /**
- * Starts the SunGGuard API against the disposable MongoDB published by
+ * Starts the CourierGo API against the disposable MongoDB published by
  * `qa/mongo-server.mjs` — test tooling only.
  *
  * The production `.env` is never edited: `dotenv` runs with `override: false`,
@@ -38,7 +38,7 @@ console.log(
   [
     "",
     "=========================================================",
-    "  SUNGGUARD QA API",
+    "  COURIERGO QA API",
     `  MongoDB : ${uri}`,
     "  Kind    : in-memory replica set (DISPOSABLE)",
     "  Atlas   : NOT CONNECTED",

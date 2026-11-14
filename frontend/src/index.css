@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "./styles/design-system.css";
-@import "./styles/sunguard.css";
+@import "./styles/couriergo.css";
 
 @custom-variant dark (&:is(.dark *));
 

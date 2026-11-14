@@ -1,13 +1,13 @@
-# SunGguard — On-Demand Courier & Logistics Platform
+# CourierGo — On-Demand Courier & Logistics Platform
 
-SunGguard is an end-to-end, enterprise-grade on-demand parcel courier and logistics platform. It provides dedicated interfaces and backend services for customers, delivery partners, merchants/sellers, and platform administrators.
+CourierGo is an end-to-end, enterprise-grade on-demand parcel courier and logistics platform. It provides dedicated interfaces and backend services for customers, delivery partners, merchants/sellers, and platform administrators.
 
 ---
 
 ## Architecture Overview
 
 ```
-SunGguard/
+CourierGo/
 ├── backend/                  # Node.js / Express API & Microservices
 │   ├── app/                  # Application domains, controllers, models & services
 │   ├── config/               # Database, Redis, and service configuration

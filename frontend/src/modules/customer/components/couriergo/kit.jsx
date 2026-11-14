@@ -2,7 +2,7 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * SunGuard kit — the shared vocabulary of the parcel screens.
+ * CourierGo kit — the shared vocabulary of the parcel screens.
  *
  * Every screen in the supplied designs is assembled from the same handful of
  * parts: a mono label, a waybill card, a barcode, a status chip, a route
@@ -54,7 +54,7 @@ export const Perforation = ({ className }) => (
  * random reads as clip art.
  */
 export const Barcode = ({ value = "", height = 34, className }) => {
-  const seed = String(value) || "SUNGUARD";
+  const seed = String(value) || "COURIERGO";
   const bars = React.useMemo(() => {
     const out = [];
     for (let i = 0; i < 48; i += 1) {

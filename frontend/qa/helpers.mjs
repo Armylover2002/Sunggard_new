@@ -1,5 +1,5 @@
 /**
- * Playwright helpers for the SunGGuard QA run — test tooling only.
+ * Playwright helpers for the CourierGo QA run — test tooling only.
  *
  * Every flow under test drives the real UI in a real Chromium. These helpers
  * only cover sign-in and a few generic waits; nothing here fakes a business
@@ -11,7 +11,7 @@ import { chromium } from "playwright";
 export const APP = "http://localhost:5173";
 export const API = "http://localhost:7000";
 
-export const ADMIN = { email: "qa_admin@sungguard-qa.com", password: "QaAdmin#2026" };
+export const ADMIN = { email: "qa_admin@couriergo-qa.com", password: "QaAdmin#2026" };
 export const USER_01 = { name: "QA_USER_01", phone: "9000000001" };
 export const USER_02 = { name: "QA_USER_02", phone: "9000000002" };
 export const DRIVER_01 = { name: "QA_DRIVER_01", phone: "9000000011" };

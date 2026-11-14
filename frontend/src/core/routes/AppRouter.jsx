@@ -29,6 +29,9 @@ const SupportPage = lazy(() => import('../../modules/customer/pages/SupportPage'
 const ChatPage = lazy(() => import('../../modules/customer/pages/ChatPage'));
 const TermsPage = lazy(() => import('../../modules/customer/pages/TermsPage'));
 const PrivacyPage = lazy(() => import('../../modules/customer/pages/PrivacyPage'));
+const DeliveryPrivacyPage = lazy(() => import('../../modules/delivery/pages/DeliveryPrivacyPage'));
+const DeliveryTermsPage = lazy(() => import('../../modules/delivery/pages/DeliveryTermsPage'));
+const DeliverySupportPage = lazy(() => import('../../modules/delivery/pages/DeliverySupportPage'));
 const AboutPage = lazy(() => import('../../modules/customer/pages/AboutPage'));
 const EditProfilePage = lazy(() => import('../../modules/customer/pages/EditProfilePage'));
 const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/PaymentStatusPage'));
@@ -98,6 +101,12 @@ const AppRouter = () => {
                     path: 'delivery/auth',
                     element: <DeliveryAuth />,
                 },
+                // Public (no login): app-store listings link to these. They sit
+                // outside the guarded `delivery/*` route below, and a static path
+                // outranks that splat.
+                { path: 'delivery/privacy', element: <DeliveryPrivacyPage /> },
+                { path: 'delivery/terms', element: <DeliveryTermsPage /> },
+                { path: 'delivery/support', element: <DeliverySupportPage /> },
                 {
                     path: 'delivery/pending-approval',
                     element: (

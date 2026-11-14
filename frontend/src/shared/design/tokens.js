@@ -1,5 +1,5 @@
 /**
- * SunGguard design tokens — single source of truth for the "consignment note"
+ * CourierGo design tokens — single source of truth for the "consignment note"
  * design language shared by every module.
  *
  * Colour lives in CSS custom properties (see src/index.css) so the theme

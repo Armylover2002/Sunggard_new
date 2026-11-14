@@ -1,5 +1,5 @@
 /* ==============================================================================
-   SUNGUARD — parcel design system
+   COURIERGO — parcel design system
    ==============================================================================
 
    The token layer behind the parcel screens: home, booking, waybill history,
@@ -8,7 +8,7 @@
    shifts.
 
    Two source documents describe this system and they disagree in places
-   ("SunGuard Elite" wants 4px corners and a dark flagship; "Premium Logistics
+   ("CourierGo Elite" wants 4px corners and a dark flagship; "Premium Logistics
    Alpha" wants 16-24px corners and a light one). Where they conflict, the
    supplied screens win, because those are what the client actually approved.
    Resolved as:
