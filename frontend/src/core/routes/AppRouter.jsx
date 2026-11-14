@@ -1,5 +1,7 @@
 import React, { lazy, useMemo, useEffect, Suspense } from 'react';
-import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, useLocation } from 'react-router-dom';
+import { getStoredAuthToken } from '@core/utils/authStorage';
+import { STORAGE_KEYS } from '@core/utils/storage';
 import ProtectedRoute from '../guards/ProtectedRoute';
 import RoleGuard from '../guards/RoleGuard';
 import { UserRole } from '../constants/roles';
@@ -52,6 +54,33 @@ const AdminModule = lazy(() => import('../../modules/admin/routes/index'));
 const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'));
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
+
+// In-app rider pages that app-store listings link to. Signed out, they show a
+// public version; a signed-in rider still gets the real in-app page (help-support
+// is the ticket/chat desk), so nothing changes for them.
+const DELIVERY_PUBLIC_PAGES = {
+    '/delivery/profile/privacy': DeliveryPrivacyPage,
+    '/delivery/profile/terms': DeliveryTermsPage,
+    '/delivery/profile/help-support': DeliverySupportPage,
+};
+
+const DeliveryEntry = () => {
+    const { pathname } = useLocation();
+    const PublicPage = DELIVERY_PUBLIC_PAGES[pathname.replace(/\/+$/, '')];
+
+    // Checks the stored token, not useAuth().role: the role is only set once the
+    // delivery module has mounted, so it is never ready at this point.
+    if (PublicPage && !getStoredAuthToken(STORAGE_KEYS.AUTH_DELIVERY)) {
+        return <PublicPage />;
+    }
+    return (
+        <ProtectedRoute>
+            <RoleGuard allowedRoles={[UserRole.DELIVERY]}>
+                <DeliveryModule />
+            </RoleGuard>
+        </ProtectedRoute>
+    );
+};
 
 const CustomerLayoutWrapper = () => {
     useEffect(() => {
@@ -156,13 +185,7 @@ const AppRouter = () => {
                 },
                 {
                     path: 'delivery/*',
-                    element: (
-                        <ProtectedRoute>
-                            <RoleGuard allowedRoles={[UserRole.DELIVERY]}>
-                                <DeliveryModule />
-                            </RoleGuard>
-                        </ProtectedRoute>
-                    ),
+                    element: <DeliveryEntry />,
                 },
                 {
                     path: 'unauthorized',
