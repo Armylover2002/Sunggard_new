@@ -64,6 +64,13 @@ const DELIVERY_PUBLIC_PAGES = {
     '/delivery/profile/help-support': DeliverySupportPage,
 };
 
+// Same idea for customers: store listings link to /support, which is the
+// signed-in ticket desk. Signed out, show the public contact page instead.
+const CustomerSupportEntry = () =>
+    getStoredAuthToken(STORAGE_KEYS.AUTH_CUSTOMER)
+        ? <ProtectedRoute><SupportPage /></ProtectedRoute>
+        : <DeliverySupportPage audience="Customer" />;
+
 const DeliveryEntry = () => {
     const { pathname } = useLocation();
     const PublicPage = DELIVERY_PUBLIC_PAGES[pathname.replace(/\/+$/, '')];
@@ -201,7 +208,7 @@ const AppRouter = () => {
                         { path: 'about', element: <AboutPage /> },
                         { path: 'addresses', element: <ProtectedRoute><AddressesPage /></ProtectedRoute> },
                         { path: 'settings', element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
-                        { path: 'support', element: <ProtectedRoute><SupportPage /></ProtectedRoute> },
+                        { path: 'support', element: <CustomerSupportEntry /> },
                         { path: 'chat', element: <ProtectedRoute><ChatPage /></ProtectedRoute> },
                         { path: 'payment-status', element: <PaymentStatusPage /> },
                         { path: 'profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
