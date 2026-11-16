@@ -277,7 +277,7 @@ const LegalContentTab = ({ legalContent, onChange }) => {
                                 : 'text-slate-500 hover:text-slate-700'
                         )}
                     >
-                        <Icon className={cn('h-4 w-4', audience === id && (color === 'indigo' ? 'text-orange-500' : 'text-amber-500'))} />
+                        <Icon className={cn('h-4 w-4', audience === id && (color === 'indigo' ? 'text-brand-500' : 'text-amber-500'))} />
                         {label}
                     </button>
                 ))}
@@ -307,7 +307,7 @@ const LegalContentTab = ({ legalContent, onChange }) => {
                 <span className={cn(
                     'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold',
                     audience === 'customer'
-                        ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-200'
+                        ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200'
                         : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
                 )}>
                     {audience === 'customer' ? <Users className="h-3 w-3" /> : <Truck className="h-3 w-3" />}
@@ -601,7 +601,7 @@ const AdminSettings = () => {
                             <tab.icon className={cn("h-4 w-4", activeTab === tab.id ? "text-brand-600" : "text-slate-400")} />
                             {tab.label}
                             {tab.id === 'legal' && (
-                                <span className="ml-auto text-[9px] font-black bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-md uppercase tracking-wide">CMS</span>
+                                <span className="ml-auto text-[9px] font-black bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded-md uppercase tracking-wide">CMS</span>
                             )}
                         </button>
                     ))}
@@ -813,9 +813,9 @@ const AdminSettings = () => {
                         <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl overflow-hidden">
                             <div className="p-6 border-b border-slate-50 bg-slate-50/30">
                                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
-                                    <FileText className="h-4 w-4 text-orange-500" />
+                                    <FileText className="h-4 w-4 text-brand-500" />
                                     Legal &amp; Informational Content
-                                    <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-lg normal-case tracking-normal">CMS</span>
+                                    <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-1 rounded-lg normal-case tracking-normal">CMS</span>
                                 </h3>
                                 <p className="text-xs text-slate-500 mt-1">
                                     Manage Privacy Policy, Terms &amp; Conditions, and About Us separately for customers and delivery boys.

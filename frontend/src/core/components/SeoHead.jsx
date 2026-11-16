@@ -46,24 +46,22 @@ export default function SeoHead() {
         }
         metaKw.setAttribute('content', keywordsContent);
 
-        // Update or create dynamic favicon
-        const faviconUrl = settings.faviconUrl || '';
-        let linkFavicon = metaRefs.current.favicon;
-        if (!linkFavicon) {
-            linkFavicon = document.getElementById('dynamic-favicon');
-            if (!linkFavicon && faviconUrl) {
-                linkFavicon = document.createElement('link');
-                linkFavicon.id = 'dynamic-favicon';
-                linkFavicon.rel = 'icon';
-                linkFavicon.type = 'image/x-icon';
-                document.head.appendChild(linkFavicon);
-                metaRefs.current.favicon = linkFavicon;
-            } else if (linkFavicon) {
-                metaRefs.current.favicon = linkFavicon;
-            }
-        }
-        if (linkFavicon) {
-            linkFavicon.href = faviconUrl || '/vite.svg';
+        // Favicon: the admin-set favicon (falling back to the logo). Any other
+        // icon link is removed first — browsers use the FIRST one, so the old
+        // static <link rel="icon"> in index.html would otherwise win.
+        const iconUrl = settings.faviconUrl || settings.logoUrl || '';
+        if (iconUrl) {
+            document
+                .querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+                .forEach((el) => { if (el.id !== 'dynamic-favicon' && el.id !== 'dynamic-apple-icon') el.remove(); });
+            const ensure = (id, rel) => {
+                let el = document.getElementById(id);
+                if (!el) { el = document.createElement('link'); el.id = id; el.rel = rel; document.head.appendChild(el); }
+                if (el.href !== iconUrl) el.href = iconUrl;
+            };
+            ensure('dynamic-favicon', 'icon');
+            ensure('dynamic-apple-icon', 'apple-touch-icon');
+            try { localStorage.setItem('cg:favicon', iconUrl); } catch { /* private mode */ }
         }
     }, [settings]);
 

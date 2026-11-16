@@ -164,28 +164,28 @@ const PorterDashboard = () => {
             label: "Total Couriers",
             value: Number(overview.totalParcels || 0).toLocaleString("en-IN"),
             icon: Package,
-            tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
+            tint: "bg-brand-500/10 text-brand-600 border-brand-200 dark:border-brand-900",
             note: `${overview.activeParcels || 0} still in flight`,
         },
         {
             label: "Today's Couriers",
             value: Number(overview.todayParcels || 0).toLocaleString("en-IN"),
             icon: CalendarCheck,
-            tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
+            tint: "bg-brand-500/10 text-brand-600 border-brand-200 dark:border-brand-900",
             note: "Booked since midnight",
         },
         {
             label: "Active Deliveries",
             value: Number(overview.activeParcels || 0).toLocaleString("en-IN"),
             icon: Bike,
-            tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
+            tint: "bg-brand-500/10 text-brand-600 border-brand-200 dark:border-brand-900",
             note: "Real-time in-transit count",
         },
         {
             label: "Delivered",
             value: Number(overview.deliveredParcels || 0).toLocaleString("en-IN"),
             icon: Truck,
-            tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
+            tint: "bg-brand-500/10 text-brand-600 border-brand-200 dark:border-brand-900",
             note: "Completed bookings",
         },
         {
@@ -206,7 +206,7 @@ const PorterDashboard = () => {
             label: "Admin Earning",
             value: rupees(overview.adminEarning ?? overview.margin),
             icon: TrendingUp,
-            tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
+            tint: "bg-brand-500/10 text-brand-600 border-brand-200 dark:border-brand-900",
             note: overview.cashWithRiders > 0
                 ? `Counted once cash reaches admin · ${rupees(overview.pendingEarning)} more pending`
                 : "Cash received, after rider earning — see breakdown below",
@@ -308,8 +308,8 @@ const PorterDashboard = () => {
                                 value={rupees(row.amount)}
                                 description={`${card.note}${row.withRiders > 0 ? ` · ${rupees(row.withRiders)} still with riders` : ""} · ${row.delivered || 0}/${row.bookings || 0} delivered`}
                                 icon={card.key === "cod" ? Banknote : card.key === "online" ? CircleDollarSign : Wallet}
-                                color="text-orange-600"
-                                bg="bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900"
+                                color="text-brand-600"
+                                bg="bg-brand-500/10 text-brand-600 border-brand-200 dark:border-brand-900"
                             />
                         );
                     })}
@@ -378,14 +378,14 @@ const PorterDashboard = () => {
                         label: "Total Couriers",
                         value: Number(overview.fleet?.total || 0).toLocaleString("en-IN"),
                         icon: Users,
-                        tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
+                        tint: "bg-brand-500/10 text-brand-600 border-brand-200 dark:border-brand-900",
                         note: `${overview.fleet?.online || 0} online right now`,
                     },
                     {
                         label: "Verified Riders",
                         value: Number(overview.fleet?.verified || 0).toLocaleString("en-IN"),
                         icon: ShieldCheck,
-                        tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
+                        tint: "bg-brand-500/10 text-brand-600 border-brand-200 dark:border-brand-900",
                         note: overview.fleet?.total
                             ? `${Math.round(((overview.fleet?.verified || 0) / overview.fleet.total) * 100)}% of fleet KYC-verified`
                             : "No couriers yet",
@@ -548,7 +548,7 @@ const PorterDashboard = () => {
                 <Card className="flex flex-col rounded-3xl p-6 shadow-sm md:p-7">
                     <div>
                         <h3 className="flex items-center gap-2.5 text-lg font-extrabold text-slate-900 dark:text-white md:text-xl">
-                            <Users className="h-5 w-5 text-orange-600" />
+                            <Users className="h-5 w-5 text-brand-600" />
                             Delivery Boy Status
                         </h3>
                         <p className="mt-1 text-xs text-slate-500 md:text-sm">
@@ -785,8 +785,8 @@ const PorterDashboard = () => {
                                                 className={cn(
                                                     "rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-wide",
                                                     row.source === "city"
-                                                        ? "bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400"
-                                                        : "bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400",
+                                                        ? "bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-400"
+                                                        : "bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-400",
                                                 )}
                                             >
                                                 {row.source === "city" ? "City" : "Pickup"}

@@ -148,8 +148,8 @@ const PorterGst = () => {
         value: rupees(combined?.collected?.gst),
         note: `${combined?.collected?.bookings ?? 0} settled bookings`,
         icon: CheckCircle2,
-        color: "text-orange-600",
-        bg: "bg-orange-50 border border-orange-100",
+        color: "text-brand-600",
+        bg: "bg-brand-50 border border-brand-100",
       },
       {
         label: "GST charged",
@@ -172,8 +172,8 @@ const PorterGst = () => {
         value: rupees(combined?.collected?.taxable),
         note: "Before tax",
         icon: Calendar,
-        color: "text-orange-600",
-        bg: "bg-orange-50 border border-orange-100",
+        color: "text-brand-600",
+        bg: "bg-brand-50 border border-brand-100",
       },
     ];
   }, [report]);
@@ -262,7 +262,7 @@ const PorterGst = () => {
               {/* Figures for the window */}
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {[
-                  ["Collected", figures?.collected?.gst, "text-orange-600"],
+                  ["Collected", figures?.collected?.gst, "text-brand-600"],
                   ["Charged", figures?.charged?.gst, "text-slate-900 dark:text-white"],
                   ["Outstanding", figures?.outstanding?.gst, "text-amber-600"],
                 ].map(([title, amount, tone]) => (

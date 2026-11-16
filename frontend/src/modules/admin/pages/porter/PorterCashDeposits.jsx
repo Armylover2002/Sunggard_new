@@ -159,7 +159,7 @@ const PorterCashDeposits = () => {
       label: "Awaiting Review",
       value: rupees(pending.amount),
       icon: Clock,
-      tint: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900",
+      tint: "bg-brand-500/10 text-brand-600 border-brand-200 dark:border-brand-900",
       note: `${pending.count} deposit${pending.count === 1 ? "" : "s"} to check`,
     },
     {
@@ -213,9 +213,9 @@ const PorterCashDeposits = () => {
         * arrived with no reference tying it to a rider or to specific jobs.
         * Approving below now means approving against a captured payment.
         */}
-      <Card className="border-orange-100 bg-orange-50/60 dark:border-orange-900/40 dark:bg-orange-950/20">
+      <Card className="border-brand-100 bg-brand-50/60 dark:border-brand-900/40 dark:bg-brand-950/20">
         <div className="flex items-start gap-3">
-          <span className="rounded-xl bg-orange-100 p-2.5 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+          <span className="rounded-xl bg-brand-100 p-2.5 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
             <ShieldCheck className="h-5 w-5" />
           </span>
           <div>
@@ -343,7 +343,7 @@ const PorterCashDeposits = () => {
                             setReview({ deposit: row, approve: true });
                             setAdminNote("");
                           }}
-                          className="inline-flex items-center gap-1 rounded-lg bg-orange-50 px-2.5 py-1.5 text-[11px] font-bold text-orange-700 transition hover:bg-orange-500 hover:text-white dark:bg-orange-950/40 dark:text-orange-400"
+                          className="inline-flex items-center gap-1 rounded-lg bg-brand-50 px-2.5 py-1.5 text-[11px] font-bold text-brand-700 transition hover:bg-brand-500 hover:text-white dark:bg-brand-950/40 dark:text-brand-400"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
                           Approve
@@ -471,7 +471,7 @@ const PorterCashDeposits = () => {
                 onClick={handleReview}
                 className={cn(
                   "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-60",
-                  review.approve ? "bg-orange-600" : "bg-rose-600",
+                  review.approve ? "bg-brand-600" : "bg-rose-600",
                 )}
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}

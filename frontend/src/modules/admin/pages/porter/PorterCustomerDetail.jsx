@@ -147,7 +147,7 @@ const PorterCustomerDetail = () => {
               <div className="flex items-center gap-2">
                 <h1 className="ds-h1">{customer.name}</h1>
                 <Badge variant={customer.isActive ? "success" : "error"}>
-                  <span className={cn("h-1.5 w-1.5 rounded-full", customer.isActive ? "bg-orange-500" : "bg-rose-500")} />
+                  <span className={cn("h-1.5 w-1.5 rounded-full", customer.isActive ? "bg-brand-500" : "bg-rose-500")} />
                   {customer.isActive ? "Active" : "Inactive"}
                 </Badge>
               </div>
@@ -168,7 +168,7 @@ const PorterCustomerDetail = () => {
             "flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-widest shadow-sm transition-all",
             customer.isActive
               ? "bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white dark:bg-rose-950/30"
-              : "bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white dark:bg-orange-950/30",
+              : "bg-brand-50 text-brand-600 hover:bg-brand-500 hover:text-white dark:bg-brand-950/30",
           )}
         >
           {customer.isActive ? <Ban className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
@@ -194,8 +194,8 @@ const PorterCustomerDetail = () => {
         <div className="grid grid-cols-2 gap-4 lg:col-span-2">
           {stats.map((s) => {
             const colorMap = {
-              blue: { color: "text-orange-600", bg: "bg-orange-50 border border-orange-200" },
-              emerald: { color: "text-orange-600", bg: "bg-orange-50 border border-orange-200" },
+              blue: { color: "text-brand-600", bg: "bg-brand-50 border border-brand-200" },
+              emerald: { color: "text-brand-600", bg: "bg-brand-50 border border-brand-200" },
               rose: { color: "text-rose-600", bg: "bg-rose-50 border border-rose-200" },
               amber: { color: "text-amber-600", bg: "bg-amber-50 border border-amber-200" },
             };
@@ -315,7 +315,7 @@ const PorterCustomerDetail = () => {
                 "mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold uppercase tracking-widest transition-all",
                 customer.isActive
                   ? "bg-rose-500/15 text-rose-400 hover:bg-rose-500 hover:text-white"
-                  : "bg-orange-500/15 text-orange-400 hover:bg-orange-500 hover:text-white",
+                  : "bg-brand-500/15 text-brand-400 hover:bg-brand-500 hover:text-white",
               )}
             >
               {customer.isActive ? <Ban className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}

@@ -467,7 +467,7 @@ return (
                                             <Truck className="h-3.5 w-3.5 shrink-0" />
                                             <span className="text-[10px] font-semibold truncate">{rider.vehicle} • <span className="text-slate-900 font-bold">{rider.vehicleNum}</span></span>
                                         </div>
-                                        <div className="flex items-center gap-2 text-orange-500">
+                                        <div className="flex items-center gap-2 text-brand-500">
                                             <MapPinned className="h-3.5 w-3.5 shrink-0" />
                                             {rider.zoneName ? (
                                                 <span className="text-[10px] font-bold truncate">
@@ -483,7 +483,7 @@ return (
                                     <div className="pt-2 flex items-center gap-2">
                                         <button
                                             onClick={() => handleAction('view', rider)}
-                                            className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl text-[10px] font-bold shadow-lg shadow-orange-100 hover:bg-orange-600 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                            className="flex-1 py-2.5 bg-brand-500 text-white rounded-xl text-[10px] font-bold shadow-lg shadow-brand-100 hover:bg-brand-600 transition-all active:scale-95 flex items-center justify-center gap-2"
                                         >
                                             <Eye className="h-3.5 w-3.5" />
                                             VIEW PROFILE
@@ -555,7 +555,7 @@ return (
                                         />
                                         <label
                                             title="Change profile photo"
-                                            className="absolute -bottom-2 -right-2 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-orange-500 text-white shadow-lg hover:bg-orange-600"
+                                            className="absolute -bottom-2 -right-2 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-brand-500 text-white shadow-lg hover:bg-brand-600"
                                         >
                                             {isSavingContact ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                                             <input type="file" accept="image/*" className="hidden" disabled={isSavingContact} onChange={handlePhotoPick} />
@@ -592,14 +592,14 @@ return (
                                                 value={phoneDraft}
                                                 onChange={(e) => setPhoneDraft(e.target.value.replace(/\D/g, '').slice(0, 10))}
                                                 onKeyDown={(e) => { if (e.key === 'Enter') handlePhoneSave(); }}
-                                                className="w-full min-w-0 rounded-lg bg-slate-50 px-2 py-1.5 text-sm font-bold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-orange-400"
+                                                className="w-full min-w-0 rounded-lg bg-slate-50 px-2 py-1.5 text-sm font-bold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-brand-400"
                                                 placeholder="10-digit number"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={handlePhoneSave}
                                                 disabled={isSavingContact}
-                                                className="rounded-lg bg-orange-500 px-2 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-50"
+                                                className="rounded-lg bg-brand-500 px-2 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-50"
                                             >
                                                 {isSavingContact ? '...' : 'Save'}
                                             </button>
@@ -618,7 +618,7 @@ return (
                                                 type="button"
                                                 title="Change phone number"
                                                 onClick={() => { setPhoneDraft(viewingRider.phone || ''); setEditingPhone(true); }}
-                                                className="rounded-md p-1 text-slate-400 hover:bg-orange-50 hover:text-orange-600"
+                                                className="rounded-md p-1 text-slate-400 hover:bg-brand-50 hover:text-brand-600"
                                             >
                                                 <Pencil className="h-3.5 w-3.5" />
                                             </button>
@@ -706,7 +706,7 @@ return (
                                     "mt-4 w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2",
                                     viewingRider.isActive
                                         ? "bg-rose-50 text-rose-600 hover:bg-rose-100"
-                                        : "bg-orange-500 text-white hover:bg-orange-600"
+                                        : "bg-brand-500 text-white hover:bg-brand-600"
                                 )}
                             >
                                 {viewingRider.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}

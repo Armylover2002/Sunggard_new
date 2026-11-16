@@ -53,6 +53,16 @@ export const DEFAULT_SETTINGS = {
 };
 
 /**
+ * The brand colour currently applied, as a literal value. For APIs that cannot
+ * take `var(--primary)` (Google Maps symbols, the Razorpay checkout theme).
+ */
+export function getPrimaryColor(fallback = "#F97316") {
+  if (typeof document === "undefined") return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim();
+  return value || fallback;
+}
+
+/**
  * Applies theme CSS variables to document root from settings.
  */
 export function applyThemeVariables(settings) {

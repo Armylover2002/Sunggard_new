@@ -76,8 +76,8 @@ const PorterRiderPayouts = () => {
             label: "Earned by riders",
             value: rupees(summary.totalEarned),
             icon: Users,
-            color: "text-orange-600",
-            bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
+            color: "text-brand-600",
+            bg: "bg-brand-500/10 border border-brand-200 dark:border-brand-900",
             note: `${summary.entries || 0} deliveries · ${summary.riders || 0} riders · credited to wallets`,
         },
         {

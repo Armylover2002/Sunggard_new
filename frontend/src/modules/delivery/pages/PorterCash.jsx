@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { getPrimaryColor } from "@core/context/SettingsDefaults";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -153,7 +154,7 @@ const PorterCash = () => {
             contact: String(profile?.phone || "").replace(/\s/g, ""),
             email: profile?.email || "",
           },
-          themeColor: "#ea580c",
+          themeColor: getPrimaryColor(),
         });
       } catch (checkoutError) {
         // Dismissing the sheet is not a failure — the gateway order stays open
@@ -265,7 +266,7 @@ const PorterCash = () => {
               </p>
               <p className="mt-1 text-3xl font-extrabold text-gray-900">{money(held)}</p>
             </div>
-            <div className="rounded-xl bg-orange-50 p-3 text-orange-600">
+            <div className="rounded-xl bg-brand-50 p-3 text-brand-600">
               <IndianRupee size={22} />
             </div>
           </div>
@@ -373,7 +374,7 @@ const PorterCash = () => {
                 type="button"
                 onClick={handleDeposit}
                 disabled={paying}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-600 py-4 text-sm font-extrabold text-white shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 py-4 text-sm font-extrabold text-white shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
               >
                 {paying ? (
                   <>

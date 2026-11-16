@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { GoogleMap, Marker, DirectionsRenderer } from "@react-google-maps/api";
 import { X, ShieldCheck, Zap, User, Phone, Package } from "lucide-react";
 import { toast } from "sonner";
+import { getPrimaryColor } from "@core/context/SettingsDefaults";
 import { parcelApi } from "../services/parcelApi";
 import { getOrderSocket, onParcelStatusUpdate } from "@/core/services/orderSocket";
 import { createSocketTokenReader } from "@core/utils/authStorage";
@@ -491,7 +492,7 @@ const ParcelSearchTrackingPage = () => {
                 icon={{
                   path: window.google.maps.SymbolPath.CIRCLE,
                   scale: 10,
-                  fillColor: "#ea580c",
+                  fillColor: getPrimaryColor(),
                   fillOpacity: 1,
                   strokeColor: "#ffffff",
                   strokeWeight: 3,
@@ -507,13 +508,13 @@ const ParcelSearchTrackingPage = () => {
 
       {isSearching && (
         <div className="absolute top-[24%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 h-28 w-28 pointer-events-none">
-          <div className="absolute inset-0 rounded-full bg-orange-700/18 animate-ping" />
-          <div className="absolute inset-[18%] rounded-full border-2 border-orange-700/55" />
-          <div className="absolute inset-[34%] rounded-full border border-orange-800/75" />
+          <div className="absolute inset-0 rounded-full bg-brand-700/18 animate-ping" />
+          <div className="absolute inset-[18%] rounded-full border-2 border-brand-700/55" />
+          <div className="absolute inset-[34%] rounded-full border border-brand-800/75" />
           <div className="absolute inset-0 animate-[spin_2.2s_linear_infinite]">
-            <div className="absolute -top-1 left-1/2 -translate-x-1/2 h-4 w-4 rounded-full bg-orange-700 shadow-[0_0_0_4px_rgba(194,65,12,0.28)]" />
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 h-4 w-4 rounded-full bg-brand-700 shadow-[0_0_0_4px_rgba(194,65,12,0.28)]" />
           </div>
-          <div className="absolute inset-[42%] rounded-full bg-orange-700 border-4 border-orange-300" />
+          <div className="absolute inset-[42%] rounded-full bg-brand-700 border-4 border-brand-300" />
         </div>
       )}
 
@@ -613,7 +614,7 @@ const ParcelSearchTrackingPage = () => {
                     key={idx}
                     className={`h-2.5 w-2.5 rounded-full transition-all ${
                       idx === sliderIndex
-                        ? "bg-orange-500 scale-110 shadow-[0_0_0_3px_rgba(249,115,22,0.2)]"
+                        ? "bg-brand-500 scale-110 shadow-[0_0_0_3px_rgba(249,115,22,0.2)]"
                         : "bg-slate-300"
                     }`}
                   />
@@ -660,7 +661,7 @@ const ParcelSearchTrackingPage = () => {
                       </p>
                     )}
                     {trackingActive && captainAwayText && (
-                      <p className="text-xs text-orange-600 font-bold mt-1">
+                      <p className="text-xs text-brand-600 font-bold mt-1">
                         Coming to you · {captainAwayText}
                       </p>
                     )}

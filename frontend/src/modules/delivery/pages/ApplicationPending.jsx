@@ -175,7 +175,7 @@ const ApplicationPending = () => {
               <button
                 type="button"
                 onClick={() => navigate("/delivery/auth", { state: { reapplyFrom: user } })}
-                className="inline-flex items-center justify-center rounded-xl bg-orange-500 text-white px-5 py-3 text-sm font-black tracking-wide hover:bg-orange-600 transition-colors"
+                className="inline-flex items-center justify-center rounded-xl bg-brand-500 text-white px-5 py-3 text-sm font-black tracking-wide hover:bg-brand-600 transition-colors"
               >
                 Edit & reapply
               </button>

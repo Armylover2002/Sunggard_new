@@ -59,8 +59,8 @@ function OriginBadge({ ticket, className }) {
             className={cn(
                 "inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider",
                 delivery
-                    ? "bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400"
-                    : "bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400",
+                    ? "bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-400"
+                    : "bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-400",
                 className,
             )}
         >

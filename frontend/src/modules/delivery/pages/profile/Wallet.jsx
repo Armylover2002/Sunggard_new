@@ -180,7 +180,7 @@ const WalletPage = () => {
       sub: "Deposit to admin",
       icon: Banknote,
       path: "/delivery/porter-cash",
-      color: "text-orange-600 bg-orange-50",
+      color: "text-brand-600 bg-brand-50",
     },
     {
       label: "Bank Account",

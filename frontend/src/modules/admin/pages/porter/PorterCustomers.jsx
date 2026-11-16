@@ -101,9 +101,9 @@ const PorterCustomers = () => {
   const statCards = useMemo(
     () => [
       { label: "Courier Customers", value: stats.totalPorterCustomers, icon: Users, color: "text-slate-600", bg: "bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700" },
-      { label: "Active", value: stats.active, icon: UserCheck, color: "text-orange-600", bg: "bg-orange-50 border border-orange-200 dark:bg-orange-950/40 dark:border-orange-800" },
+      { label: "Active", value: stats.active, icon: UserCheck, color: "text-brand-600", bg: "bg-brand-50 border border-brand-200 dark:bg-brand-950/40 dark:border-brand-800" },
       { label: "Inactive", value: stats.inactive, icon: UserX, color: "text-rose-600", bg: "bg-rose-50 border border-rose-200 dark:bg-rose-950/40 dark:border-rose-800" },
-      { label: "Total Bookings", value: stats.totalBookings, icon: Package, color: "text-orange-600", bg: "bg-orange-50 border border-orange-200 dark:bg-orange-950/40 dark:border-orange-800" },
+      { label: "Total Bookings", value: stats.totalBookings, icon: Package, color: "text-brand-600", bg: "bg-brand-50 border border-brand-200 dark:bg-brand-950/40 dark:border-brand-800" },
       { label: "Total Revenue", value: formatMoney(stats.totalRevenue), icon: IndianRupee, color: "text-amber-600", bg: "bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800" },
     ],
     [stats],
@@ -281,7 +281,7 @@ const PorterCustomers = () => {
                     </td>
                     <td className="px-5 py-4">
                       <Badge variant={c.isActive ? "success" : "error"}>
-                        <span className={cn("h-1.5 w-1.5 rounded-full", c.isActive ? "bg-orange-500" : "bg-rose-500")} />
+                        <span className={cn("h-1.5 w-1.5 rounded-full", c.isActive ? "bg-brand-500" : "bg-rose-500")} />
                         {c.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </td>
@@ -293,7 +293,7 @@ const PorterCustomers = () => {
                           title={c.isActive ? "Deactivate — blocks login" : "Activate — allows login"}
                           className={cn(
                             "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                            c.isActive ? "bg-orange-500" : "bg-slate-300 dark:bg-slate-700",
+                            c.isActive ? "bg-brand-500" : "bg-slate-300 dark:bg-slate-700",
                           )}
                         >
                           <span

@@ -150,7 +150,7 @@ const Profile = () => {
       icon: Truck,
       label: "Vehicle Information",
       sub: "Bike, License, Insurance",
-      color: "text-orange-600 bg-orange-50",
+      color: "text-brand-600 bg-brand-50",
       path: "/delivery/profile/vehicle-info",
     },
     {

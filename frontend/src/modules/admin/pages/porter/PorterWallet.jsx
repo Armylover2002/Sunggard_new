@@ -147,7 +147,7 @@ const WithdrawalDetailModal = ({ row, onClose }) => {
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <p className="truncate text-base font-extrabold text-slate-900 dark:text-white">{row.rider}</p>
-                {row.riderVerified && <BadgeCheck className="h-4 w-4 shrink-0 text-orange-500" />}
+                {row.riderVerified && <BadgeCheck className="h-4 w-4 shrink-0 text-brand-500" />}
               </div>
               <p className="font-mono text-xs text-slate-500">{row.riderPhone || "—"}</p>
               {row.riderVehicleType && (
@@ -320,8 +320,8 @@ const PorterWallet = () => {
       label: "Cash Received",
       value: rupees(revenue.total),
       icon: TrendingUp,
-      color: "text-orange-600",
-      bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
+      color: "text-brand-600",
+      bg: "bg-brand-500/10 border border-brand-200 dark:border-brand-900",
       note: `COD deposited ${rupees(revenue.cod)} · Online ${rupees(revenue.online)} · Wallet ${rupees(revenue.wallet)}${
         revenue.codWithRiders > 0 ? ` · ${rupees(revenue.codWithRiders)} COD still with riders` : ""
       }`,
@@ -330,16 +330,16 @@ const PorterWallet = () => {
       label: "Rider Earning",
       value: rupees(riderEarning.total),
       icon: Users,
-      color: "text-orange-600",
-      bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
+      color: "text-brand-600",
+      bg: "bg-brand-500/10 border border-brand-200 dark:border-brand-900",
       note: `${rupees(riderEarning.paid)} paid · ${rupees(riderEarning.owed)} still owed (not withdrawn)`,
     },
     {
       label: "Admin Earning",
       value: rupees(adminEarning.total),
       icon: Wallet,
-      color: "text-orange-600",
-      bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
+      color: "text-brand-600",
+      bg: "bg-brand-500/10 border border-brand-200 dark:border-brand-900",
       note: `${adminEarning.marginPercent || 0}% margin on cash received`,
     },
     {
@@ -403,8 +403,8 @@ const PorterWallet = () => {
       label: "Paid Out",
       value: rupees(wallet.paidOut),
       icon: CheckCircle2,
-      color: "text-orange-600",
-      bg: "bg-orange-500/10 border border-orange-200 dark:border-orange-900",
+      color: "text-brand-600",
+      bg: "bg-brand-500/10 border border-brand-200 dark:border-brand-900",
       note: "Lifetime, settled withdrawals",
     },
   ];
@@ -531,7 +531,7 @@ const PorterWallet = () => {
                     <span
                       className={cn(
                         "h-2 w-2 shrink-0 rounded-full",
-                        rider.isOnline ? "bg-orange-500" : "bg-slate-300 dark:bg-slate-600",
+                        rider.isOnline ? "bg-brand-500" : "bg-slate-300 dark:bg-slate-600",
                       )}
                     />
                     <div className="min-w-0 flex-1">
@@ -649,7 +649,7 @@ const PorterWallet = () => {
                           {row.status !== "Settled" && (
                             <button
                               onClick={() => setSettleTarget(row)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-orange-50 px-2.5 py-1.5 text-[11px] font-bold text-orange-700 transition hover:bg-orange-500 hover:text-white dark:bg-orange-950/40 dark:text-orange-400"
+                              className="inline-flex items-center gap-1 rounded-lg bg-brand-50 px-2.5 py-1.5 text-[11px] font-bold text-brand-700 transition hover:bg-brand-500 hover:text-white dark:bg-brand-950/40 dark:text-brand-400"
                             >
                               <Banknote className="h-3.5 w-3.5" />
                               Mark Paid

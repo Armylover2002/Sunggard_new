@@ -286,8 +286,8 @@ const CouponManagement = () => {
                     label="Active Codes"
                     value={stats.active}
                     icon={HiOutlineCheckCircle}
-                    color="text-orange-600"
-                    bg="bg-orange-50"
+                    color="text-brand-600"
+                    bg="bg-brand-50"
                 />
                 <StatCard
                     label="Redemptions"

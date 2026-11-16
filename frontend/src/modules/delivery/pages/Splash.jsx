@@ -7,6 +7,7 @@ const Splash = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
   const appName = settings?.appName || "App";
+  const logoUrl = settings?.logoUrl || "";
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -24,7 +25,9 @@ const Splash = () => {
       {/* Content */}
       <div className="z-10 flex flex-col items-center animate-fade-in-up">
         <div className="bg-white p-6 rounded-3xl shadow-xl mb-6 animate-bounce-subtle">
-          <Truck size={64} className="text-primary" strokeWidth={1.5} />
+          {logoUrl
+            ? <img src={logoUrl} alt={appName} className="h-16 w-auto max-w-[200px] object-contain" />
+            : <Truck size={64} className="text-primary" strokeWidth={1.5} />}
         </div>
         <h1 className="text-4xl font-bold tracking-tight mb-2">{appName}</h1>
         <p className="text-lg font-medium opacity-90">

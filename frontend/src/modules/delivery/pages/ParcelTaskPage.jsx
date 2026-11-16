@@ -780,7 +780,7 @@ const ParcelTaskPage = () => {
             </div>
           )}
           {parcel.status === "PICKUP_REACHED" && !completed && !cancelled && (
-            <div className="rounded-xl border border-orange-200 bg-orange-50/80 px-3 py-2.5 space-y-3">
+            <div className="rounded-xl border border-brand-200 bg-brand-50/80 px-3 py-2.5 space-y-3">
               <p className="text-xs font-bold text-slate-800">
                 Ask customer for pickup OTP
               </p>

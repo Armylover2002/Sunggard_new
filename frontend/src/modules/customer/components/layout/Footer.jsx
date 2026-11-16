@@ -1,15 +1,14 @@
 import React from 'react';
 import { Facebook, Twitter, Instagram, Youtube, Mail, MapPin, Phone } from 'lucide-react';
-import Logo from '@/assets/Logo.png';
 import { useSettings } from '@core/context/SettingsContext';
 
 const Footer = () => {
     const { settings } = useSettings();
-    const logoUrl = settings?.logoUrl || Logo;
-    const primaryColor = settings?.primaryColor || 'var(--primary)';
+    const logoUrl = settings?.logoUrl || '';
+    const primaryColor = 'var(--primary)';
 
     return (
-        <footer className="relative bg-[#051108] pt-20 pb-10 mt-20 text-slate-300 md:bg-gradient-to-br md:from-brand-700 md:via-brand-800 md:to-brand-900 md:pt-32 md:pb-16 md:mt-32 overflow-hidden">
+        <footer className="relative bg-[color-mix(in_srgb,var(--primary),black_85%)] pt-20 pb-10 mt-20 text-slate-300 md:bg-gradient-to-br md:from-brand-700 md:via-brand-800 md:to-brand-900 md:pt-32 md:pb-16 md:mt-32 overflow-hidden">
             {/* Subtle Texture/Glow Overlay */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-30 blur-[150px]" style={{ backgroundColor: primaryColor }} />
@@ -29,7 +28,9 @@ const Footer = () => {
                     {/* Brand Info */}
                     <div className="space-y-4 md:space-y-8">
                         <div className="flex items-center">
-                            <img src={logoUrl} alt={`${settings?.appName || 'App'} Logo`} loading="lazy" className="h-12 md:h-16 w-auto object-contain" />
+                            {logoUrl
+                                ? <img src={logoUrl} alt={`${settings?.appName || 'App'} Logo`} loading="lazy" className="h-12 md:h-16 w-auto object-contain" />
+                                : <span className="text-2xl font-black text-white">{settings?.appName || 'App'}</span>}
                         </div>
                         <p className="text-sm leading-relaxed md:text-base md:leading-loose text-white/90 md:max-w-xs transition-opacity hover:opacity-100 font-medium">
                             Fast, reliable, and secure courier pickup and delivery service at your fingertips.

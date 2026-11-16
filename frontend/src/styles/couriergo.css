@@ -40,10 +40,10 @@
   --sg-line-strong: #cbd5e5;
 
   /* ---- the one action colour ---- */
-  --sg-accent: #0f9d58;
-  --sg-accent-ink: #ffffff;
-  --sg-accent-soft: #e6f5ec;
-  --sg-accent-line: #b9e3ca;
+  --sg-accent: var(--primary);
+  --sg-accent-ink: var(--primary-foreground, #ffffff);
+  --sg-accent-soft: color-mix(in srgb, var(--primary) 12%, white);
+  --sg-accent-line: color-mix(in srgb, var(--primary) 32%, white);
 
   /* ---- status ---- */
   --sg-transit: #1d4ed8;
@@ -87,10 +87,10 @@
 
   /* Lifted for contrast against the dark ground; the light-mode green is
      too dense to read here. */
-  --sg-accent: #34d399;
-  --sg-accent-ink: #04231a;
-  --sg-accent-soft: #0e2a22;
-  --sg-accent-line: #1d5344;
+  --sg-accent: var(--primary);
+  --sg-accent-ink: var(--primary-foreground, #ffffff);
+  --sg-accent-soft: color-mix(in srgb, var(--primary) 18%, #101725);
+  --sg-accent-line: color-mix(in srgb, var(--primary) 40%, #101725);
 
   --sg-transit: #7aa2ff;
   --sg-transit-soft: #16233d;

@@ -146,7 +146,7 @@ const Notifications = () => {
                     <div className="flex items-start">
                       <div
                         className={`p-3 rounded-full mr-4 flex-shrink-0 ${notification.type === "order"
-                          ? "bg-orange-100 text-orange-600"
+                          ? "bg-brand-100 text-brand-600"
                           : notification.isRead ? "bg-gray-100 text-gray-400" : "bg-brand-100 text-brand-600"
                           }`}>
                         {notification.type === "order" ? <Megaphone size={20} /> : <Bell size={20} />}

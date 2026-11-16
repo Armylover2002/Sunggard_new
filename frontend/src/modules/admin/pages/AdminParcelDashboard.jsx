@@ -110,7 +110,7 @@ const describePayment = (parcel) => {
           : cod === "RIDER_HOLDING"
             ? "With rider"
             : "Collect pending";
-    return { label: `COD · ${state}`, className: "bg-orange-50 text-orange-700" };
+    return { label: `COD · ${state}`, className: "bg-brand-50 text-brand-700" };
   }
   if (method === "WALLET") {
     const state =
@@ -1065,7 +1065,7 @@ const AdminParcelDashboard = () => {
             );
             const chip = (active) =>
               `px-4 py-1.5 rounded-lg text-xs font-bold transition ${
-                active ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:text-slate-800"
+                active ? "bg-brand-500 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:text-slate-800"
               }`;
             return (
             <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
@@ -1218,7 +1218,7 @@ const AdminParcelDashboard = () => {
                                     ? "bg-red-100 text-red-600"
                                     : parcel.status === "SEARCHING"
                                       ? "bg-amber-100 text-amber-700 animate-pulse"
-                                      : "bg-orange-100 text-orange-700 animate-pulse"
+                                      : "bg-brand-100 text-brand-700 animate-pulse"
                               }`}>
                               {formatParcelStatus(parcel.status)}
                             </span>
@@ -1297,7 +1297,7 @@ const AdminParcelDashboard = () => {
                         {getSearchingParcels().length} searching
                       </span>
                     )}
-                    <span className="text-xs bg-orange-50 text-orange-600 px-3 py-1 rounded-full font-bold">
+                    <span className="text-xs bg-brand-50 text-brand-600 px-3 py-1 rounded-full font-bold">
                       {getActiveParcels().length} active
                     </span>
                   </div>
@@ -1322,7 +1322,7 @@ const AdminParcelDashboard = () => {
                             <span className="text-xs text-slate-400">
                               {new Date(parcel.createdAt).toLocaleTimeString()}
                             </span>
-                            <span className="text-[10px] font-extrabold bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full uppercase">
+                            <span className="text-[10px] font-extrabold bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full uppercase">
                               {formatParcelStatus(parcel.status)}
                             </span>
                           </div>
@@ -2319,7 +2319,7 @@ const AdminParcelDashboard = () => {
                           <span
                             className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                               review.status === "approved"
-                                ? "bg-orange-50 text-orange-700"
+                                ? "bg-brand-50 text-brand-700"
                                 : "bg-slate-100 text-slate-500"
                             }`}>
                             {review.status}
@@ -2362,7 +2362,7 @@ const AdminParcelDashboard = () => {
                             onClick={() =>
                               handleReviewStatus(review._id, "approved")
                             }
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-orange-200 text-orange-700 bg-orange-50 hover:bg-orange-100">
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100">
                             <Eye size={14} /> Publish
                           </button>
                         )}
@@ -2380,7 +2380,7 @@ const AdminParcelDashboard = () => {
               {/* Stat grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex items-center gap-4">
-                  <div className="h-12 w-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600 shrink-0">
+                  <div className="h-12 w-12 bg-brand-50 rounded-2xl flex items-center justify-center text-brand-600 shrink-0">
                     <ClipboardList size={24} />
                   </div>
                   <div>
@@ -2422,7 +2422,7 @@ const AdminParcelDashboard = () => {
                 </div>
 
                 <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex items-center gap-4">
-                  <div className="h-12 w-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600 shrink-0">
+                  <div className="h-12 w-12 bg-brand-50 rounded-2xl flex items-center justify-center text-brand-600 shrink-0">
                     <DollarSign size={24} />
                   </div>
                   <div>
@@ -2674,7 +2674,7 @@ const AdminParcelDashboard = () => {
                           setLateRefundSaving(false);
                         }
                       }}
-                      className="px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-60">
+                      className="px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-60">
                       {lateRefundSaving ? "Saving..." : "Approve → Wallet"}
                     </button>
                     <button
@@ -2709,7 +2709,7 @@ const AdminParcelDashboard = () => {
                 </div>
               )}
               {selectedParcel.lateRefundRequest?.status === "approved" && (
-                <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900 font-semibold space-y-1">
+                <div className="rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900 font-semibold space-y-1">
                   <p>
                     Late refund approved: ₹
                     {Number(
@@ -2719,7 +2719,7 @@ const AdminParcelDashboard = () => {
                   </p>
                   {(selectedParcel.lateRefundRequest.lateByLabel ||
                     selectedParcel.pickupSla?.lateByLabel) && (
-                    <p className="text-xs font-medium text-orange-800">
+                    <p className="text-xs font-medium text-brand-800">
                       Partner was{" "}
                       {selectedParcel.lateRefundRequest.lateByLabel ||
                         selectedParcel.pickupSla?.lateByLabel}
@@ -2746,7 +2746,7 @@ const AdminParcelDashboard = () => {
                         ? "bg-green-100 text-green-700"
                         : selectedParcel.status === "CANCELLED"
                           ? "bg-red-100 text-red-600"
-                          : "bg-orange-100 text-orange-700"
+                          : "bg-brand-100 text-brand-700"
                     }`}>
                     {selectedParcel.status}
                   </span>
@@ -2814,7 +2814,7 @@ const AdminParcelDashboard = () => {
                       );
                     }
                     return selectedParcel.paymentStatus === "REFUNDED" ? (
-                      <p className="mt-2 text-[11px] font-bold text-orange-700">
+                      <p className="mt-2 text-[11px] font-bold text-brand-700">
                         ₹{Number(selectedParcel.payableFare || selectedParcel.fare || 0).toFixed(2)}{" "}
                         refunded to the customer's original payment method
                       </p>

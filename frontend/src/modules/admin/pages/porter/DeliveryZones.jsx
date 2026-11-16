@@ -255,13 +255,13 @@ const DeliveryZones = () => {
             <div className="ds-grid-cards-3">
                 {[
                     { label: "Total Zones", value: summary.total, icon: Layers },
-                    { label: "Active", value: summary.active, icon: CheckCircle2, color: "text-orange-600", bg: "bg-orange-50 border border-orange-200" },
+                    { label: "Active", value: summary.active, icon: CheckCircle2, color: "text-brand-600", bg: "bg-brand-50 border border-brand-200" },
                     {
                         label: "Coverage",
                         value: `${summary.area.toFixed(1)} km²`,
                         icon: Ruler,
-                        color: "text-orange-600",
-                        bg: "bg-orange-50 border border-orange-200",
+                        color: "text-brand-600",
+                        bg: "bg-brand-50 border border-brand-200",
                     },
                 ].map((stat) => (
                     <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} color={stat.color} bg={stat.bg} />

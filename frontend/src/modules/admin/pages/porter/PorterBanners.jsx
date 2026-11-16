@@ -34,17 +34,17 @@ import { cn } from "@/lib/utils";
 const STATUS_CONFIG = {
   active: {
     label: "Active Now",
-    bg: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800",
+    bg: "bg-brand-50 text-brand-700 border-brand-200 dark:bg-brand-950/40 dark:text-brand-400 dark:border-brand-800",
     icon: CheckCircle2,
   },
   scheduled: {
     label: "Scheduled",
-    bg: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800",
+    bg: "bg-brand-50 text-brand-700 border-brand-200 dark:bg-brand-950/40 dark:text-brand-400 dark:border-brand-800",
     icon: Clock,
   },
   default: {
     label: "Always Show (Default)",
-    bg: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800",
+    bg: "bg-brand-50 text-brand-700 border-brand-200 dark:bg-brand-950/40 dark:text-brand-400 dark:border-brand-800",
     icon: Sparkles,
   },
   expired: {
@@ -380,22 +380,22 @@ const PorterBanners = () => {
           label="Active Now"
           value={counts.active}
           icon={CheckCircle2}
-          color="text-orange-600"
-          bg="bg-orange-50 border border-orange-200 dark:bg-orange-950/40 dark:border-orange-800"
+          color="text-brand-600"
+          bg="bg-brand-50 border border-brand-200 dark:bg-brand-950/40 dark:border-brand-800"
         />
         <StatCard
           label="Scheduled"
           value={counts.scheduled}
           icon={Clock}
-          color="text-orange-600"
-          bg="bg-orange-50 border border-orange-200 dark:bg-orange-950/40 dark:border-orange-800"
+          color="text-brand-600"
+          bg="bg-brand-50 border border-brand-200 dark:bg-brand-950/40 dark:border-brand-800"
         />
         <StatCard
           label="Always Show"
           value={counts.default}
           icon={Sparkles}
-          color="text-orange-600"
-          bg="bg-orange-50 border border-orange-200 dark:bg-orange-950/40 dark:border-orange-800"
+          color="text-brand-600"
+          bg="bg-brand-50 border border-brand-200 dark:bg-brand-950/40 dark:border-brand-800"
         />
         <StatCard
           className="col-span-2 sm:col-span-1"
@@ -547,7 +547,7 @@ const PorterBanners = () => {
                       <span className="text-slate-400">Schedule:</span>
                       <span className="font-medium text-right truncate">
                         {b.isDefault ? (
-                          <span className="font-semibold text-orange-600 dark:text-orange-400">
+                          <span className="font-semibold text-brand-600 dark:text-brand-400">
                             Always Active (Default)
                           </span>
                         ) : (
@@ -573,7 +573,7 @@ const PorterBanners = () => {
                       <span
                         className={cn(
                           "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                          b.isActive ? "bg-orange-500" : "bg-slate-300 dark:bg-slate-700"
+                          b.isActive ? "bg-brand-500" : "bg-slate-300 dark:bg-slate-700"
                         )}
                       >
                         <span
@@ -587,7 +587,7 @@ const PorterBanners = () => {
                         className={cn(
                           "transition-colors",
                           b.isActive
-                            ? "text-orange-600 dark:text-orange-400"
+                            ? "text-brand-600 dark:text-brand-400"
                             : "text-slate-400 dark:text-slate-500"
                         )}
                       >
@@ -731,13 +731,13 @@ const PorterBanners = () => {
           </div>
 
           {/* Default / Always Show Switch */}
-          <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3.5 dark:border-orange-900/50 dark:bg-orange-950/20">
+          <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-3.5 dark:border-brand-900/50 dark:bg-brand-950/20">
             <label className="flex items-center justify-between cursor-pointer">
               <div>
-                <span className="block text-xs font-bold text-orange-900 dark:text-orange-200">
+                <span className="block text-xs font-bold text-brand-900 dark:text-brand-200">
                   Always Show (Default Banner)
                 </span>
-                <span className="block text-[11px] text-orange-700 dark:text-orange-400">
+                <span className="block text-[11px] text-brand-700 dark:text-brand-400">
                   Does not expire. Acts as fallback when no time-specific promotions are running.
                 </span>
               </div>
@@ -745,7 +745,7 @@ const PorterBanners = () => {
                 type="checkbox"
                 checked={form.isDefault}
                 onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
-                className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+                className="h-4 w-4 rounded border-brand-300 text-brand-600 focus:ring-brand-500"
               />
             </label>
           </div>
@@ -814,7 +814,7 @@ const PorterBanners = () => {
                       End date & time must be strictly later than start date & time.
                     </p>
                   ) : new Date(form.startDate).toDateString() === new Date(form.endDate).toDateString() ? (
-                    <p className="flex items-center gap-1.5 text-[11px] font-medium text-orange-600 dark:text-orange-400">
+                    <p className="flex items-center gap-1.5 text-[11px] font-medium text-brand-600 dark:text-brand-400">
                       <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                       Same-Day Banner: Active today from{" "}
                       {new Date(form.startDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{" "}

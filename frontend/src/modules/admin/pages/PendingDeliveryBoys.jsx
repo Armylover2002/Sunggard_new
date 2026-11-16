@@ -366,9 +366,9 @@ return (
                                                 </div>
                                             )}
                                             <div className="flex items-center gap-2">
-                                                <MapPinned className="h-3.5 w-3.5 text-orange-400" />
+                                                <MapPinned className="h-3.5 w-3.5 text-brand-400" />
                                                 {rider.zoneName ? (
-                                                    <span className="text-[10px] font-bold text-orange-600">
+                                                    <span className="text-[10px] font-bold text-brand-600">
                                                         {formatZoneLabel(rider.zoneName, rider.zoneCity)}
                                                     </span>
                                                 ) : (
@@ -428,7 +428,7 @@ return (
                         maxLength={300}
                         rows={4}
                         placeholder="e.g. Aadhar photo is blurry, please upload a clearer copy"
-                        className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-orange-200"
+                        className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-brand-200"
                     />
                     <div className="mt-1 text-right text-[10px] text-slate-400">{rejectReason.trim().length}/300</div>
                     <div className="mt-4 flex justify-end gap-2">
@@ -443,7 +443,7 @@ return (
                             type="button"
                             disabled={isProcessing || rejectReason.trim().length < 5}
                             onClick={() => handleReject(rejectTarget, rejectReason.trim())}
-                            className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-bold text-white hover:bg-orange-600 disabled:opacity-40"
+                            className="rounded-xl bg-brand-500 px-4 py-2 text-xs font-bold text-white hover:bg-brand-600 disabled:opacity-40"
                         >
                             Reject application
                         </button>
@@ -744,7 +744,7 @@ return (
                                                 href={docUrl} 
                                                 target="_blank" 
                                                 rel="noreferrer" 
-                                                className="group relative aspect-[4/3] max-h-[120px] w-full bg-slate-50 rounded-xl border border-slate-100 overflow-hidden cursor-pointer hover:border-orange-400 transition-all flex flex-col items-center justify-center"
+                                                className="group relative aspect-[4/3] max-h-[120px] w-full bg-slate-50 rounded-xl border border-slate-100 overflow-hidden cursor-pointer hover:border-brand-400 transition-all flex flex-col items-center justify-center"
                                             >
                                                 {docUrl ? (
                                                     <img 
@@ -757,7 +757,7 @@ return (
                                                 )}
                                                 <div className="absolute inset-x-0 bottom-0 bg-slate-900/60 backdrop-blur-sm py-1 px-2 flex items-center justify-between gap-1">
                                                     <span className="min-w-0 truncate text-[9px] font-black text-white uppercase tracking-wide">{docName}</span>
-                                                    <span className="shrink-0 text-[8px] font-bold text-orange-200">Zoom</span>
+                                                    <span className="shrink-0 text-[8px] font-bold text-brand-200">Zoom</span>
                                                 </div>
                                             </a>
                                         );
@@ -781,7 +781,7 @@ return (
                                 <button
                                     disabled={isProcessing}
                                     onClick={() => handleApprove(viewingRider.id)}
-                                    className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                    className="flex-1 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
                                     {isProcessing ? (
                                         <>

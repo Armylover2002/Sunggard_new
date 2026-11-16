@@ -290,7 +290,7 @@ const ZoneMapEditor = ({
                             className={cn(
                                 "rounded-xl px-3 py-2 font-mono text-[11px] font-bold backdrop-blur-sm",
                                 points.length >= 3
-                                    ? "bg-orange-600/90 text-white"
+                                    ? "bg-brand-600/90 text-white"
                                     : "bg-amber-500/90 text-white",
                             )}
                         >

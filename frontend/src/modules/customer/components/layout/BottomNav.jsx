@@ -24,13 +24,13 @@ const LENS_H = BAR_H - LENS_INSET_Y * 2;
  *  The app is light-surfaced (--background #F8FAFC), so this is light-mode
  *  Liquid Glass rather than the App Store's dark appearance. */
 const NAV_THEME = {
-    '--nav-accent': 'var(--primary, #0C831F)',
+    '--nav-accent': 'var(--primary)',
     '--nav-idle': 'var(--muted-foreground, #64748B)',
     '--nav-bar': 'rgba(255,255,255,0.62)',
     '--nav-lens': 'rgba(255,255,255,0.55)',
-    '--nav-tint': 'color-mix(in srgb, var(--primary, #0C831F) 12%, transparent)',
-    '--nav-rim': 'color-mix(in srgb, var(--primary, #0C831F) 22%, rgba(255,255,255,0.85))',
-    '--nav-glow': 'color-mix(in srgb, var(--primary, #0C831F) 40%, transparent)',
+    '--nav-tint': 'color-mix(in srgb, var(--primary) 12%, transparent)',
+    '--nav-rim': 'color-mix(in srgb, var(--primary) 22%, rgba(255,255,255,0.85))',
+    '--nav-glow': 'color-mix(in srgb, var(--primary) 40%, transparent)',
     '--nav-edge': 'rgba(15,23,42,0.10)',
     '--nav-shadow': 'rgba(15,23,42,0.16)',
 };

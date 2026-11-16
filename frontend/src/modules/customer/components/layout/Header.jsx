@@ -99,7 +99,9 @@ const Header = () => {
                     {/* Logo */}
                     <div className="flex items-center gap-6 mr-4 md:mr-12">
                         <Link to="/" className="flex items-center gap-1">
-                            <span className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: settings?.primaryColor || 'var(--primary)' }}>{settings?.appName || 'App'}</span>
+                            {settings?.logoUrl
+                                ? <img src={settings.logoUrl} alt={settings?.appName || 'App'} className="h-10 md:h-12 w-auto max-w-[160px] object-contain" />
+                                : <span className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: 'var(--primary)' }}>{settings?.appName || 'App'}</span>}
                         </Link>
 
                         {/* Location Selector (Desktop ONLY) */}
