@@ -1,5 +1,6 @@
 import Setting from "../../models/setting.js";
 import handleResponse from "../../utils/helper.js";
+import { invalidate } from "../../services/cacheService.js";
 
 function flattenForMongoSet(prefix, value, target) {
   if (value === undefined) return;
@@ -60,6 +61,10 @@ export const updatePlatformSettings = async (req, res) => {
       { $set: toSet },
       { new: true, upsert: true },
     );
+    // The public /api/settings (app name, logo, colour, address, legal text) is
+    // cached for an hour; without this an admin edit would not show up on the
+    // customer/driver apps until the cache expired.
+    await invalidate("cache:platform:settings:*");
 
     const result = settings?.toObject?.() || settings || {};
 
