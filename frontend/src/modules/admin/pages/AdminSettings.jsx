@@ -669,6 +669,17 @@ const AdminSettings = () => {
                                         className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
                                     />
                                 </div>
+                                <div className="space-y-3 md:col-span-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Address</label>
+                                    <textarea
+                                        rows={2}
+                                        maxLength={500}
+                                        value={settings.address || ''}
+                                        onChange={(e) => handleInputChange('address', e.target.value)}
+                                        placeholder="Shown in the customer website footer (Contact Us)"
+                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all resize-none placeholder:font-medium placeholder:text-slate-300"
+                                    />
+                                </div>
                             </div>
                         </Card>
                     )}
