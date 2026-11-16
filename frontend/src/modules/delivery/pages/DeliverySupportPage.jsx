@@ -9,7 +9,7 @@ import { useSettings } from '@core/context/SettingsContext';
  */
 const DeliverySupportPage = ({ audience = 'Delivery Partner' }) => {
     const { settings } = useSettings();
-    const appName = settings?.appName || 'CourierGo';
+    const appName = settings?.appName || 'App';
     const email = settings?.supportEmail || '';
     const phone = settings?.supportPhone || '';
 

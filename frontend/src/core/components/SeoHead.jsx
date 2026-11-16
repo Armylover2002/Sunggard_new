@@ -14,6 +14,7 @@ export default function SeoHead() {
 
         const title = settings.metaTitle || settings.appName || 'App';
         document.title = title;
+        try { localStorage.setItem('cg:title', title); } catch { /* private mode */ }
 
         const desc = settings.metaDescription || '';
         const keywordsContent = (Array.isArray(settings.keywords) && settings.keywords.length)

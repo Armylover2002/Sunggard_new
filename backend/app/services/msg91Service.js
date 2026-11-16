@@ -7,10 +7,11 @@ const MSG91_OTP_URL = "https://control.msg91.com/api/v5/otp";
 
 /** Admin-configured in Settings → SMS (no env vars — see msg91AuthKey etc. on the Setting model). */
 async function getMsg91Config() {
-  const settings = await Setting.findOne({}).select("msg91AuthKey msg91TemplateId").lean();
+  const settings = await Setting.findOne({}).select("msg91AuthKey msg91TemplateId appName").lean();
   return {
     authKey: String(settings?.msg91AuthKey || "").trim(),
     templateId: String(settings?.msg91TemplateId || "").trim(),
+    appName: String(settings?.appName || "").trim(),
   };
 }
 
@@ -20,7 +21,7 @@ export async function hasMsg91Config() {
 }
 
 export async function sendMsg91Otp({ phone, otp }) {
-  const { authKey, templateId } = await getMsg91Config();
+  const { authKey, templateId, appName } = await getMsg91Config();
   if (!authKey || !templateId) {
     const error = new Error("MSG91 is not configured — set Auth Key and Template ID in Admin → Settings → SMS");
     error.statusCode = 500;
@@ -36,7 +37,7 @@ export async function sendMsg91Otp({ phone, otp }) {
       // OTP endpoint doesn't actually fill custom variables (confirmed by
       // testing — the SMS arrives with ##name## blank regardless), but this
       // is harmless to keep in case that ever changes.
-      name: "CourierGo",
+      name: appName || "CourierGo",
     },
     headers: {
       authkey: authKey,

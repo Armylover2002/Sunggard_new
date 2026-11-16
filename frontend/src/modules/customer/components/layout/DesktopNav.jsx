@@ -22,6 +22,7 @@ const DesktopNav = () => {
     const { settings } = useSettings();
 
     const carrier = settings?.appName || 'App';
+    const logoUrl = settings?.logoUrl || '';
     const active = getActiveIndex(location.pathname);
 
     // The breakpoint lives on the sticky element itself: wrapping it in a
@@ -34,15 +35,21 @@ const DesktopNav = () => {
                     to="/parcel"
                     className="flex items-center gap-2.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)] focus-visible:ring-offset-2"
                 >
-                    <span
-                        className="grid h-9 w-9 place-items-center rounded-xl text-[color:var(--primary)]"
-                        style={{ background: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
-                    >
-                        <Package size={19} strokeWidth={2.4} />
-                    </span>
-                    <span className="text-[16px] font-extrabold tracking-tight text-slate-900">
-                        {carrier}
-                    </span>
+                    {logoUrl ? (
+                        <img src={logoUrl} alt={carrier} className="h-10 w-auto max-w-[180px] object-contain" />
+                    ) : (
+                        <>
+                            <span
+                                className="grid h-9 w-9 place-items-center rounded-xl text-[color:var(--primary)]"
+                                style={{ background: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
+                            >
+                                <Package size={19} strokeWidth={2.4} />
+                            </span>
+                            <span className="text-[16px] font-extrabold tracking-tight text-slate-900">
+                                {carrier}
+                            </span>
+                        </>
+                    )}
                 </Link>
 
                 <nav className="flex items-center gap-1" aria-label="Main">
